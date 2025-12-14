@@ -23,9 +23,15 @@ export const Layout = ({ children }: LayoutProps) => {
   }, [isOnline, cacheAllMasterData, processSyncQueue]);
 
   return (
-    <div className="min-h-screen bg-gradient-subtle w-full flex flex-col safe-area-container">
-      {/* Safe area top spacer - for status bar area */}
-      <div className="safe-area-top-spacer" />
+    <div className="min-h-screen bg-gradient-subtle w-full flex flex-col">
+      {/* Safe area top spacer - covers status bar with primary color, always fixed at top */}
+      <div 
+        className="fixed top-0 left-0 right-0 z-[9999]"
+        style={{ 
+          height: 'env(safe-area-inset-top, 0px)',
+          backgroundColor: 'hsl(var(--primary))'
+        }}
+      />
       
       <Navbar />
       <main className="flex-1 safe-area-main">
@@ -33,7 +39,13 @@ export const Layout = ({ children }: LayoutProps) => {
       </main>
       
       {/* Safe area bottom spacer for navigation bar */}
-      <div className="safe-area-bottom-spacer" />
+      <div 
+        className="fixed bottom-0 left-0 right-0 z-[9999]"
+        style={{ 
+          height: 'env(safe-area-inset-bottom, 0px)',
+          backgroundColor: 'hsl(var(--background))'
+        }}
+      />
       
       <ChatWidget />
     </div>
