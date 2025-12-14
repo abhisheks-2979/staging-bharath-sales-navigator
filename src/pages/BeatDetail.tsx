@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Phone, Store, Calendar, TrendingUp, CalendarDays, Edit2, BarChart, Trash2, Sparkles, Target, Shield, AlertTriangle, Lightbulb, Users, Package, DollarSign, Clock, Zap, Search } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Store, Calendar, TrendingUp, CalendarDays, Edit2, BarChart, Trash2, Sparkles, Target, Shield, AlertTriangle, Lightbulb, Users, Package, DollarSign, Clock, Zap, Search, IndianRupee } from "lucide-react";
+import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -74,7 +75,22 @@ export const BeatDetail = () => {
     totalVisits: 0,
     productiveVisits: 0,
     conversionRate: 0,
-    growthRate: 0
+    growthRate: 0,
+    currentMonthConversion: 0,
+    previousMonthConversion: 0,
+    lifetimeValue: 0,
+    lastVisitedDate: null as string | null
+  });
+  const [beatChartData, setBeatChartData] = useState<{
+    ordersByMonth: { month: string; orders: number; revenue: number }[];
+    salesBySKU: { name: string; value: number }[];
+    topRetailers: { name: string; revenue: number }[];
+    retailersByMonth: { month: string; count: number }[];
+  }>({
+    ordersByMonth: [],
+    salesBySKU: [],
+    topRetailers: [],
+    retailersByMonth: []
   });
   
   const { metrics, loading: metricsLoading } = useBeatMetrics(id || '', user?.id || '');
@@ -174,34 +190,81 @@ export const BeatDetail = () => {
   const calculatePerformanceStats = async (beatId: string, userId: string, retailers: any[]) => {
     try {
       const retailerIds = retailers.map(r => r.id);
-      if (retailerIds.length === 0) return;
-
-      // Get last 3 months of data
+      
+      const now = new Date();
       const threeMonthsAgo = new Date();
       threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
 
-      // Fetch orders
-      const { data: orders } = await supabase
+      // Count beat visits from beat_plans (how many times this beat was planned/visited)
+      const { data: beatPlans } = await supabase
+        .from('beat_plans')
+        .select('plan_date')
+        .eq('beat_id', beatId)
+        .eq('user_id', userId)
+        .gte('plan_date', threeMonthsAgo.toISOString().split('T')[0])
+        .lte('plan_date', now.toISOString().split('T')[0]);
+
+      const beatVisitCount = beatPlans?.length || 0;
+
+      // Get last visited date for this beat
+      const { data: lastBeatPlan } = await supabase
+        .from('beat_plans')
+        .select('plan_date')
+        .eq('beat_id', beatId)
+        .eq('user_id', userId)
+        .lte('plan_date', now.toISOString().split('T')[0])
+        .order('plan_date', { ascending: false })
+        .limit(1);
+
+      const lastVisitedDate = lastBeatPlan?.[0]?.plan_date || null;
+
+      // Fetch all orders for lifetime value
+      const { data: allOrders } = await supabase
         .from('orders')
-        .select('total_amount, created_at')
-        .in('retailer_id', retailerIds)
-        .gte('created_at', threeMonthsAgo.toISOString());
+        .select('total_amount, created_at, retailer_id')
+        .in('retailer_id', retailerIds.length > 0 ? retailerIds : ['none'])
+        .eq('status', 'confirmed');
 
-      // Fetch visits
+      const lifetimeValue = allOrders?.reduce((sum, o) => sum + (o.total_amount || 0), 0) || 0;
+
+      // Fetch orders for last 3 months
+      const orders = allOrders?.filter(o => new Date(o.created_at) >= threeMonthsAgo) || [];
+
+      // Fetch visits for conversion calculation
       const { data: visits } = await supabase
         .from('visits')
-        .select('status, created_at')
-        .in('retailer_id', retailerIds)
+        .select('status, created_at, retailer_id')
+        .in('retailer_id', retailerIds.length > 0 ? retailerIds : ['none'])
         .gte('created_at', threeMonthsAgo.toISOString());
 
       const totalRevenue = orders?.reduce((sum, o) => sum + (o.total_amount || 0), 0) || 0;
       const totalOrders = orders?.length || 0;
       const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+      // Calculate current month conversion
+      const currentMonthVisits = visits?.filter(v => new Date(v.created_at) >= currentMonthStart) || [];
+      const currentMonthProductiveVisits = currentMonthVisits.filter(v => v.status === 'completed').length;
+      const currentMonthConversion = currentMonthVisits.length > 0 ? (currentMonthProductiveVisits / currentMonthVisits.length) * 100 : 0;
+
+      // Calculate previous month conversion
+      const prevMonthVisits = visits?.filter(v => {
+        const d = new Date(v.created_at);
+        return d >= previousMonthStart && d <= previousMonthEnd;
+      }) || [];
+      const prevMonthProductiveVisits = prevMonthVisits.filter(v => v.status === 'completed').length;
+      const previousMonthConversion = prevMonthVisits.length > 0 ? (prevMonthProductiveVisits / prevMonthVisits.length) * 100 : 0;
+
+      // Overall conversion rate
       const totalVisits = visits?.length || 0;
       const productiveVisits = visits?.filter(v => v.status === 'completed').length || 0;
       const conversionRate = totalVisits > 0 ? (productiveVisits / totalVisits) * 100 : 0;
 
-      // Calculate growth rate (comparing last month to previous month)
+      // Calculate growth rate
       const oneMonthAgo = new Date();
       oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
       const twoMonthsAgo = new Date();
@@ -217,13 +280,129 @@ export const BeatDetail = () => {
       setPerformanceStats({
         totalRevenue,
         avgOrderValue,
-        totalVisits,
+        totalVisits: beatVisitCount,
         productiveVisits,
         conversionRate,
-        growthRate
+        growthRate,
+        currentMonthConversion,
+        previousMonthConversion,
+        lifetimeValue,
+        lastVisitedDate
       });
+
+      // Generate chart data
+      await generateChartData(beatId, userId, retailerIds, sixMonthsAgo, allOrders || [], retailers);
+
     } catch (error) {
       console.error('Error calculating performance stats:', error);
+    }
+  };
+
+  const generateChartData = async (beatId: string, userId: string, retailerIds: string[], sixMonthsAgo: Date, allOrders: any[], retailers: any[]) => {
+    try {
+      // Orders by month (last 6 months)
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const ordersByMonth: { month: string; orders: number; revenue: number }[] = [];
+      
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+        const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+        
+        const monthOrders = allOrders.filter(o => {
+          const orderDate = new Date(o.created_at);
+          return orderDate >= monthStart && orderDate <= monthEnd;
+        });
+        
+        ordersByMonth.push({
+          month: monthNames[d.getMonth()],
+          orders: monthOrders.length,
+          revenue: monthOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0)
+        });
+      }
+
+      // Get order items for SKU data
+      const { data: orderItems } = await supabase
+        .from('order_items')
+        .select('quantity, total, product_name')
+        .in('order_id', allOrders.map(o => o.id || '').filter(Boolean));
+
+      // Sales by SKU (aggregate by product)
+      const skuMap = new Map<string, number>();
+      orderItems?.forEach(item => {
+        const productName = item.product_name || 'Unknown';
+        const value = item.total || 0;
+        skuMap.set(productName, (skuMap.get(productName) || 0) + value);
+      });
+      
+      const salesBySKU = Array.from(skuMap.entries())
+        .map(([name, value]) => ({ name: name.substring(0, 15), value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10);
+
+      // Top 20 retailers by revenue
+      const retailerRevenueMap = new Map<string, number>();
+      allOrders.forEach(order => {
+        const retailer = retailers.find(r => r.id === order.retailer_id);
+        if (retailer) {
+          retailerRevenueMap.set(retailer.name, (retailerRevenueMap.get(retailer.name) || 0) + (order.total_amount || 0));
+        }
+      });
+      
+      const topRetailers = Array.from(retailerRevenueMap.entries())
+        .map(([name, revenue]) => ({ name: name.substring(0, 12), revenue }))
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 20);
+
+      // Retailers count by created date (last 6 months)
+      const retailersByMonth: { month: string; count: number }[] = [];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+        const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+        
+        const count = retailers.filter(r => {
+          if (!r.created_at) return false;
+          const createdDate = new Date(r.created_at);
+          return createdDate >= monthStart && createdDate <= monthEnd;
+        }).length;
+        
+        retailersByMonth.push({
+          month: monthNames[d.getMonth()],
+          count
+        });
+      }
+
+      setBeatChartData({
+        ordersByMonth,
+        salesBySKU,
+        topRetailers,
+        retailersByMonth
+      });
+
+    } catch (error) {
+      console.error('Error generating chart data:', error);
+    }
+  };
+
+  const getCategoryByGrowth = (growthRate: number): string => {
+    if (growthRate >= 50) return 'Hyper growth';
+    if (growthRate >= 20) return 'Growing';
+    if (growthRate >= 0) return 'Avg growth';
+    if (growthRate >= -20) return 'Slow';
+    return 'Very slow (risk)';
+  };
+
+  const getCategoryColor = (category: string): string => {
+    switch (category) {
+      case 'Hyper growth': return 'bg-green-500 text-white';
+      case 'Growing': return 'bg-emerald-500 text-white';
+      case 'Avg growth': return 'bg-blue-500 text-white';
+      case 'Slow': return 'bg-orange-500 text-white';
+      case 'Very slow (risk)': return 'bg-red-500 text-white';
+      default: return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -422,13 +601,13 @@ export const BeatDetail = () => {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <div className="text-center p-3 bg-background rounded-lg shadow-sm">
-                <DollarSign className="h-5 w-5 mx-auto mb-1 text-green-600" />
-                <div className="text-lg font-bold text-green-600">₹{(performanceStats.totalRevenue / 1000).toFixed(1)}K</div>
+                <IndianRupee className="h-5 w-5 mx-auto mb-1 text-green-600" />
+                <div className="text-lg font-bold text-green-600">Rs. {(performanceStats.totalRevenue / 1000).toFixed(1)}K</div>
                 <div className="text-xs text-muted-foreground">Total Revenue (3M)</div>
               </div>
               <div className="text-center p-3 bg-background rounded-lg shadow-sm">
                 <Package className="h-5 w-5 mx-auto mb-1 text-blue-600" />
-                <div className="text-lg font-bold text-blue-600">₹{performanceStats.avgOrderValue.toFixed(0)}</div>
+                <div className="text-lg font-bold text-blue-600">Rs. {performanceStats.avgOrderValue.toFixed(0)}</div>
                 <div className="text-xs text-muted-foreground">Avg Order Value</div>
               </div>
               <div className="text-center p-3 bg-background rounded-lg shadow-sm">
@@ -439,12 +618,14 @@ export const BeatDetail = () => {
               <div className="text-center p-3 bg-background rounded-lg shadow-sm">
                 <Calendar className="h-5 w-5 mx-auto mb-1 text-orange-600" />
                 <div className="text-lg font-bold text-orange-600">{performanceStats.totalVisits}</div>
-                <div className="text-xs text-muted-foreground">Total Visits (3M)</div>
+                <div className="text-xs text-muted-foreground">Beat Visits (3M)</div>
               </div>
               <div className="text-center p-3 bg-background rounded-lg shadow-sm">
                 <Target className="h-5 w-5 mx-auto mb-1 text-cyan-600" />
-                <div className="text-lg font-bold text-cyan-600">{performanceStats.conversionRate.toFixed(0)}%</div>
-                <div className="text-xs text-muted-foreground">Conversion Rate</div>
+                <div className="text-sm font-bold text-cyan-600">
+                  {performanceStats.currentMonthConversion.toFixed(0)}% / {performanceStats.previousMonthConversion.toFixed(0)}%
+                </div>
+                <div className="text-xs text-muted-foreground">Conversion (Curr/Prev)</div>
               </div>
               <div className="text-center p-3 bg-background rounded-lg shadow-sm">
                 <TrendingUp className="h-5 w-5 mx-auto mb-1 text-emerald-600" />
@@ -469,8 +650,10 @@ export const BeatDetail = () => {
                 <p className="font-semibold">{beatData.beat_name}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Category</p>
-                <p className="font-semibold">{beatData.category}</p>
+                <p className="text-xs text-muted-foreground">Category (Growth Based)</p>
+                <Badge className={getCategoryColor(getCategoryByGrowth(performanceStats.growthRate))}>
+                  {getCategoryByGrowth(performanceStats.growthRate)}
+                </Badge>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Total Retailers</p>
@@ -479,6 +662,18 @@ export const BeatDetail = () => {
               <div>
                 <p className="text-xs text-muted-foreground">Created</p>
                 <p className="font-semibold">{new Date(beatData.created_at).toLocaleDateString()}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Last Visited</p>
+                <p className="font-semibold">
+                  {performanceStats.lastVisitedDate 
+                    ? new Date(performanceStats.lastVisitedDate).toLocaleDateString() 
+                    : 'Never'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total Lifetime Value</p>
+                <p className="font-semibold text-green-600">Rs. {performanceStats.lifetimeValue.toLocaleString()}</p>
               </div>
               {beatData.territory_name && (
                 <div>
@@ -489,7 +684,7 @@ export const BeatDetail = () => {
               {beatData.travel_allowance && (
                 <div>
                   <p className="text-xs text-muted-foreground">Travel Allowance</p>
-                  <p className="font-semibold">₹{beatData.travel_allowance}</p>
+                  <p className="font-semibold">Rs. {beatData.travel_allowance}</p>
                 </div>
               )}
               {beatData.average_km && (
@@ -515,6 +710,123 @@ export const BeatDetail = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Beat Performance Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Orders by Month */}
+          <Card className="shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BarChart size={20} className="text-primary" />
+                Orders by Month (Last 6M)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsBarChart data={beatChartData.ordersByMonth}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" fontSize={12} />
+                    <YAxis fontSize={12} />
+                    <Tooltip formatter={(value: number) => [`Rs. ${value.toLocaleString()}`, 'Revenue']} />
+                    <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  </RechartsBarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Sales by SKU */}
+          <Card className="shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Package size={20} className="text-primary" />
+                Sales by Product SKU (Last 6M)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                {beatChartData.salesBySKU.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={beatChartData.salesBySKU}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        dataKey="value"
+                        nameKey="name"
+                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                        labelLine={false}
+                      >
+                        {beatChartData.salesBySKU.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={`hsl(${index * 36}, 70%, 50%)`} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => [`Rs. ${value.toLocaleString()}`, 'Value']} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground">
+                    No product sales data available
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Top 20 Retailers Revenue */}
+          <Card className="shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Users size={20} className="text-primary" />
+                Top 20 Retailers by Revenue
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 overflow-auto">
+                {beatChartData.topRetailers.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={Math.max(264, beatChartData.topRetailers.length * 30)}>
+                    <RechartsBarChart data={beatChartData.topRetailers} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" fontSize={10} tickFormatter={(v) => `Rs.${(v/1000).toFixed(0)}K`} />
+                      <YAxis type="category" dataKey="name" fontSize={10} width={80} />
+                      <Tooltip formatter={(value: number) => [`Rs. ${value.toLocaleString()}`, 'Revenue']} />
+                      <Bar dataKey="revenue" fill="hsl(var(--chart-2))" radius={[0, 4, 4, 0]} />
+                    </RechartsBarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground">
+                    No retailer revenue data available
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Retailers Added by Month */}
+          <Card className="shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Store size={20} className="text-primary" />
+                New Retailers by Month (Last 6M)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsBarChart data={beatChartData.retailersByMonth}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" fontSize={12} />
+                    <YAxis fontSize={12} allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} name="New Retailers" />
+                  </RechartsBarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* SWOT Analysis */}
         <Card className="shadow-card">
