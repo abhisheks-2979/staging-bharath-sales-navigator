@@ -242,3 +242,5 @@ export const Navbar = memo(() => {
     </>
   );
 });
+
+Navbar.displayName = 'Navbar';

@@ -67,3 +67,5 @@ export const ChatWidget = memo(() => {
     </>
   );
 });
+
+ChatWidget.displayName = 'ChatWidget';

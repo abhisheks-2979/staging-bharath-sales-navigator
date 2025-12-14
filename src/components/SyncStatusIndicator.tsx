@@ -111,3 +111,5 @@ export const SyncStatusIndicator = memo(() => {
   
   return null;
 });
+
+SyncStatusIndicator.displayName = 'SyncStatusIndicator';
