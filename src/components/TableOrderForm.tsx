@@ -78,9 +78,35 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
   const visitId = searchParams.get("visitId") || '';
   const retailerId = searchParams.get("retailerId") || '';
   
-  const [orderRows, setOrderRows] = useState<OrderRow[]>([
-    { id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "KG", total: 0 }
-  ]);
+  // Create storage key for table form persistence FIRST (needed for initial state)
+  const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
+  const validVisitId = visitId && visitId.length > 1 ? visitId : null;
+  
+  const tableFormStorageKey = validVisitId && validRetailerId 
+    ? `table_form:${validVisitId}:${validRetailerId}`
+    : validRetailerId 
+      ? `table_form:temp:${validRetailerId}`
+      : 'table_form:fallback';
+
+  // Load initial order rows from localStorage to prevent data loss on navigation
+  const getInitialOrderRows = (): OrderRow[] => {
+    try {
+      const savedData = localStorage.getItem(tableFormStorageKey);
+      if (savedData) {
+        const parsedData = JSON.parse(savedData);
+        if (Array.isArray(parsedData) && parsedData.length > 0) {
+          console.log('[TableOrderForm] Loaded initial rows from storage:', parsedData.length);
+          return parsedData;
+        }
+      }
+    } catch (error) {
+      console.error('[TableOrderForm] Error loading initial rows:', error);
+    }
+    return [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "KG", total: 0 }];
+  };
+
+  const [orderRows, setOrderRows] = useState<OrderRow[]>(getInitialOrderRows);
+  const [hasInitialized, setHasInitialized] = useState(false);
   
   // Use ref to always have access to the latest orderRows for addToCart
   const orderRowsRef = useRef<OrderRow[]>(orderRows);
@@ -92,16 +118,6 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
   const [selectedProductForVariants, setSelectedProductForVariants] = useState<string>('');
   const [openComboboxes, setOpenComboboxes] = useState<{ [key: string]: boolean }>({});
   const [isAddingToCart, setIsAddingToCart] = useState(false);
-
-  // Create storage key for table form persistence
-  const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
-  const validVisitId = visitId && visitId.length > 1 ? visitId : null;
-  
-  const tableFormStorageKey = validVisitId && validRetailerId 
-    ? `table_form:${validVisitId}:${validRetailerId}`
-    : validRetailerId 
-      ? `table_form:temp:${validRetailerId}`
-      : 'table_form:fallback';
 
   // Helper to get cart storage key
   const getCartStorageKey = () => {
@@ -143,15 +159,15 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
     console.log('[syncRowsToCart] Synced to cart:', cartItems.length, 'items');
   };
 
-  // Load saved table form data when component mounts AND re-link products from live array
+  // Re-link products from live products array when products load (only once after init)
   useEffect(() => {
-    if (products.length === 0) return; // Wait for products to load
+    if (products.length === 0 || hasInitialized) return; // Wait for products to load, only run once
     
     const savedData = localStorage.getItem(tableFormStorageKey);
     if (savedData) {
       try {
         const parsedData: OrderRow[] = JSON.parse(savedData);
-        console.log('Loading saved table form data:', parsedData);
+        console.log('[TableOrderForm] Re-linking products from live array:', parsedData.length, 'rows');
         
         // Re-link products from live products array to avoid stale data
         const relinkedRows = parsedData.map(row => {
@@ -176,18 +192,21 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
         // Immediately sync to cart storage after loading
         syncRowsToCart(relinkedRows);
       } catch (error) {
-        console.error('Error loading saved table form data:', error);
+        console.error('[TableOrderForm] Error re-linking products:', error);
       }
     }
-  }, [tableFormStorageKey, products.length]); // Re-run when products load
+    setHasInitialized(true);
+  }, [tableFormStorageKey, products.length, hasInitialized]);
 
-  // Save table form data whenever orderRows change
+  // Save table form data whenever orderRows change (but only after initialization)
   useEffect(() => {
+    if (!hasInitialized) return; // Don't save during initial load
+    
     if (orderRows.length > 0) {
-      console.log('Saving table form data:', orderRows);
+      console.log('[TableOrderForm] Saving table form data:', orderRows.length, 'rows');
       localStorage.setItem(tableFormStorageKey, JSON.stringify(orderRows));
     }
-  }, [orderRows, tableFormStorageKey]);
+  }, [orderRows, tableFormStorageKey, hasInitialized]);
 
   const findProductByCode = (code: string): { product: Product; variant?: any } | undefined => {
     // First check base products
