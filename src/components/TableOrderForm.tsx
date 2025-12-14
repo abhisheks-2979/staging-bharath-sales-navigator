@@ -217,14 +217,13 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
     if (option) {
       setOrderRows(prev => prev.map(row => {
         if (row.id === rowId) {
-          // Set the unit to match the product's selling unit
-          const productUnit = option.product.unit || 'KG';
+          // Always default to KG when product is selected
           return {
             ...row,
             productCode: option.sku,
             product: option.product,
             variant: option.variant,
-            unit: productUnit,
+            unit: 'KG',
             total: 0
           };
         }
@@ -286,7 +285,7 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
             if (result) {
               updatedRow.product = result.product;
               updatedRow.variant = result.variant;
-              updatedRow.unit = result.product.unit || 'KG'; // Set unit to product's selling unit
+              updatedRow.unit = 'KG'; // Always default to KG when product selected
               updatedRow.closingStock = result.variant ? result.variant.stock_quantity : result.product.closing_stock;
               updatedRow.total = computeTotal(result.product, result.variant, updatedRow.quantity, updatedRow.unit);
             } else {
@@ -296,10 +295,10 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
               updatedRow.total = 0;
             }
           } else if (field === "quantity") {
-            // Use updatedRow.unit to get the most current unit value
-            updatedRow.total = computeTotal(row.product, row.variant, value, updatedRow.unit);
+            // Use row.unit (current unit) since quantity is being updated
+            updatedRow.total = computeTotal(row.product, row.variant, value, row.unit);
           } else if (field === "unit") {
-            // Recalculate total when unit changes
+            // When unit changes, use the NEW unit value and CURRENT quantity from row
             updatedRow.total = computeTotal(row.product, row.variant, row.quantity, value);
           }
           return updatedRow;
