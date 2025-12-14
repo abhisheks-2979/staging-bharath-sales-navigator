@@ -381,6 +381,16 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
           };
         });
         onCartUpdate(cartItems);
+        
+        // Also persist to localStorage so Cart page gets latest data
+        const validRetailerIdForStorage = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
+        const validVisitIdForStorage = visitId && visitId.length > 1 ? visitId : null;
+        const storageKey = validVisitIdForStorage && validRetailerIdForStorage 
+          ? `order_cart:${validVisitIdForStorage}:${validRetailerIdForStorage}`
+          : validRetailerIdForStorage 
+            ? `order_cart:temp:${validRetailerIdForStorage}`
+            : 'order_cart:fallback';
+        localStorage.setItem(storageKey, JSON.stringify(cartItems));
       }, 0);
 
       return updatedRows;
