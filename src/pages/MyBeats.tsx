@@ -29,6 +29,9 @@ import { cn } from "@/lib/utils";
 import { AddRetailerInlineToBeat } from "@/components/AddRetailerInlineToBeat";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { useConnectivity } from "@/hooks/useConnectivity";
+import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
+import { useDeleteConfirm } from "@/hooks/useDeleteConfirm";
+
 
 interface Beat {
   id: string;
@@ -119,6 +122,9 @@ export const MyBeats = () => {
   // Beat creation options dialog
   const [showOptionsDialog, setShowOptionsDialog] = useState(false);
   const [createdBeatData, setCreatedBeatData] = useState<{beatId: string; beatName: string} | null>(null);
+  
+  // Delete confirmation dialog
+  const { isOpen: isDeleteOpen, itemId: deleteItemId, itemName: deleteItemName, openDeleteDialog, closeDeleteDialog, setOpen: setDeleteOpen } = useDeleteConfirm();
 
   // Check for openCreateModal parameter and open modal if present
   useEffect(() => {
@@ -764,23 +770,26 @@ export const MyBeats = () => {
     loadAllRetailers();
   };
 
-  const handleDeleteBeat = async (beatId: string, beatName: string) => {
-    if (!confirm(`Are you sure you want to move the beat "${beatName}" to recycle bin?`)) {
+  const handleDeleteBeatClick = (beatId: string, beatName: string) => {
+    openDeleteDialog(beatId, beatName);
+  };
+
+  const handleConfirmDeleteBeat = async () => {
+    if (!deleteItemId || !deleteItemName || !user) {
+      closeDeleteDialog();
       return;
     }
 
-    if (!user) return;
-
     try {
       // Get beat data for recycle bin
-      const beatData = beats.find(b => b.id === beatId);
+      const beatData = beats.find(b => b.id === deleteItemId);
       if (beatData) {
         await moveToRecycleBin({
           tableName: 'beats',
-          recordId: beatId,
+          recordId: deleteItemId,
           recordData: beatData,
           moduleName: 'Beats',
-          recordName: beatName
+          recordName: deleteItemName
         });
       }
 
@@ -791,7 +800,7 @@ export const MyBeats = () => {
           beat_id: 'unassigned',
           beat_name: null
         })
-        .eq('beat_id', beatId)
+        .eq('beat_id', deleteItemId)
         .eq('user_id', user.id);
 
       if (retailerError) throw retailerError;
@@ -800,7 +809,7 @@ export const MyBeats = () => {
       const { error: planError } = await supabase
         .from('beat_plans')
         .delete()
-        .eq('beat_id', beatId)
+        .eq('beat_id', deleteItemId)
         .eq('user_id', user.id);
 
       if (planError) console.error('Error deleting beat plan:', planError);
@@ -809,7 +818,7 @@ export const MyBeats = () => {
       const { error: allowanceError } = await supabase
         .from('beat_allowances')
         .delete()
-        .eq('beat_id', beatId)
+        .eq('beat_id', deleteItemId)
         .eq('user_id', user.id);
 
       if (allowanceError) console.error('Error deleting beat allowance:', allowanceError);
@@ -818,23 +827,23 @@ export const MyBeats = () => {
       const { error: beatError } = await supabase
         .from('beats')
         .update({ is_active: false })
-        .eq('id', beatId);
+        .eq('id', deleteItemId);
 
       if (beatError) console.error('Error marking beat as inactive:', beatError);
 
       // Clear offline cache for this beat's plans
       const cachedPlans = await offlineStorage.getAll(STORES.BEAT_PLANS);
-      const plansToDelete = (cachedPlans as any[]).filter((plan: any) => plan.beat_id === beatId);
+      const plansToDelete = (cachedPlans as any[]).filter((plan: any) => plan.beat_id === deleteItemId);
       for (const plan of plansToDelete) {
         await offlineStorage.delete(STORES.BEAT_PLANS, (plan as any).id);
       }
 
       // Clear the deleted beat from cache
-      await offlineStorage.delete(STORES.BEATS, beatId);
+      await offlineStorage.delete(STORES.BEATS, deleteItemId);
 
       // Update cached retailers to remove beat assignment
       const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
-      const retailersToUpdate = (cachedRetailers as any[]).filter((r: any) => r.beat_id === beatId && r.user_id === user.id);
+      const retailersToUpdate = (cachedRetailers as any[]).filter((r: any) => r.beat_id === deleteItemId && r.user_id === user.id);
       for (const retailer of retailersToUpdate) {
         const retailerData = retailer as any;
         await offlineStorage.save(STORES.RETAILERS, {
@@ -844,7 +853,7 @@ export const MyBeats = () => {
         });
       }
 
-      toast.success(`Beat "${beatName}" moved to recycle bin`);
+      toast.success(`Beat "${deleteItemName}" moved to recycle bin`);
       
       // Dispatch event to refresh My Visits page
       window.dispatchEvent(new CustomEvent('visitDataChanged'));
@@ -855,8 +864,11 @@ export const MyBeats = () => {
     } catch (error) {
       console.error('Error deleting beat:', error);
       toast.error('Failed to delete beat');
+    } finally {
+      closeDeleteDialog();
     }
   };
+
 
   const handleAddBeats = () => {
     navigate('/add-beat');
@@ -1023,7 +1035,7 @@ export const MyBeats = () => {
                   beat={beat}
                   userId={user?.id || ''}
                   onEdit={() => handleEditBeat(beat)}
-                  onDelete={() => handleDeleteBeat(beat.id, beat.name)}
+                  onDelete={() => handleDeleteBeatClick(beat.id, beat.name)}
                   onDetails={() => setSelectedBeatForAnalytics(beat)}
                   onAIInsights={() => {
                     setSelectedBeatForAI(beat.id);
@@ -1601,6 +1613,15 @@ export const MyBeats = () => {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <DeleteConfirmDialog
+          open={isDeleteOpen}
+          onOpenChange={setDeleteOpen}
+          onConfirm={handleConfirmDeleteBeat}
+          title="Delete Beat"
+          description={`Are you sure you want to delete "${deleteItemName}"? It will be moved to the recycle bin and can be restored later.`}
+        />
       </div>
     </Layout>
   );
