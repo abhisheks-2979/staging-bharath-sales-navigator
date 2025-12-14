@@ -48,43 +48,91 @@ interface HomeDashboardData {
   };
   isLoading: boolean;
   error: any;
+  lastUpdated?: string;
 }
+
+const getDefaultState = (): HomeDashboardData => ({
+  todayData: {
+    beatPlan: null,
+    beatName: null,
+    visits: [],
+    nextVisit: null,
+    attendance: null,
+    beatProgress: { total: 0, completed: 0, remaining: 0, planned: 0, productive: 0, unproductive: 0 },
+    revenueTarget: 10000,
+    revenueAchieved: 0,
+    newRetailers: 0,
+    potentialRevenue: 0,
+    points: 0,
+  },
+  performance: {
+    visitsCount: 0,
+    salesAmount: 0,
+    pointsEarned: 0,
+    leaderboardPosition: null,
+    dailyProgress: 0
+  },
+  urgentItems: {
+    pendingPayments: [],
+    priorityRetailers: [],
+    lowStock: []
+  },
+  isLoading: false,
+  error: null
+});
 
 export const useHomeDashboard = (userId: string | undefined, selectedDate: Date = new Date()) => {
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   const isRefreshingRef = useRef(false);
-  const [data, setData] = useState<HomeDashboardData>({
-    todayData: {
-      beatPlan: null,
-      beatName: null,
-      visits: [],
-      nextVisit: null,
-      attendance: null,
-      beatProgress: { total: 0, completed: 0, remaining: 0, planned: 0, productive: 0, unproductive: 0 },
-      revenueTarget: 10000,
-      revenueAchieved: 0,
-      newRetailers: 0,
-      potentialRevenue: 0,
-      points: 0,
-    },
-    performance: {
-      visitsCount: 0,
-      salesAmount: 0,
-      pointsEarned: 0,
-      leaderboardPosition: null,
-      dailyProgress: 0
-    },
-    urgentItems: {
-      pendingPayments: [],
-      priorityRetailers: [],
-      lowStock: []
-    },
-    isLoading: true,
-    error: null
-  });
+  
+  // Cache key for localStorage persistence
+  const CACHE_KEY = `home_dashboard_cache_${userId}`;
+  
+  // Load initial state from localStorage cache for instant display
+  const getInitialState = (): HomeDashboardData => {
+    const defaultState = getDefaultState();
+    
+    if (!userId) return { ...defaultState, isLoading: false };
+    
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsedCache = JSON.parse(cached);
+        console.log('[useHomeDashboard] Loaded from localStorage cache, lastUpdated:', parsedCache.lastUpdated);
+        return { 
+          ...parsedCache, 
+          isLoading: navigator.onLine, // Show loading only if online (will refresh)
+          error: null 
+        };
+      }
+    } catch (e) {
+      console.error('[useHomeDashboard] Error loading cache:', e);
+    }
+    
+    // If no cache and offline, don't show loading (show empty state)
+    // If online, show loading to indicate fresh data is coming
+    return { ...defaultState, isLoading: navigator.onLine };
+  };
+
+  const [data, setData] = useState<HomeDashboardData>(getInitialState);
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
   const isToday = dateStr === format(new Date(), 'yyyy-MM-dd');
+
+  // Save data to localStorage cache
+  const saveToCache = useCallback((newData: HomeDashboardData) => {
+    if (!userId) return;
+    try {
+      const cacheData = {
+        ...newData,
+        lastUpdated: new Date().toISOString()
+      };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+      console.log('[useHomeDashboard] Saved to localStorage cache');
+    } catch (e) {
+      console.error('[useHomeDashboard] Error saving cache:', e);
+    }
+  }, [userId, CACHE_KEY]);
 
   const loadDashboardData = useCallback(async () => {
     if (!userId) return;
@@ -93,14 +141,10 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
     if (isRefreshingRef.current) return;
     isRefreshingRef.current = true;
 
-    // Only show loading skeleton on initial load, not on background refreshes
-    if (!hasInitiallyLoaded) {
-      setData(prev => ({ ...prev, isLoading: true }));
-    }
     let hasLoadedFromCache = false;
 
     try {
-      // STEP 1: Load from cache immediately (only for today)
+      // STEP 1: Load from offline storage cache immediately (only for today)
       if (isToday) {
         const [cachedBeatPlans, cachedVisits, cachedAttendance, cachedRetailers] = await Promise.all([
           offlineStorage.getAll<any>(STORES.BEAT_PLANS),
@@ -147,7 +191,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         const dateEnd = new Date(dateStr);
         dateEnd.setHours(23, 59, 59, 999);
 
-        // Fetch data - using any to avoid type issues
+        // Fetch data
         const beatPlanRes: any = await supabase.from('beat_plans').select('*').eq('user_id', userId).eq('plan_date', dateStr);
         const visitsRes: any = await supabase.from('visits').select('*').eq('user_id', userId).eq('planned_date', dateStr);
         const attendanceRes: any = await supabase.from('attendance').select('*').eq('user_id', userId).eq('date', dateStr).maybeSingle();
@@ -155,7 +199,6 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           .gte('created_at', `${dateStr}T00:00:00.000Z`).lte('created_at', `${dateStr}T23:59:59.999Z`);
         const pointsRes: any = await supabase.from('gamification_points').select('points').eq('user_id', userId)
           .gte('earned_at', dateStart.toISOString()).lte('earned_at', dateEnd.toISOString());
-        // Fetch retailers for this user only (consistent with My Visits)
         const retailersRes = await supabase.from('retailers').select('*').eq('user_id', userId);
         const newRetailersRes: any = await supabase.from('retailers').select('id').eq('user_id', userId)
           .gte('created_at', `${dateStr}T00:00:00.000Z`).lte('created_at', `${dateStr}T23:59:59.999Z`);
@@ -190,8 +233,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           }
         });
 
-        // Extract planned retailer IDs from beat plans (beat_data.retailer_ids or fallback by beat_id)
-        // Only consider retailer_ids defined if the array has actual items
+        // Extract planned retailer IDs from beat plans
         let plannedRetailerIds: string[] = [];
         let hasBeatDataWithRetailerIdsDefined = false;
         for (const bp of beatPlans) {
@@ -208,7 +250,6 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           plannedRetailerIds = retailersForBeats.map((r: any) => r.id);
         }
 
-        // Total planned = all unique retailers in beat plans
         const totalPlannedRetailers = plannedRetailerIds.length;
 
         let notYetVisited = 0;
@@ -228,7 +269,6 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           }
         });
 
-        // Count retailers from beat plans that don't yet have visits or orders as not yet visited
         plannedRetailerIds.forEach((retailerId: string) => {
           if (!visitRetailerIdsSet.has(retailerId) && !ordersMap.has(retailerId)) {
             notYetVisited++;
@@ -236,24 +276,20 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         });
 
         const totalVisits = visitsAny.length;
-        const remaining = notYetVisited; // Retailers not yet visited
-        const completed = productive + unproductive; // Total completed visits
-        // Calculate revenue target and achieved
-        const revenueTarget = 10000; // Default target, can be made dynamic
+        const remaining = notYetVisited;
+        const completed = productive + unproductive;
+        const revenueTarget = 10000;
         const revenueAchieved = orders.reduce((sum: number, order: any) => sum + (order.total_amount || 0), 0);
 
-        // Calculate potential revenue from remaining visits
         const visitedIds = new Set(orders.map((o: any) => o.visit_id).filter(Boolean));
         const remainingVisits = visits.filter((v: any) => !visitedIds.has(v.id));
         
-        // Get average order value from retailers
         const avgOrderValue = retailers.length > 0
           ? retailers.reduce((sum: any, r: any) => sum + (r.order_value || 0), 0) / retailers.length
           : 0;
         
         const potentialRevenue = Math.round(remainingVisits.length * avgOrderValue);
 
-        // Calculate performance
         const salesAmount = revenueAchieved;
         const pointsEarned = points.reduce((sum: number, p: any) => sum + p.points, 0);
         const dailyProgress = totalVisits > 0 ? Math.round((completed / totalVisits) * 100) : 0;
@@ -269,7 +305,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
             .slice(0, 5)
             .map((r: any) => ({
               id: r.id,
-              name: r.shop_name,
+              name: r.name || r.shop_name,
               amount: r.pending_amount || 0,
               phone: r.phone || ''
             }));
@@ -291,7 +327,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
                 : 999;
               return {
                 id: r.id,
-                name: r.shop_name,
+                name: r.name || r.shop_name,
                 daysSinceVisit,
                 priority: r.priority || 'high'
               };
@@ -305,7 +341,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           leave_type_id: leave?.leave_type_id,
         } : null;
 
-        // Cache the data (only for today)
+        // Cache the data to offline storage (only for today)
         if (isToday) {
           await Promise.all([
             ...beatPlans.map((bp: any) => offlineStorage.save(STORES.BEAT_PLANS, bp)),
@@ -315,7 +351,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         }
 
         // Update state with fresh data
-        setData({
+        const newData: HomeDashboardData = {
           todayData: {
             beatPlan,
             beatName,
@@ -326,7 +362,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
               total: totalPlannedRetailers,
               completed,
               remaining: notYetVisited,
-              planned: totalPlannedRetailers, // Total planned retailers from beat plans (consistent with My Visits)
+              planned: totalPlannedRetailers,
               productive,
               unproductive,
             },
@@ -350,7 +386,10 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           },
           isLoading: false,
           error: null
-        });
+        };
+
+        setData(newData);
+        saveToCache(newData); // Save to localStorage for offline access
         setHasInitiallyLoaded(true);
         isRefreshingRef.current = false;
       } catch (networkError) {
@@ -362,11 +401,12 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         isRefreshingRef.current = false;
       }
     } else {
+      // Offline - stop loading, show cached data (already loaded from getInitialState)
       setData(prev => ({ ...prev, isLoading: false }));
       setHasInitiallyLoaded(true);
       isRefreshingRef.current = false;
     }
-  }, [userId, dateStr, isToday]);
+  }, [userId, dateStr, isToday, saveToCache]);
 
   const updateDashboardState = ({ todayBeatPlans, todayVisits, todayAttendance, cachedRetailers, completed }: any) => {
     const nextVisit = todayVisits.find((v: any) => !v.check_in_time) || null;
@@ -379,13 +419,12 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
       beatName = beatNames.length > 0 ? beatNames.join(', ') : null;
     }
     
-    // Unified beat progress logic for cache path - same as network path
+    // Unified beat progress logic for cache path
     let notYetVisited = 0;
     let productive = 0;
     let unproductive = 0;
     const visitRetailerIdsSet = new Set(todayVisits.map((v: any) => v.retailer_id));
     
-    // Extract planned retailer IDs from beat_data first
     const plannedRetailerIds: string[] = [];
     for (const bp of beatPlansArray) {
       const beatData = (bp as any).beat_data as any;
@@ -394,10 +433,8 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
       }
     }
 
-    // Total planned retailers (from beat plans)
     const totalPlannedRetailers = plannedRetailerIds.length;
     
-    // Process visits - count status from visit records
     todayVisits.forEach((v: any) => {
       if (v.status === 'unproductive') {
         unproductive++;
@@ -408,7 +445,6 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
       }
     });
 
-    // Count retailers from beat plans without visit records as not yet visited
     plannedRetailerIds.forEach((retailerId: string) => {
       if (!visitRetailerIdsSet.has(retailerId)) {
         notYetVisited++;
@@ -425,10 +461,10 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         nextVisit,
         attendance: todayAttendance,
         beatProgress: {
-          total: totalPlannedRetailers, // Total planned retailers from beat plans (consistent with network path)
+          total: totalPlannedRetailers,
           completed: productive + unproductive,
           remaining: notYetVisited,
-          planned: totalPlannedRetailers, // Total planned retailers from beat plans (consistent with network path)
+          planned: totalPlannedRetailers,
           productive,
           unproductive,
         }
@@ -440,13 +476,13 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
   useEffect(() => {
     loadDashboardData();
     
-    // Auto-refresh every 60 seconds (only for today) - reduced frequency to prevent UI flicker
+    // Auto-refresh every 60 seconds (only for today)
     let interval: NodeJS.Timeout | undefined;
     if (isToday) {
       interval = setInterval(loadDashboardData, 60000);
     }
     
-    // Listen for explicit visit data changes only (not visibility/focus which cause flicker)
+    // Listen for explicit visit data changes
     const handleVisitDataChanged = () => {
       loadDashboardData();
     };

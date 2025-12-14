@@ -22,8 +22,9 @@ const Index = () => {
   const { userProfile, user, userRole } = useAuth();
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const { todayData, performance, urgentItems, isLoading, refresh } = useHomeDashboard(userProfile?.id, selectedDate);
+  const { todayData, performance, urgentItems, isLoading, lastUpdated, refresh } = useHomeDashboard(userProfile?.id, selectedDate);
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
+  const isOnline = navigator.onLine;
 
   const refreshProfilePicture = async () => {
     if (!user?.id) return;
@@ -149,6 +150,16 @@ const Index = () => {
 
         {/* Dashboard Content */}
         <div className="p-4 -mt-3 relative z-10 space-y-4">
+          {/* Offline indicator with last updated time */}
+          {!isOnline && lastUpdated && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 flex items-center gap-2">
+              <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+              <span className="text-xs text-amber-700 dark:text-amber-400">
+                Offline - Showing cached data from {new Date(lastUpdated).toLocaleTimeString()}
+              </span>
+            </div>
+          )}
+          
           {isLoading ? (
             <DashboardSkeleton />
           ) : (
