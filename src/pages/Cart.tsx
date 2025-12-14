@@ -71,6 +71,13 @@ export const Cart = () => {
 
   // Use visitId and retailerId from URL params consistently (same as Order Entry)
   const activeStorageKey = validVisitId && validRetailerId ? `order_cart:${validVisitId}:${validRetailerId}` : validRetailerId ? `order_cart:temp:${validRetailerId}` : 'order_cart:fallback';
+  
+  // Table form storage key (to clear after successful order)
+  const tableFormStorageKey = validVisitId && validRetailerId 
+    ? `table_form:${validVisitId}:${validRetailerId}`
+    : validRetailerId 
+      ? `table_form:temp:${validRetailerId}`
+      : 'table_form:fallback';
 
   // Load cart items IMMEDIATELY from localStorage (sync, no async)
   const getInitialCartItems = (): CartItem[] => {
@@ -820,8 +827,10 @@ export const Cart = () => {
         }
       }
 
-      // Clear cart storage for this visit/retailer
+      // Clear cart storage AND table form storage for this visit/retailer (only after successful order)
       localStorage.removeItem(activeStorageKey);
+      localStorage.removeItem(tableFormStorageKey);
+      console.log('[Cart] Cleared both cart and table form storage after successful order');
       
       // COMPREHENSIVE STATE CLEARING - Reset all cart and payment states for fresh order entry
       setCartItems([]);
