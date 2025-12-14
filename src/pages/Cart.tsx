@@ -96,6 +96,23 @@ export const Cart = () => {
   const [showItemDetail, setShowItemDetail] = React.useState(false);
   const [pendingAmountFromPrevious, setPendingAmountFromPrevious] = React.useState<number>(0);
 
+  // Reload cart items when storage key changes or on mount
+  React.useEffect(() => {
+    try {
+      const rawData = localStorage.getItem(activeStorageKey);
+      console.log('[Cart] Loading from storage key:', activeStorageKey, 'Data:', rawData);
+      if (rawData && rawData !== 'undefined' && rawData !== 'null') {
+        const parsedItems = JSON.parse(rawData);
+        if (Array.isArray(parsedItems)) {
+          console.log('[Cart] Loaded items:', parsedItems.map(i => ({ name: i.name, unit: i.unit, rate: i.rate })));
+          setCartItems(parsedItems);
+        }
+      }
+    } catch (e) {
+      console.error('Error loading cart from storage:', e);
+    }
+  }, [activeStorageKey]);
+
   // New payment flow state
   const [paymentType, setPaymentType] = React.useState<"" | "full" | "partial" | "credit">("");
   const [paymentMethod, setPaymentMethod] = React.useState<"" | "cash" | "cheque" | "upi" | "neft">("");
