@@ -62,7 +62,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     totalOrders: 0,
     totalOrderValue: 0 
   });
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Start with false - don't block UI on mount
   const [error, setError] = useState<any>(null);
   // Track data version to trigger single recalculation when all state is ready
   const [dataVersion, setDataVersion] = useState(0);
@@ -71,6 +71,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   const lastLoadedDateRef = useRef<string | null>(null);
   const isLoadingRef = useRef(false);
   const pendingDateRef = useRef<string | null>(null);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // Cache for date-based data to enable instant switching
   const dateDataCacheRef = useRef<Map<string, { beatPlans: any[], visits: any[], retailers: any[], orders: any[], progressStats: ProgressStats, timestamp: number }>>(new Map());
   // Track newly added retailer IDs to put them at the top of the list
@@ -96,7 +97,22 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
   // CACHE-FIRST LOADING: Load from cache immediately, sync in background
   const loadData = useCallback(async (forceRefresh = false) => {
-    if (!userId || !selectedDate) return;
+    if (!userId || !selectedDate) {
+      setIsLoading(false);
+      return;
+    }
+    
+    // Clear any existing loading timeout
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+    }
+    
+    // SAFETY: Set a timeout to prevent stuck loading state (5 second max)
+    loadingTimeoutRef.current = setTimeout(() => {
+      console.log('⚠️ [VisitsData] Loading timeout - forcing loading to complete');
+      setIsLoading(false);
+      isLoadingRef.current = false;
+    }, 5000);
     
     // CRITICAL FIX: Always allow date changes to proceed
     // Only block concurrent loads for the SAME date
@@ -134,6 +150,11 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       setIsLoading(false);
       lastLoadedDateRef.current = selectedDate;
       
+      // Clear loading timeout since we loaded from cache
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+      
       // For old dates with actual data, skip network entirely - data won't change
       // But if cache has no retailers, still try network once
       if (isOldDate(selectedDate) && hasCachedRetailers) {
@@ -152,7 +173,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         return;
       }
     } else if (isDateChange) {
-      setIsLoading(true);
+      // Only show loading if we don't have cache and date changed
+      // But only briefly - cache loading is very fast
       console.log('📅 [VisitsData] Date changed from', lastLoadedDateRef.current, 'to', selectedDate);
       lastLoadedDateRef.current = selectedDate;
     }
@@ -390,6 +412,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       console.log('📅 [OLD DATE] Skipping network fetch - have cached data with', loadedRetailersCount, 'retailers');
       setIsLoading(false);
       isLoadingRef.current = false;
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
       return;
     }
 
@@ -870,6 +896,12 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       }
     }
     
+    // Clear loading timeout since we're done
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+      loadingTimeoutRef.current = null;
+    }
+    
     isLoadingRef.current = false;
     pendingDateRef.current = null;
     
@@ -1044,6 +1076,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('visitStatusChanged', handleStatusChange);
       window.removeEventListener('visitDataChanged', handleDataChange);
+      // Clean up loading timeout on unmount
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
     };
   }, [loadData, selectedDate]);
 
