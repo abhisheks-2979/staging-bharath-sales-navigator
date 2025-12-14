@@ -20,6 +20,9 @@ import { RetailerDetailModal } from "@/components/RetailerDetailModal";
 import { BulkImportRetailersModal } from "@/components/BulkImportRetailersModal";
 import { RetailerAnalytics } from "@/components/RetailerAnalytics";
 import { moveToRecycleBin } from "@/utils/recycleBinUtils";
+import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
+import { useDeleteConfirm } from "@/hooks/useDeleteConfirm";
+
 
 interface Retailer {
   id: string;
@@ -106,6 +109,10 @@ export const MyRetailers = () => {
   const [selectedRetailerForDetail, setSelectedRetailerForDetail] = useState<Retailer | null>(null);
   const [selectedRetailerForAnalytics, setSelectedRetailerForAnalytics] = useState<Retailer | null>(null);
   const [selectedRetailerIds, setSelectedRetailerIds] = useState<string[]>([]);
+  
+  // Delete confirmation dialog state
+  const { isOpen: isDeleteOpen, itemId: deleteItemId, itemName: deleteItemName, openDeleteDialog, closeDeleteDialog, setOpen: setDeleteOpen } = useDeleteConfirm();
+  const [isBulkDelete, setIsBulkDelete] = useState(false);
 
   useEffect(() => {
     document.title = "My Retailers | Manage and Assign Beats";
@@ -119,6 +126,7 @@ export const MyRetailers = () => {
       document.head.removeChild(link);
     };
   }, []);
+
 
   const loadRetailers = async () => {
     if (!user) return;
@@ -306,9 +314,30 @@ export const MyRetailers = () => {
     }
   };
 
-  const deleteRetailer = async (retailer: Retailer) => {
-    if (!window.confirm(`Delete ${retailer.name}? This will move it to the recycle bin.`)) return;
-    
+  const handleDeleteClick = (retailer: Retailer) => {
+    setIsBulkDelete(false);
+    openDeleteDialog(retailer.id, retailer.name);
+  };
+
+  const handleBulkDeleteClick = () => {
+    if (selectedRetailerIds.length === 0) return;
+    setIsBulkDelete(true);
+    openDeleteDialog('bulk', `${selectedRetailerIds.length} retailer${selectedRetailerIds.length > 1 ? 's' : ''}`);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (isBulkDelete) {
+      await performBulkDelete();
+    } else if (deleteItemId) {
+      const retailer = retailers.find(r => r.id === deleteItemId);
+      if (retailer) {
+        await performSingleDelete(retailer);
+      }
+    }
+    closeDeleteDialog();
+  };
+
+  const performSingleDelete = async (retailer: Retailer) => {
     // Move to recycle bin first
     const movedToRecycleBin = await moveToRecycleBin({
       tableName: 'retailers',
@@ -338,12 +367,8 @@ export const MyRetailers = () => {
     }
   };
 
-  const bulkDeleteRetailers = async () => {
-    if (selectedRetailerIds.length === 0) return;
-    
+  const performBulkDelete = async () => {
     const count = selectedRetailerIds.length;
-    if (!window.confirm(`Delete ${count} retailer${count > 1 ? 's' : ''}? They will be moved to the recycle bin.`)) return;
-    
     setLoading(true);
     
     // Get retailer data for recycle bin
@@ -376,6 +401,7 @@ export const MyRetailers = () => {
     }
     setLoading(false);
   };
+
 
   const toggleSelectAll = () => {
     if (selectedRetailerIds.length === filtered.length) {
@@ -472,11 +498,12 @@ export const MyRetailers = () => {
                 Bulk Import
               </Button>
               {selectedRetailerIds.length > 0 && (
-                <Button onClick={bulkDeleteRetailers} variant="destructive" size="sm" className="flex items-center gap-1">
+                <Button onClick={handleBulkDeleteClick} variant="destructive" size="sm" className="flex items-center gap-1">
                   <Trash2 size={16} />
                   Delete Selected ({selectedRetailerIds.length})
                 </Button>
               )}
+
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -810,9 +837,22 @@ export const MyRetailers = () => {
             }}
           />
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <DeleteConfirmDialog
+          open={isDeleteOpen}
+          onOpenChange={setDeleteOpen}
+          onConfirm={handleConfirmDelete}
+          title={isBulkDelete ? "Delete Selected Retailers" : "Delete Retailer"}
+          description={isBulkDelete 
+            ? `Are you sure you want to delete ${deleteItemName}? They will be moved to the recycle bin and can be restored later.`
+            : `Are you sure you want to delete "${deleteItemName}"? It will be moved to the recycle bin and can be restored later.`
+          }
+        />
       </section>
     </Layout>
   );
 };
 
 export default MyRetailers;
+
