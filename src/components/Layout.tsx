@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, memo, useCallback, useRef } from "react";
 import { Navbar } from "./Navbar";
 import { ChatWidget } from "./chat/ChatWidget";
 import { useMasterDataCache } from "@/hooks/useMasterDataCache";
@@ -8,17 +8,24 @@ interface LayoutProps {
   children: ReactNode;
 }
 
-export const Layout = ({ children }: LayoutProps) => {
+export const Layout = memo(({ children }: LayoutProps) => {
   const { cacheAllMasterData, isOnline } = useMasterDataCache();
   const { processSyncQueue } = useOfflineSync();
+  const hasCachedRef = useRef(false);
 
-  // Auto-cache master data when online
+  // Auto-cache master data when online - only once per session
   useEffect(() => {
-    if (isOnline) {
+    if (isOnline && !hasCachedRef.current) {
+      hasCachedRef.current = true;
       console.log('🔄 Layout: Caching master data...');
-      cacheAllMasterData();
-      // Also trigger sync when online
-      processSyncQueue();
+      // Defer caching to not block UI
+      requestIdleCallback ? requestIdleCallback(() => {
+        cacheAllMasterData();
+        processSyncQueue();
+      }) : setTimeout(() => {
+        cacheAllMasterData();
+        processSyncQueue();
+      }, 100);
     }
   }, [isOnline, cacheAllMasterData, processSyncQueue]);
 
@@ -50,4 +57,4 @@ export const Layout = ({ children }: LayoutProps) => {
       <ChatWidget />
     </div>
   );
-};
+});

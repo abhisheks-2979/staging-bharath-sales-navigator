@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo, useCallback } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ChatDialog } from './ChatDialog';
@@ -16,16 +16,19 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 
-export const ChatWidget = () => {
+export const ChatWidget = memo(() => {
   const [isOpen, setIsOpen] = useState(false);
   const isMobile = useIsMobile();
+  
+  const handleOpen = useCallback(() => setIsOpen(true), []);
+  const handleClose = useCallback(() => setIsOpen(false), []);
 
   return (
     <>
       {/* Floating Chat Button - respects safe area bottom */}
       {!isOpen && (
         <Button
-          onClick={() => setIsOpen(true)}
+          onClick={handleOpen}
           className="fixed right-6 h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all z-50"
           style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
           size="icon"
@@ -44,7 +47,7 @@ export const ChatWidget = () => {
                 AI Assistant
               </DrawerTitle>
             </DrawerHeader>
-            <ChatDialog onClose={() => setIsOpen(false)} />
+            <ChatDialog onClose={handleClose} />
           </DrawerContent>
         </Drawer>
       ) : (
@@ -57,10 +60,10 @@ export const ChatWidget = () => {
                 AI Assistant
               </SheetTitle>
             </SheetHeader>
-            <ChatDialog onClose={() => setIsOpen(false)} />
+            <ChatDialog onClose={handleClose} />
           </SheetContent>
         </Sheet>
       )}
     </>
   );
-};
+});
