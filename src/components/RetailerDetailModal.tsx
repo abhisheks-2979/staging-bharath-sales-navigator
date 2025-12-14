@@ -136,6 +136,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
+  const [invoicesDisplayCount, setInvoicesDisplayCount] = useState(5);
   const [associatedDistributor, setAssociatedDistributor] = useState<string | null>(null);
 
   // Calendar state
@@ -853,7 +854,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {invoices.slice(0, 5).map((invoice) => (
+                          {invoices.slice(0, invoicesDisplayCount).map((invoice) => (
                             <TableRow key={invoice.id}>
                               <TableCell className="text-xs py-1">{invoice.invoice_number}</TableCell>
                               <TableCell className="text-xs py-1">{format(new Date(invoice.created_at), 'dd/MM/yy')}</TableCell>
@@ -896,6 +897,18 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                           ))}
                         </TableBody>
                       </Table>
+                      {invoices.length > invoicesDisplayCount && (
+                        <div className="flex justify-center pt-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setInvoicesDisplayCount(prev => prev + 10)}
+                            className="text-xs text-primary hover:text-primary/80"
+                          >
+                            Load More ({invoices.length - invoicesDisplayCount} remaining)
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
