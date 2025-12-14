@@ -18,89 +18,115 @@ import { visitStatusCache } from "@/lib/visitStatusCache";
 // Initialize visit status cache early to avoid flicker
 visitStatusCache.init();
 
-// Critical pages - keep direct imports for fastest initial load
+// Critical pages for offline support - keep direct imports (bundled together, always available)
 import { LandingPage } from "./pages/LandingPage";
 import Index from "./pages/Index";
+import { MyVisits } from "./pages/MyVisits";
+import { OrderEntry } from "./pages/OrderEntry";
+import { Cart } from "./pages/Cart";
+import { MyRetailers } from "./pages/MyRetailers";
+import { MyBeats } from "./pages/MyBeats";
+import { AddRetailer } from "./pages/AddRetailer";
+import Attendance from "./pages/Attendance";
+import { TodaySummary } from "./pages/TodaySummary";
+
+// Lazy load helper with offline fallback
+const lazyWithRetry = (importFn: () => Promise<any>, fallbackComponent?: React.ComponentType) => {
+  return lazy(() => 
+    importFn().catch((error) => {
+      console.warn('Failed to load module, likely offline:', error);
+      // Return a simple offline fallback component
+      return { 
+        default: fallbackComponent || (() => (
+          <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-background">
+            <div className="text-center">
+              <h2 className="text-xl font-semibold text-foreground mb-2">Page Unavailable Offline</h2>
+              <p className="text-muted-foreground mb-4">This page requires an internet connection to load.</p>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        ))
+      };
+    })
+  );
+};
 
 // Lazy load all other pages for better code splitting
-const BeatPlanningFeature = lazy(() => import("./pages/features/BeatPlanningFeature").then(module => ({ default: module.BeatPlanningFeature })));
-const RetailerManagementFeature = lazy(() => import("./pages/features/RetailerManagementFeature").then(module => ({ default: module.RetailerManagementFeature })));
-const VisitSchedulingFeature = lazy(() => import("./pages/features/VisitSchedulingFeature").then(module => ({ default: module.VisitSchedulingFeature })));
-const SalesAnalyticsFeature = lazy(() => import("./pages/features/SalesAnalyticsFeature").then(module => ({ default: module.SalesAnalyticsFeature })));
-const PerformanceTrackingFeature = lazy(() => import("./pages/features/PerformanceTrackingFeature").then(module => ({ default: module.PerformanceTrackingFeature })));
-const GrowthAnalyticsFeature = lazy(() => import("./pages/features/GrowthAnalyticsFeature").then(module => ({ default: module.GrowthAnalyticsFeature })));
+const BeatPlanningFeature = lazyWithRetry(() => import("./pages/features/BeatPlanningFeature").then(module => ({ default: module.BeatPlanningFeature })));
+const RetailerManagementFeature = lazyWithRetry(() => import("./pages/features/RetailerManagementFeature").then(module => ({ default: module.RetailerManagementFeature })));
+const VisitSchedulingFeature = lazyWithRetry(() => import("./pages/features/VisitSchedulingFeature").then(module => ({ default: module.VisitSchedulingFeature })));
+const SalesAnalyticsFeature = lazyWithRetry(() => import("./pages/features/SalesAnalyticsFeature").then(module => ({ default: module.SalesAnalyticsFeature })));
+const PerformanceTrackingFeature = lazyWithRetry(() => import("./pages/features/PerformanceTrackingFeature").then(module => ({ default: module.PerformanceTrackingFeature })));
+const GrowthAnalyticsFeature = lazyWithRetry(() => import("./pages/features/GrowthAnalyticsFeature").then(module => ({ default: module.GrowthAnalyticsFeature })));
 
 // Lazy load pages
-const VisitPlanner = lazy(() => import("./pages/VisitPlanner").then(m => ({ default: m.VisitPlanner })));
-const BeatPlanning = lazy(() => import("./pages/BeatPlanning").then(m => ({ default: m.BeatPlanning })));
-const MyVisits = lazy(() => import("./pages/MyVisits").then(m => ({ default: m.MyVisits })));
-const VisitDetail = lazy(() => import("./pages/VisitDetail").then(m => ({ default: m.VisitDetail })));
-const OrderEntry = lazy(() => import("./pages/OrderEntry").then(m => ({ default: m.OrderEntry })));
-const Cart = lazy(() => import("./pages/Cart").then(m => ({ default: m.Cart })));
-const CreateBeat = lazy(() => import("./pages/CreateBeat").then(m => ({ default: m.CreateBeat })));
-const BeatAnalytics = lazy(() => import("./pages/BeatAnalytics").then(m => ({ default: m.BeatAnalytics })));
-const TodaySummary = lazy(() => import("./pages/TodaySummary").then(m => ({ default: m.TodaySummary })));
-const AddRetailer = lazy(() => import("./pages/AddRetailer").then(m => ({ default: m.AddRetailer })));
-const AddBeat = lazy(() => import("./pages/AddBeat").then(m => ({ default: m.AddBeat })));
-const AddRecords = lazy(() => import("./pages/AddRecords"));
-const Attendance = lazy(() => import("./pages/Attendance"));
-const Leaderboard = lazy(() => import("./pages/Leaderboard"));
-const Performance = lazy(() => import("./pages/Performance"));
-const SalesCoach = lazy(() => import("./pages/SalesCoach"));
-const Analytics = lazy(() => import("./pages/Analytics"));
-const Schemes = lazy(() => import("./pages/Schemes").then(m => ({ default: m.Schemes })));
-const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
-const AdminControls = lazy(() => import("./pages/AdminControls"));
-const FeatureManagement = lazy(() => import("./pages/FeatureManagement"));
-const ProductManagementPage = lazy(() => import("./pages/ProductManagementPage"));
-const AttendanceManagement = lazy(() => import("./pages/AttendanceManagement"));
-const ActivitiesInfo = lazy(() => import("./pages/ActivitiesInfo"));
-const BadgesInfo = lazy(() => import("./pages/BadgesInfo"));
-const FeedbackManagement = lazy(() => import("./pages/FeedbackManagement"));
-const CompetitionMaster = lazy(() => import("./pages/CompetitionMaster"));
-const CompetitorDetail = lazy(() => import("./pages/CompetitorDetail"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const MyRetailers = lazy(() => import("./pages/MyRetailers").then(m => ({ default: m.MyRetailers })));
-const UserRoles = lazy(() => import("./pages/UserRoles"));
-const BrandingRequests = lazy(() => import("./pages/BrandingRequests"));
-const MyBeats = lazy(() => import("./pages/MyBeats").then(m => ({ default: m.MyBeats })));
-const BeatDetail = lazy(() => import("./pages/BeatDetail").then(m => ({ default: m.BeatDetail })));
-const EmployeeOnboarding = lazy(() => import("./pages/EmployeeOnboarding"));
-const Employee360 = lazy(() => import("./pages/Employee360"));
-const Vendors = lazy(() => import("./pages/Vendors"));
-const RetailerDetail = lazy(() => import("./pages/RetailerDetail").then(m => ({ default: m.RetailerDetail })));
-const TerritoriesAndDistributors = lazy(() => import("./pages/TerritoriesAndDistributors"));
-const Operations = lazy(() => import("./pages/Operations"));
-const GPSTrack = lazy(() => import("./pages/GPSTrack"));
-const GPSTrackManagement = lazy(() => import("./pages/GPSTrackManagement"));
-const RetailManagement = lazy(() => import("./pages/RetailManagement"));
-const VanSalesManagement = lazy(() => import("./pages/VanSalesManagement"));
-const AdminExpenseManagement = lazy(() => import("./pages/AdminExpenseManagement"));
-const MyExpenses = lazy(() => import("./pages/MyExpenses"));
-const UserProfile = lazy(() => import("./pages/UserProfile"));
-const CompleteProfile = lazy(() => import("./pages/CompleteProfile"));
-const GamificationAdmin = lazy(() => import("./pages/GamificationAdmin"));
-const InvoiceManagement = lazy(() => import("./pages/InvoiceManagement"));
-const GamePolicy = lazy(() => import("./pages/GamePolicy"));
-const CreditManagement = lazy(() => import("./pages/CreditManagement"));
-const RetailerLoyaltyAdmin = lazy(() => import("./pages/RetailerLoyaltyAdmin"));
-const RetailerLoyalty = lazy(() => import("./pages/RetailerLoyalty"));
-const SecurityManagement = lazy(() => import("./pages/SecurityManagement"));
-const PushContentSetup = lazy(() => import("./pages/admin/PushContentSetup"));
-const PerformanceModuleAdmin = lazy(() => import("./pages/admin/PerformanceModuleAdmin"));
-const PriceBookAdmin = lazy(() => import("./pages/admin/PriceBookAdmin"));
-const PriceBookDetail = lazy(() => import("./pages/admin/PriceBookDetail"));
-const RecycleBin = lazy(() => import("./pages/RecycleBin"));
-const RecycleBinAdmin = lazy(() => import("./pages/admin/RecycleBinAdmin"));
-const MyTargets = lazy(() => import("./pages/MyTargets"));
-const TeamTargets = lazy(() => import("./pages/TeamTargets"));
-const PendingPaymentsAll = lazy(() => import("./pages/PendingPaymentsAll"));
-const JointSalesAnalytics = lazy(() => import("./pages/JointSalesAnalytics"));
-const DistributorMaster = lazy(() => import("./pages/DistributorMaster"));
-const AddDistributor = lazy(() => import("./pages/AddDistributor"));
-const DistributorDetail = lazy(() => import("./pages/DistributorDetail"));
-const EditDistributor = lazy(() => import("./pages/EditDistributor"));
-const PrimaryOrders = lazy(() => import("./pages/PrimaryOrders"));
+const VisitPlanner = lazyWithRetry(() => import("./pages/VisitPlanner").then(m => ({ default: m.VisitPlanner })));
+const BeatPlanning = lazyWithRetry(() => import("./pages/BeatPlanning").then(m => ({ default: m.BeatPlanning })));
+const VisitDetail = lazyWithRetry(() => import("./pages/VisitDetail").then(m => ({ default: m.VisitDetail })));
+const CreateBeat = lazyWithRetry(() => import("./pages/CreateBeat").then(m => ({ default: m.CreateBeat })));
+const BeatAnalytics = lazyWithRetry(() => import("./pages/BeatAnalytics").then(m => ({ default: m.BeatAnalytics })));
+const AddBeat = lazyWithRetry(() => import("./pages/AddBeat").then(m => ({ default: m.AddBeat })));
+const AddRecords = lazyWithRetry(() => import("./pages/AddRecords"));
+const Leaderboard = lazyWithRetry(() => import("./pages/Leaderboard"));
+const Performance = lazyWithRetry(() => import("./pages/Performance"));
+const SalesCoach = lazyWithRetry(() => import("./pages/SalesCoach"));
+const Analytics = lazyWithRetry(() => import("./pages/Analytics"));
+const Schemes = lazyWithRetry(() => import("./pages/Schemes").then(m => ({ default: m.Schemes })));
+const AdminDashboard = lazyWithRetry(() => import("./pages/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
+const AdminControls = lazyWithRetry(() => import("./pages/AdminControls"));
+const FeatureManagement = lazyWithRetry(() => import("./pages/FeatureManagement"));
+const ProductManagementPage = lazyWithRetry(() => import("./pages/ProductManagementPage"));
+const AttendanceManagement = lazyWithRetry(() => import("./pages/AttendanceManagement"));
+const ActivitiesInfo = lazyWithRetry(() => import("./pages/ActivitiesInfo"));
+const BadgesInfo = lazyWithRetry(() => import("./pages/BadgesInfo"));
+const FeedbackManagement = lazyWithRetry(() => import("./pages/FeedbackManagement"));
+const CompetitionMaster = lazyWithRetry(() => import("./pages/CompetitionMaster"));
+const CompetitorDetail = lazyWithRetry(() => import("./pages/CompetitorDetail"));
+const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
+const UserRoles = lazyWithRetry(() => import("./pages/UserRoles"));
+const BrandingRequests = lazyWithRetry(() => import("./pages/BrandingRequests"));
+const BeatDetail = lazyWithRetry(() => import("./pages/BeatDetail").then(m => ({ default: m.BeatDetail })));
+const EmployeeOnboarding = lazyWithRetry(() => import("./pages/EmployeeOnboarding"));
+const Employee360 = lazyWithRetry(() => import("./pages/Employee360"));
+const Vendors = lazyWithRetry(() => import("./pages/Vendors"));
+const RetailerDetail = lazyWithRetry(() => import("./pages/RetailerDetail").then(m => ({ default: m.RetailerDetail })));
+const TerritoriesAndDistributors = lazyWithRetry(() => import("./pages/TerritoriesAndDistributors"));
+const Operations = lazyWithRetry(() => import("./pages/Operations"));
+const GPSTrack = lazyWithRetry(() => import("./pages/GPSTrack"));
+const GPSTrackManagement = lazyWithRetry(() => import("./pages/GPSTrackManagement"));
+const RetailManagement = lazyWithRetry(() => import("./pages/RetailManagement"));
+const VanSalesManagement = lazyWithRetry(() => import("./pages/VanSalesManagement"));
+const AdminExpenseManagement = lazyWithRetry(() => import("./pages/AdminExpenseManagement"));
+const MyExpenses = lazyWithRetry(() => import("./pages/MyExpenses"));
+const UserProfile = lazyWithRetry(() => import("./pages/UserProfile"));
+const CompleteProfile = lazyWithRetry(() => import("./pages/CompleteProfile"));
+const GamificationAdmin = lazyWithRetry(() => import("./pages/GamificationAdmin"));
+const InvoiceManagement = lazyWithRetry(() => import("./pages/InvoiceManagement"));
+const GamePolicy = lazyWithRetry(() => import("./pages/GamePolicy"));
+const CreditManagement = lazyWithRetry(() => import("./pages/CreditManagement"));
+const RetailerLoyaltyAdmin = lazyWithRetry(() => import("./pages/RetailerLoyaltyAdmin"));
+const RetailerLoyalty = lazyWithRetry(() => import("./pages/RetailerLoyalty"));
+const SecurityManagement = lazyWithRetry(() => import("./pages/SecurityManagement"));
+const PushContentSetup = lazyWithRetry(() => import("./pages/admin/PushContentSetup"));
+const PerformanceModuleAdmin = lazyWithRetry(() => import("./pages/admin/PerformanceModuleAdmin"));
+const PriceBookAdmin = lazyWithRetry(() => import("./pages/admin/PriceBookAdmin"));
+const PriceBookDetail = lazyWithRetry(() => import("./pages/admin/PriceBookDetail"));
+const RecycleBin = lazyWithRetry(() => import("./pages/RecycleBin"));
+const RecycleBinAdmin = lazyWithRetry(() => import("./pages/admin/RecycleBinAdmin"));
+const MyTargets = lazyWithRetry(() => import("./pages/MyTargets"));
+const TeamTargets = lazyWithRetry(() => import("./pages/TeamTargets"));
+const PendingPaymentsAll = lazyWithRetry(() => import("./pages/PendingPaymentsAll"));
+const JointSalesAnalytics = lazyWithRetry(() => import("./pages/JointSalesAnalytics"));
+const DistributorMaster = lazyWithRetry(() => import("./pages/DistributorMaster"));
+const AddDistributor = lazyWithRetry(() => import("./pages/AddDistributor"));
+const DistributorDetail = lazyWithRetry(() => import("./pages/DistributorDetail"));
+const EditDistributor = lazyWithRetry(() => import("./pages/EditDistributor"));
+const PrimaryOrders = lazyWithRetry(() => import("./pages/PrimaryOrders"));
 
 // Distributor Portal Pages
 const DistributorLogin = lazy(() => import("./pages/distributor-portal/DistributorLogin"));
@@ -254,19 +280,23 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         <Route path="/visit-planner" element={<ProtectedRoute><LazyRoute><VisitPlanner /></LazyRoute></ProtectedRoute>} />
         <Route path="/visits" element={<ProtectedRoute><LazyRoute><BeatPlanning /></LazyRoute></ProtectedRoute>} />
         <Route path="/beat-planning" element={<ProtectedRoute><LazyRoute><BeatPlanning /></LazyRoute></ProtectedRoute>} />
-        <Route path="/visits/retailers" element={<ProtectedRoute><LazyRoute><MyVisits /></LazyRoute></ProtectedRoute>} />
-        <Route path="/order-entry" element={<ProtectedRoute><LazyRoute><OrderEntry /></LazyRoute></ProtectedRoute>} />
-        <Route path="/cart" element={<ProtectedRoute><LazyRoute><Cart /></LazyRoute></ProtectedRoute>} />
+        {/* Critical offline routes - directly imported, no lazy loading */}
+        <Route path="/visits/retailers" element={<ProtectedRoute><MyVisits /></ProtectedRoute>} />
+        <Route path="/order-entry" element={<ProtectedRoute><OrderEntry /></ProtectedRoute>} />
+        <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
+        <Route path="/my-beats" element={<ProtectedRoute><MyBeats /></ProtectedRoute>} />
+        <Route path="/today-summary" element={<ProtectedRoute><TodaySummary /></ProtectedRoute>} />
+        <Route path="/add-retailer" element={<ProtectedRoute><AddRetailer /></ProtectedRoute>} />
+        <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
+        <Route path="/my-retailers" element={<ProtectedRoute><MyRetailers /></ProtectedRoute>} />
+        
+        {/* Lazy loaded routes */}
         <Route path="/create-beat" element={<ProtectedRoute><LazyRoute><CreateBeat /></LazyRoute></ProtectedRoute>} />
-        <Route path="/my-beats" element={<ProtectedRoute><LazyRoute><MyBeats /></LazyRoute></ProtectedRoute>} />
         <Route path="/beat/:id" element={<ProtectedRoute><LazyRoute><BeatDetail /></LazyRoute></ProtectedRoute>} />
         <Route path="/visit/:id" element={<ProtectedRoute><LazyRoute><VisitDetail /></LazyRoute></ProtectedRoute>} />
         <Route path="/beat-analytics" element={<ProtectedRoute><LazyRoute><BeatAnalytics /></LazyRoute></ProtectedRoute>} />
-        <Route path="/today-summary" element={<ProtectedRoute><LazyRoute><TodaySummary /></LazyRoute></ProtectedRoute>} />
-        <Route path="/add-retailer" element={<ProtectedRoute><LazyRoute><AddRetailer /></LazyRoute></ProtectedRoute>} />
         <Route path="/add-records" element={<ProtectedRoute><LazyRoute><AddRecords /></LazyRoute></ProtectedRoute>} />
         <Route path="/add-beat" element={<ProtectedRoute><LazyRoute><AddBeat /></LazyRoute></ProtectedRoute>} />
-        <Route path="/attendance" element={<ProtectedRoute><LazyRoute><Attendance /></LazyRoute></ProtectedRoute>} />
         <Route path="/expenses" element={<ProtectedRoute><LazyRoute><MyExpenses /></LazyRoute></ProtectedRoute>} />
         <Route path="/leaderboard" element={<ProtectedRoute><LazyRoute><Leaderboard /></LazyRoute></ProtectedRoute>} />
         <Route path="/game-policy" element={<ProtectedRoute><LazyRoute><GamePolicy /></LazyRoute></ProtectedRoute>} />
@@ -276,7 +306,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         <Route path="/sales-coach" element={<ProtectedRoute><LazyRoute><SalesCoach /></LazyRoute></ProtectedRoute>} />
         <Route path="/analytics" element={<ProtectedRoute><LazyRoute><Analytics /></LazyRoute></ProtectedRoute>} />
         <Route path="/schemes" element={<ProtectedRoute><LazyRoute><Schemes /></LazyRoute></ProtectedRoute>} />
-        <Route path="/my-retailers" element={<ProtectedRoute><LazyRoute><MyRetailers /></LazyRoute></ProtectedRoute>} />
+        
         <Route path="/branding-requests" element={<ProtectedRoute><LazyRoute><BrandingRequests /></LazyRoute></ProtectedRoute>} />
         <Route path="/vendors" element={<ProtectedRoute><LazyRoute><Vendors /></LazyRoute></ProtectedRoute>} />
         <Route path="/gps-track" element={<ProtectedRoute><LazyRoute><GPSTrack /></LazyRoute></ProtectedRoute>} />
