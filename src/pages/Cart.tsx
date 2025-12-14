@@ -42,23 +42,10 @@ interface CartItem {
 }
 type AnyCartItem = CartItem;
 
-// Unit conversion helper - matches TableOrderForm logic
-const normalizeUnit = (u?: string) => (u || "").toLowerCase().replace(/\./g, "").trim();
+// Unit conversion helper - rate is already stored per selected unit, just return it
 const getDisplayRate = (item: CartItem) => {
-  const baseRate = Number(item.rate) || 0;
-  const baseUnit = normalizeUnit(item.base_unit || item.unit);
-  const targetUnit = normalizeUnit(item.unit);
-  if (!baseUnit || !item.base_unit) return baseRate;
-
-  // KG ↔ Gram conversions
-  if (baseUnit === "kg" || baseUnit === "kilogram" || baseUnit === "kilograms") {
-    if (["gram", "grams", "g", "gm"].includes(targetUnit)) return baseRate / 1000;
-    if (targetUnit === "kg") return baseRate;
-  } else if (["g", "gm", "gram", "grams"].includes(baseUnit)) {
-    if (targetUnit === "kg") return baseRate * 1000;
-    if (["g", "gm", "gram", "grams"].includes(targetUnit)) return baseRate;
-  }
-  return baseRate;
+  // Rate is already converted and stored per the selected unit
+  return Number(item.rate) || 0;
 };
 
 // Currency formatter - rounded to whole number (no decimals)
