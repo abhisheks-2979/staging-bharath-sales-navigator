@@ -118,6 +118,18 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
   const [selectedProductForVariants, setSelectedProductForVariants] = useState<string>('');
   const [openComboboxes, setOpenComboboxes] = useState<{ [key: string]: boolean }>({});
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+  // Get unique categories from products
+  const getCategories = () => {
+    const categories = new Set<string>();
+    products.forEach(p => {
+      if (p.category?.name) {
+        categories.add(p.category.name);
+      }
+    });
+    return Array.from(categories).sort();
+  };
 
   // Helper to get cart storage key
   const getCartStorageKey = () => {
@@ -237,7 +249,12 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
     const options: Array<{ value: string; label: string; product: Product; variant?: any; sku: string; price: number; type: 'product' | 'variant' }> = [];
     
     // Filter only active products (driven directly by Product Master)
-    const activeProducts = products.filter(p => p.is_active !== false);
+    let activeProducts = products.filter(p => p.is_active !== false);
+    
+    // Filter by selected category
+    if (selectedCategory !== 'all') {
+      activeProducts = activeProducts.filter(p => p.category?.name === selectedCategory);
+    }
     
     activeProducts.forEach(product => {
       // Always add base product as a selectable option (even if it has variants)
@@ -493,6 +510,23 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
     <div className="space-y-4">
       <Card>
         <CardContent className="p-0">
+          {/* Category Filter */}
+          <div className="px-2 md:px-4 py-2 md:py-3 border-b border-border bg-background">
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="h-9 md:h-10 text-xs md:text-sm w-full md:w-64 bg-background">
+                <SelectValue placeholder="All Categories" />
+              </SelectTrigger>
+              <SelectContent className="bg-background z-50 max-h-[300px]">
+                <SelectItem value="all" className="text-xs md:text-sm">All Categories</SelectItem>
+                {getCategories().map(category => (
+                  <SelectItem key={category} value={category} className="text-xs md:text-sm">
+                    {category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
           <div className="w-full">
             {/* Table Header - Responsive */}
             <div className="grid grid-cols-[1.5fr_0.8fr_0.6fr_0.6fr_auto] md:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 md:gap-4 px-2 md:px-4 py-2 md:py-3 bg-muted/50 border-b border-border">
