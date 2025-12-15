@@ -9,6 +9,10 @@ interface InvoiceData {
   cartItems: any[];
   displayInvoiceNumber?: string;
   displayInvoiceDate?: string;
+  displayInvoiceTime?: string;
+  beatName?: string;
+  salesmanName?: string;
+  schemeDetails?: string;
 }
 
 // Helper function to convert number to words (Indian system)
@@ -59,7 +63,7 @@ const numberToWords = (num: number): string => {
  * This is the ONLY template used throughout the application
  */
 export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob> {
-  const { orderId, company, retailer, cartItems, displayInvoiceNumber, displayInvoiceDate } = data;
+  const { orderId, company, retailer, cartItems, displayInvoiceNumber, displayInvoiceDate, displayInvoiceTime, beatName, salesmanName, schemeDetails } = data;
   
   // Helper functions for consistent display (matches preview component)
   const normalizeUnit = (u?: string) => (u || "").toLowerCase().replace(/\./g, "").trim();
@@ -151,8 +155,11 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
     doc.text(`Email: ${company.email}`, companyNameX, headerY);
     headerY += 3.5;
   }
-  if (company.gstin) {
-    doc.text(`GSTIN: ${company.gstin}`, companyNameX, headerY);
+  // GST must always be shown - use XXXXXXXX if not available
+  doc.text(`GSTIN: ${company.gstin || "XXXXXXXX"}`, companyNameX, headerY);
+  headerY += 3.5;
+  if (company.state) {
+    doc.text(`State: ${company.state}`, companyNameX, headerY);
   }
 
   // INVOICE title (right side)
@@ -187,9 +194,12 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
     doc.text(`Phone: ${retailer.phone}`, 15, yPos);
     yPos += 4;
   }
-  if (retailer.gst_number) {
-    doc.text(`GSTIN: ${retailer.gst_number}`, 15, yPos);
+  if (retailer.state) {
+    doc.text(`State: ${retailer.state}`, 15, yPos);
+    yPos += 4;
   }
+  // GST must always be shown - use XXXXXXXX if not available
+  doc.text(`GSTIN: ${retailer.gst_number || retailer.gstin || "XXXXXXXX"}`, 15, yPos);
 
   // Invoice details (right side) - add more space after header
   let invoiceY = 62;
@@ -201,11 +211,35 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setFont("helvetica", "normal");
   doc.text(invoiceNum, pageWidth - 15, invoiceY, { align: "right" });
   
-  invoiceY += 8;
+  invoiceY += 6;
   doc.setFont("helvetica", "bold");
   doc.text("DATE:", pageWidth - 60, invoiceY);
   doc.setFont("helvetica", "normal");
   doc.text((displayInvoiceDate || new Date().toLocaleDateString("en-GB")), pageWidth - 15, invoiceY, { align: "right" });
+  
+  invoiceY += 6;
+  doc.setFont("helvetica", "bold");
+  doc.text("TIME:", pageWidth - 60, invoiceY);
+  doc.setFont("helvetica", "normal");
+  doc.text((displayInvoiceTime || new Date().toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' })), pageWidth - 15, invoiceY, { align: "right" });
+  
+  // Beat/Route Name
+  if (beatName) {
+    invoiceY += 6;
+    doc.setFont("helvetica", "bold");
+    doc.text("ROUTE:", pageWidth - 60, invoiceY);
+    doc.setFont("helvetica", "normal");
+    doc.text(beatName, pageWidth - 15, invoiceY, { align: "right" });
+  }
+  
+  // Salesman Name
+  if (salesmanName) {
+    invoiceY += 6;
+    doc.setFont("helvetica", "bold");
+    doc.text("SALESMAN:", pageWidth - 60, invoiceY);
+    doc.setFont("helvetica", "normal");
+    doc.text(salesmanName, pageWidth - 15, invoiceY, { align: "right" });
+  }
 
   // Items table with green header
   const tableData = cartItems.map((item, index) => {
@@ -360,8 +394,23 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   const wordsLines = doc.splitTextToSize(totalInWords, pageWidth - 30);
   doc.text(wordsLines, 15, yPos);
 
+  // Scheme Details section (if available)
+  if (schemeDetails) {
+    yPos += 10;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("SCHEME DETAILS", 15, yPos);
+    
+    yPos += 5;
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    const schemeLines = doc.splitTextToSize(schemeDetails, pageWidth - 30);
+    doc.text(schemeLines, 15, yPos);
+    yPos += schemeLines.length * 4;
+  }
+
   // Payment Method section
-  yPos += 14;
+  yPos += 10;
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
   doc.text("BANK DETAILS", 15, yPos);
@@ -513,31 +562,59 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
 
     if (!company) throw new Error("Company not found");
 
-    // Fetch retailer details from the original order
+    // Fetch retailer details and order info from the original order
     const { data: order } = await supabase
       .from("orders")
-      .select("retailer_id")
+      .select("retailer_id, user_id, created_at")
       .eq("id", orderId)
       .single();
 
     let retailer: any = null;
+    let beatName = "";
     if (order?.retailer_id) {
       const { data: retailerData } = await supabase
         .from("retailers")
-        .select("name, address, phone, gst_number")
+        .select("name, address, phone, gst_number, state, beat_id")
         .eq("id", order.retailer_id)
         .single();
       retailer = retailerData;
+      
+      // Fetch beat name
+      if (retailerData?.beat_id) {
+        const { data: beatData } = await supabase
+          .from("beats")
+          .select("beat_name")
+          .eq("id", retailerData.beat_id)
+          .single();
+        beatName = beatData?.beat_name || "";
+      }
     }
 
     if (!retailer) {
-      retailer = { name: "Customer", address: "", phone: "", gst_number: "" };
+      retailer = { name: "Customer", address: "", phone: "", gst_number: "", state: "" };
     }
+
+    // Fetch salesman name
+    let salesmanName = "";
+    if (order?.user_id) {
+      const { data: userData } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", order.user_id)
+        .single();
+      salesmanName = userData?.full_name || "";
+    }
+
+    const schemeDetails = "";
+    const displayInvoiceTime = order?.created_at 
+      ? new Date(order.created_at).toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' }) 
+      : new Date().toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' });
 
     // Transform invoice_items to cartItems format
     const cartItems = editedInvoice.invoice_items.map((item: any) => ({
       id: item.id,
       product_name: item.description,
+      hsn_code: item.hsn_sac || "-",
       quantity: item.quantity,
       unit: item.unit,
       rate: item.price_per_unit,
@@ -559,7 +636,11 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
       retailer,
       cartItems,
       displayInvoiceNumber,
-      displayInvoiceDate
+      displayInvoiceDate,
+      displayInvoiceTime,
+      beatName,
+      salesmanName,
+      schemeDetails
     });
 
     return { blob, invoiceNumber: editedInvoice.invoice_number };
@@ -568,7 +649,7 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
   // Fallback to generating from order data (original behavior)
   console.log("📦 Generating invoice from order data");
   
-  // Fetch order
+  // Fetch order with beat info
   const { data: order, error: orderError } = await supabase
     .from("orders")
     .select("*, order_items(*)")
@@ -587,23 +668,49 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
 
   if (!company) throw new Error("Company not found");
 
-  // Fetch retailer
+  // Fetch retailer with state
   let retailer: any = null;
   if (order.retailer_id) {
     const { data: retailerData } = await supabase
       .from("retailers")
-      .select("name, address, phone, gst_number")
+      .select("name, address, phone, gst_number, state, beat_id")
       .eq("id", order.retailer_id)
       .single();
     retailer = retailerData;
   }
 
   if (!retailer) {
-    retailer = { name: "Customer", address: "", phone: "", gst_number: "" };
+    retailer = { name: "Customer", address: "", phone: "", gst_number: "", state: "" };
   }
+
+  // Fetch beat name
+  let beatName = "";
+  if (retailer?.beat_id) {
+    const { data: beatData } = await supabase
+      .from("beats")
+      .select("beat_name")
+      .eq("id", retailer.beat_id)
+      .single();
+    beatName = beatData?.beat_name || "";
+  }
+
+  // Fetch salesman name
+  let salesmanName = "";
+  if (order.user_id) {
+    const { data: userData } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", order.user_id)
+      .single();
+    salesmanName = userData?.full_name || "";
+  }
+
+  // Scheme details not stored in orders table currently
+  let schemeDetails = "";
 
   const displayInvoiceNumber = (order as any).invoice_number || `INV-${order.id.substring(0, 8).toUpperCase()}`;
   const displayInvoiceDate = order.created_at ? new Date(order.created_at).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB");
+  const displayInvoiceTime = order.created_at ? new Date(order.created_at).toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' });
   const invoiceNumber = displayInvoiceNumber;
   
   // Get the selected template from company settings (default to template4)
@@ -630,7 +737,11 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
         retailer,
         cartItems: order.order_items,
         displayInvoiceNumber,
-        displayInvoiceDate
+        displayInvoiceDate,
+        displayInvoiceTime,
+        beatName,
+        salesmanName,
+        schemeDetails
       });
       break;
   }
