@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
-import { Download, Share, FileText, Clock, MapPin, CalendarIcon, ExternalLink } from "lucide-react";
+import { Download, Share, FileText, Clock, MapPin, CalendarIcon, ExternalLink, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, parse } from "date-fns";
 import jsPDF from "jspdf";
@@ -20,6 +22,7 @@ import { downloadPDF } from "@/utils/fileDownloader";
 import { ReportGenerator } from "@/components/ReportGenerator";
 import { calculateJointVisitScore } from "@/components/JointSalesFeedbackModal";
 import { JointSalesFeedbackViewModal } from "@/components/JointSalesFeedbackViewModal";
+import { useAuth } from "@/hooks/useAuth";
 
 type DateFilterType = 'today' | 'week' | 'lastWeek' | 'month' | 'custom' | 'dateRange';
 
@@ -27,6 +30,14 @@ export const TodaySummary = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
+  const { user, userRole } = useAuth();
+  const isAdmin = userRole === 'admin';
+  
+  // Admin user filter state
+  const [allUsers, setAllUsers] = useState<Array<{ id: string; name: string; email: string }>>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [userFilterOpen, setUserFilterOpen] = useState(false);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
   
   // Date filtering state
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -144,10 +155,39 @@ export const TodaySummary = () => {
 
   // Use primitive values for dependencies to avoid infinite loops
   const dateRangeKey = `${dateRange.from.toISOString()}-${dateRange.to.toISOString()}`;
+  const selectedUsersKey = selectedUserIds.join(',');
+  
+  // Fetch all users for admin filter
+  useEffect(() => {
+    const fetchAllUsers = async () => {
+      if (!isAdmin) return;
+      
+      try {
+        const { data: profiles, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, username')
+          .order('full_name', { ascending: true });
+        
+        if (error) throw error;
+        
+        const users = profiles?.map(p => ({
+          id: p.id,
+          name: p.full_name || p.username || 'Unknown',
+          email: p.username || ''
+        })) || [];
+        
+        setAllUsers(users);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+      }
+    };
+    
+    fetchAllUsers();
+  }, [isAdmin]);
   
   useEffect(() => {
     fetchTodaysData();
-  }, [dateRangeKey, filterType]);
+  }, [dateRangeKey, filterType, selectedUsersKey]);
 
   // Real-time subscription for points updates
   useEffect(() => {
@@ -239,15 +279,20 @@ export const TodaySummary = () => {
   const fetchTodaysData = async () => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
       
-      if (!user) return;
+      if (!authUser) return;
+
+      // Determine which user IDs to fetch data for
+      const targetUserIds = isAdmin && selectedUserIds.length > 0 
+        ? selectedUserIds 
+        : [authUser.id];
 
       // Fetch attendance data for the selected period
       let attendanceQuery = supabase
         .from('attendance')
         .select('*')
-        .eq('user_id', user.id);
+        .in('user_id', targetUserIds);
 
       if (filterType === 'today' || filterType === 'custom') {
         const targetDate = format(dateRange.from, 'yyyy-MM-dd');
@@ -1583,6 +1628,97 @@ export const TodaySummary = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Admin User Filter */}
+        {isAdmin && (
+          <Card>
+            <CardContent className="p-3">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users size={16} className="text-primary" />
+                    <span className="font-medium text-sm">Filter by Users</span>
+                  </div>
+                  {selectedUserIds.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedUserIds([])}
+                      className="h-6 text-xs"
+                    >
+                      Clear All
+                    </Button>
+                  )}
+                </div>
+                
+                <Popover open={userFilterOpen} onOpenChange={setUserFilterOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-left h-auto min-h-9 py-2">
+                      {selectedUserIds.length === 0 ? (
+                        <span className="text-muted-foreground">All Users (showing your data)</span>
+                      ) : (
+                        <span>{selectedUserIds.length} user(s) selected</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-2" align="start">
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="Search users..."
+                        value={userSearchQuery}
+                        onChange={(e) => setUserSearchQuery(e.target.value)}
+                        className="h-8"
+                      />
+                      <ScrollArea className="h-48">
+                        <div className="space-y-1">
+                          {allUsers
+                            .filter(u => u.name.toLowerCase().includes(userSearchQuery.toLowerCase()))
+                            .map(u => (
+                              <div
+                                key={u.id}
+                                className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer"
+                                onClick={() => {
+                                  setSelectedUserIds(prev =>
+                                    prev.includes(u.id)
+                                      ? prev.filter(id => id !== u.id)
+                                      : [...prev, u.id]
+                                  );
+                                }}
+                              >
+                                <Checkbox checked={selectedUserIds.includes(u.id)} />
+                                <span className="text-sm truncate">{u.name}</span>
+                              </div>
+                            ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                
+                {selectedUserIds.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {selectedUserIds.slice(0, 3).map(id => {
+                      const u = allUsers.find(u => u.id === id);
+                      return u ? (
+                        <Badge key={id} variant="secondary" className="text-xs">
+                          {u.name}
+                          <X
+                            size={12}
+                            className="ml-1 cursor-pointer"
+                            onClick={() => setSelectedUserIds(prev => prev.filter(uid => uid !== id))}
+                          />
+                        </Badge>
+                      ) : null;
+                    })}
+                    {selectedUserIds.length > 3 && (
+                      <Badge variant="secondary" className="text-xs">+{selectedUserIds.length - 3} more</Badge>
+                    )}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-2">
