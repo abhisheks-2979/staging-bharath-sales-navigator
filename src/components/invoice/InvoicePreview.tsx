@@ -1,16 +1,68 @@
+// Number to words helper
+const numberToWords = (num: number): string => {
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  
+  if (num === 0) return 'Zero';
+  if (num < 0) return 'Minus ' + numberToWords(Math.abs(num));
+  
+  let words = '';
+  
+  if (Math.floor(num / 10000000) > 0) {
+    words += numberToWords(Math.floor(num / 10000000)) + ' Crore ';
+    num %= 10000000;
+  }
+  
+  if (Math.floor(num / 100000) > 0) {
+    words += numberToWords(Math.floor(num / 100000)) + ' Lakh ';
+    num %= 100000;
+  }
+  
+  if (Math.floor(num / 1000) > 0) {
+    words += numberToWords(Math.floor(num / 1000)) + ' Thousand ';
+    num %= 1000;
+  }
+  
+  if (Math.floor(num / 100) > 0) {
+    words += numberToWords(Math.floor(num / 100)) + ' Hundred ';
+    num %= 100;
+  }
+  
+  if (num > 0) {
+    if (words !== '') words += 'and ';
+    if (num < 20) {
+      words += ones[num];
+    } else {
+      words += tens[Math.floor(num / 10)];
+      if (num % 10 > 0) words += ' ' + ones[num % 10];
+    }
+  }
+  
+  return words.trim();
+};
+
 interface InvoicePreviewProps {
   company: any;
   retailer: any;
   cartItems: any[];
   orderId?: string;
   templateStyle: "template1" | "template2" | "template3" | "template4";
+  beatName?: string;
+  salesmanName?: string;
+  invoiceTime?: string;
+  schemeDetails?: string;
 }
+
 export default function InvoicePreview({
   company,
   retailer,
   cartItems,
   orderId = "INV001",
-  templateStyle
+  templateStyle,
+  beatName = "",
+  salesmanName = "",
+  invoiceTime = "",
+  schemeDetails = ""
 }: InvoicePreviewProps) {
   // Unit conversion helper
   const normalizeUnit = (u?: string) => (u || "").toLowerCase().replace(/\./g, "").trim();
@@ -57,6 +109,10 @@ export default function InvoicePreview({
   const cgst = subtotal * 0.025;
   const sgst = subtotal * 0.025;
   const total = subtotal + cgst + sgst;
+  
+  // Amount in words
+  const totalInWords = numberToWords(Math.round(total)) + ' Rupees Only';
+
   const getStyleClasses = () => {
     switch (templateStyle) {
       case "template1":
@@ -97,7 +153,13 @@ export default function InvoicePreview({
     }
   };
   const styles = getStyleClasses();
-  return <div className={`p-6 rounded-lg ${styles.container} max-w-4xl mx-auto text-sm`}>
+
+  // GST display - always show, use XXXXXXXX if missing
+  const companyGstin = company.gstin || "XXXXXXXX";
+  const retailerGstin = retailer.gst_number || "XXXXXXXX";
+
+  return (
+    <div className={`p-6 rounded-lg ${styles.container} max-w-4xl mx-auto text-sm`}>
       {/* Header */}
       <div className={`${styles.header} p-4 rounded-t-lg flex justify-between items-center mb-6`}>
         <div className="flex items-center gap-4">
@@ -105,9 +167,10 @@ export default function InvoicePreview({
           <div>
             <h1 className="text-lg font-bold">{company.name || "COMPANY NAME"}</h1>
             <p className="text-xs opacity-90 max-w-md leading-tight">{company.address}</p>
+            {company.state && <p className="text-xs">State: {company.state}</p>}
             {company.contact_phone && <p className="text-xs">Tel: {company.contact_phone}</p>}
             {company.email && <p className="text-xs">Email: {company.email}</p>}
-            {company.gstin && <p className="text-xs">GSTIN: {company.gstin}</p>}
+            <p className="text-xs">GSTIN: {companyGstin}</p>
           </div>
         </div>
         <div className="text-right">
@@ -121,18 +184,37 @@ export default function InvoicePreview({
           <h3 className="font-bold text-xs mb-2">BILL TO</h3>
           <p className="text-blue-600 font-semibold">{retailer.name || "Customer Name"}</p>
           <p className="text-xs">{retailer.address}</p>
+          {retailer.state && <p className="text-xs">State: {retailer.state}</p>}
           {retailer.phone && <p className="text-xs">Phone: {retailer.phone}</p>}
-          {retailer.gst_number && <p className="text-xs">GSTIN: {retailer.gst_number}</p>}
+          <p className="text-xs">GSTIN: {retailerGstin}</p>
         </div>
         <div className="text-right">
           <div className="mb-2">
             <span className="font-bold text-xs">INVOICE #:</span>{" "}
             <span className="text-xs">{orderId.slice(0, 8).toUpperCase()}</span>
           </div>
-          <div>
+          <div className="mb-2">
             <span className="font-bold text-xs">DATE:</span>{" "}
             <span className="text-xs">{new Date().toLocaleDateString("en-GB")}</span>
           </div>
+          {invoiceTime && (
+            <div className="mb-2">
+              <span className="font-bold text-xs">TIME:</span>{" "}
+              <span className="text-xs">{invoiceTime}</span>
+            </div>
+          )}
+          {beatName && (
+            <div className="mb-2">
+              <span className="font-bold text-xs">ROUTE/BEAT:</span>{" "}
+              <span className="text-xs">{beatName}</span>
+            </div>
+          )}
+          {salesmanName && (
+            <div className="mb-2">
+              <span className="font-bold text-xs">SALESMAN:</span>{" "}
+              <span className="text-xs">{salesmanName}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -174,8 +256,16 @@ export default function InvoicePreview({
         </table>
       </div>
 
+      {/* Scheme Details */}
+      {schemeDetails && schemeDetails.trim() && (
+        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+          <h3 className="font-bold text-xs mb-2 text-yellow-800">SCHEME DETAILS</h3>
+          <p className="text-xs text-yellow-700">{schemeDetails}</p>
+        </div>
+      )}
+
       {/* Totals Section */}
-      <div className="flex justify-end mb-8">
+      <div className="flex justify-end mb-4">
         <div className="w-64">
           <div className="flex justify-between mb-2">
             <span className="font-bold text-xs">SUB-TOTAL</span>
@@ -193,6 +283,13 @@ export default function InvoicePreview({
             <span className="font-bold text-sm">Total amount: ₹{total.toFixed(2)}</span>
           </div>
         </div>
+      </div>
+
+      {/* Amount in Words */}
+      <div className="mb-6 p-3 bg-gray-100 rounded">
+        <p className="text-xs">
+          <span className="font-bold">Amount in Words:</span> {totalInWords}
+        </p>
       </div>
 
       {/* Bank Details and QR Code */}
@@ -248,7 +345,7 @@ export default function InvoicePreview({
       {/* Footer */}
       <div className={`${styles.header} p-3 rounded-b-lg text-center mt-6`}>
         <p className="text-xl font-bold mb-2">THANK YOU FOR YOUR BUSINESS</p>
-        
       </div>
-    </div>;
+    </div>
+  );
 }

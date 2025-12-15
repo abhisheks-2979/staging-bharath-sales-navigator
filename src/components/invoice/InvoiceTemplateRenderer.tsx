@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import InvoicePreview from "./InvoicePreview";
+import { useAuth } from "@/hooks/useAuth";
 
 interface InvoiceTemplateRendererProps {
   orderId: string;
@@ -17,11 +18,15 @@ export default function InvoiceTemplateRenderer({
   const [company, setCompany] = useState<any>(null);
   const [retailer, setRetailer] = useState<any>(null);
   const [customTemplate, setCustomTemplate] = useState<any>(null);
+  const [beatName, setBeatName] = useState<string>("");
+  const [salesmanName, setSalesmanName] = useState<string>("");
+  const [invoiceTime, setInvoiceTime] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
     fetchData();
-  }, [orderId, retailerId]);
+  }, [orderId, retailerId, user]);
 
   const fetchData = async () => {
     try {
@@ -35,21 +40,52 @@ export default function InvoiceTemplateRenderer({
 
       if (companyData) {
         setCompany(companyData);
-        // Force default template usage everywhere (Template 4)
-        // Explicitly clear any custom template so preview always uses our default renderer
         setCustomTemplate(null);
       }
 
-      // Fetch retailer details
+      // Fetch retailer details with beat
       const { data: retailerData } = await supabase
         .from("retailers")
-        .select("*")
+        .select("*, beat_id")
         .eq("id", retailerId)
         .single();
 
       if (retailerData) {
         setRetailer(retailerData);
+        
+        // Fetch beat name if beat_id exists
+        if (retailerData.beat_id) {
+          const { data: beatData } = await supabase
+            .from("beats")
+            .select("beat_name")
+            .eq("id", retailerData.beat_id)
+            .single();
+          
+          if (beatData) {
+            setBeatName(beatData.beat_name);
+          }
+        }
       }
+
+      // Fetch salesman name from current user profile
+      if (user?.id) {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", user.id)
+          .single();
+        
+        if (profileData) {
+          setSalesmanName(profileData.full_name || "");
+        }
+      }
+
+      // Set current time as invoice time
+      setInvoiceTime(new Date().toLocaleTimeString("en-GB", { 
+        hour: "2-digit", 
+        minute: "2-digit" 
+      }));
+
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Failed to load invoice data");
@@ -67,9 +103,6 @@ export default function InvoiceTemplateRenderer({
   }
 
   // Force Template 4 everywhere regardless of company setting
-  const selectedTemplate = "template4";
-  
-  // Map template IDs to template styles
   const getTemplateStyle = (): "template1" | "template2" | "template3" | "template4" => {
     return "template4";
   };
@@ -83,6 +116,10 @@ export default function InvoiceTemplateRenderer({
           cartItems={cartItems}
           orderId={orderId}
           templateStyle={getTemplateStyle()}
+          beatName={beatName}
+          salesmanName={salesmanName}
+          invoiceTime={invoiceTime}
+          schemeDetails=""
         />
       ) : (
         <div className="border rounded-lg overflow-hidden">
