@@ -592,7 +592,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           // CRITICAL: Filter by user_id to ensure user-wise data visibility
           const retailersResult = await supabase
             .from('retailers')
-            .select('id, name, address, phone, category, parent_name, potential, user_id, beat_id, pending_amount, latitude, longitude')
+            .select('id, name, address, phone, category, parent_name, potential, user_id, beat_id, pending_amount, latitude, longitude, created_at')
             .eq('user_id', userId)
             .in('id', allRetailerIds);
 
