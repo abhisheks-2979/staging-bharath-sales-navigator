@@ -76,7 +76,7 @@ export const AddRetailer = () => {
 
   const categories = ["Category A", "Category B", "Category C"];
   const parentTypes = ["Company", "Super Stockist", "Distributor"];
-  const retailTypes = ["Grocery Store", "Supermarket", "Convenience Store", "Provision Store", "General Store", "Milk Parlour", "Hotel", "Other"];
+  const retailTypes = ["Individual stall", "Kirana store", "Super market", "Bakery", "Milk Parlour", "Hotel", "Restaurants", "Catering Services", "Business Office", "Others"];
   const potentials = ["High", "Medium", "Low"];
   
   // All Indian states and union territories
@@ -1421,7 +1421,7 @@ export const AddRetailer = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="font-semibold">Select Distributor *</Label>
+                  <Label className="font-semibold">Select Distributor</Label>
                   {retailerData.parentType === "Distributor" ? (
                     <Select 
                       value={retailerData.selectedDistributors[0] || ""} 
@@ -1473,64 +1473,12 @@ export const AddRetailer = () => {
                 </div>
               </div>
 
-              {/* State Selection with Search */}
-              <div className="space-y-2">
-                <Label className="font-semibold">State *</Label>
-                <Popover open={stateComboOpen} onOpenChange={setStateComboOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={stateComboOpen}
-                      className="w-full justify-between bg-background text-sm"
-                    >
-                      {retailerData.state || "Select state..."}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0 bg-background border z-50" align="start">
-                    <Command>
-                      <CommandInput placeholder="Search state..." />
-                      <CommandList>
-                        <CommandEmpty>No state found.</CommandEmpty>
-                        <CommandGroup className="max-h-64 overflow-y-auto">
-                          {indianStates.map((state) => (
-                            <CommandItem
-                              key={state}
-                              value={state}
-                              onSelect={() => {
-                                handleInputChange("state", state);
-                                setStateComboOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  retailerData.state === state ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {state}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
             </CardContent>
           </Card>
 
-          {/* Additional Details Collapsible */}
-          <Collapsible open={advancedOptionsOpen} onOpenChange={setAdvancedOptionsOpen}>
-            <CollapsibleTrigger asChild>
-              <Button variant="outline" className="w-full justify-between">
-                <span className="font-medium">Additional Details</span>
-                <ChevronDown className={`h-4 w-4 transition-transform ${advancedOptionsOpen ? 'rotate-180' : ''}`} />
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-4 mt-4 p-4 border rounded-lg bg-muted/20">
-              {/* Notes */}
+          {/* Notes */}
+          <Card>
+            <CardContent className="pt-4">
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes</Label>
                 <Textarea
@@ -1541,37 +1489,14 @@ export const AddRetailer = () => {
                   className="bg-background min-h-[60px]"
                 />
               </div>
-
-              {/* Quick Info */}
-              <div className="p-3 bg-muted/30 rounded-lg">
-                <h4 className="font-semibold mb-2 text-sm">Quick Info</h4>
-                <div className="space-y-1 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <Store size={12} />
-                    <span>Retailer will be added to today's visit plan</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin size={12} />
-                    <span>Location will be verified before visit</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone size={12} />
-                    <span>Contact details will be saved for future visits</span>
-                  </div>
-                </div>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+            </CardContent>
+          </Card>
 
           {/* Actions */}
           <div className="flex gap-2">
             <Button type="submit" className="flex-1" size="lg" disabled={isSaving}>
               <Plus size={16} className="mr-2" />
               {isSaving ? 'Saving...' : 'Save'}
-            </Button>
-            <Button type="button" variant="outline" className="flex-1" size="lg" onClick={handleSaveWithBeat} disabled={isSaving}>
-              <Tag size={16} className="mr-2" />
-              Add to the Beat
             </Button>
           </div>
         </form>
