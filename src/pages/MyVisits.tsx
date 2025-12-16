@@ -969,21 +969,34 @@ export const MyVisits = () => {
     return filtered.sort((a, b) => {
       if (sortOrder === 'recent') {
         // Get newly added retailer IDs from sessionStorage with timestamps
+        let timestampMap = new Map<string, number>();
         try {
           const stored = sessionStorage.getItem('newlyAddedRetailerIds');
           if (stored) {
             const parsed = JSON.parse(stored);
-            const timestampMap = new Map<string, number>(parsed.map((item: { id: string; timestamp: number }) => [item.id, item.timestamp]));
-            const aTimestamp: number = timestampMap.get(a.retailerId) || 0;
-            const bTimestamp: number = timestampMap.get(b.retailerId) || 0;
-            // Newer retailers (higher timestamp) come first
-            if (aTimestamp !== bTimestamp) {
-              return bTimestamp - aTimestamp;
+            if (Array.isArray(parsed)) {
+              parsed.forEach((item: { id: string; timestamp: number }) => {
+                if (item.id && item.timestamp) {
+                  timestampMap.set(item.id, item.timestamp);
+                }
+              });
             }
           }
         } catch (e) {
           console.error('Failed to parse newlyAddedRetailerIds:', e);
         }
+        
+        // Check both retailerId and id fields
+        const aId = a.retailerId || a.id;
+        const bId = b.retailerId || b.id;
+        const aTimestamp = timestampMap.get(aId) || 0;
+        const bTimestamp = timestampMap.get(bId) || 0;
+        
+        // Newer retailers (higher timestamp) come first
+        if (aTimestamp !== bTimestamp) {
+          return bTimestamp - aTimestamp;
+        }
+        
         // Fall back to A-Z for non-new retailers
         return a.retailerName.toLowerCase().localeCompare(b.retailerName.toLowerCase());
       }
