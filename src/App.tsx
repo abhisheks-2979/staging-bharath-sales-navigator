@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { I18nextProvider } from 'react-i18next';
 import i18n from '@/i18n/config';
 import { Toaster } from "@/components/ui/toaster";
@@ -165,7 +165,7 @@ const MasterDataCacheInitializer = () => {
 };
 
 const App = () => {
-  const [hasError, setHasError] = React.useState(false);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     const errorHandler = (event: ErrorEvent) => {
