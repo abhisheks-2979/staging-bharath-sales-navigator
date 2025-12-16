@@ -132,9 +132,24 @@ export const AddRetailerToVisitModal = ({ isOpen, onClose, retailer, onVisitCrea
 
         if (error) throw error;
       } else {
-        // Offline: Save to cache and queue for sync
+        // Offline: Save visit to cache and queue for sync
         await offlineStorage.save(STORES.VISITS, visitData);
         await offlineStorage.addToSyncQueue('CREATE_VISIT', visitData);
+        
+        // CRITICAL: Also cache the retailer data so it shows up in the visits list
+        // This ensures the retailer name displays correctly when loading from cache
+        const retailerData = {
+          id: retailer.id,
+          name: retailer.name,
+          address: retailer.address,
+          phone: retailer.phone,
+          beat_id: retailer.beat_id,
+          beat_name: retailer.beat_name,
+          user_id: user.id,
+          created_at: new Date().toISOString()
+        };
+        await offlineStorage.save(STORES.RETAILERS, retailerData);
+        console.log('📦 [OFFLINE] Cached retailer data for offline visit:', retailer.name);
       }
 
       toast({
