@@ -461,6 +461,76 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
     }
   };
 
+  // Helper to update today's beat plan with new retailer ID
+  const updateTodaysBeatPlanRetailerIds = async (retailerId: string, beatIdToUpdate: string, isOfflineMode: boolean) => {
+    const today = new Date().toISOString().split('T')[0];
+    
+    if (isOfflineMode) {
+      // OFFLINE: Update cached beat plan
+      try {
+        const cachedBeatPlans = await offlineStorage.getAll<any>(STORES.BEAT_PLANS);
+        const todaysBeatPlan = cachedBeatPlans.find((bp: any) => 
+          bp.user_id === user?.id && 
+          bp.plan_date === today && 
+          bp.beat_id === beatIdToUpdate
+        );
+        
+        if (todaysBeatPlan) {
+          const beatData = todaysBeatPlan.beat_data || {};
+          const existingRetailerIds = Array.isArray(beatData.retailer_ids) ? beatData.retailer_ids : [];
+          
+          if (!existingRetailerIds.includes(retailerId)) {
+            const updatedBeatPlan = {
+              ...todaysBeatPlan,
+              beat_data: {
+                ...beatData,
+                retailer_ids: [...existingRetailerIds, retailerId]
+              },
+              updated_at: new Date().toISOString()
+            };
+            
+            await offlineStorage.save(STORES.BEAT_PLANS, updatedBeatPlan);
+            console.log('[Offline] Updated today\'s beat plan with new retailer:', retailerId);
+          }
+        }
+      } catch (err) {
+        console.error('[Offline] Error updating beat plan:', err);
+      }
+    } else {
+      // ONLINE: Update database beat plan
+      try {
+        const { data: existingPlan } = await supabase
+          .from('beat_plans')
+          .select('id, beat_data')
+          .eq('user_id', user?.id)
+          .eq('plan_date', today)
+          .eq('beat_id', beatIdToUpdate)
+          .maybeSingle();
+        
+        if (existingPlan) {
+          const beatData = (existingPlan.beat_data as any) || {};
+          const existingRetailerIds = Array.isArray(beatData.retailer_ids) ? beatData.retailer_ids : [];
+          
+          if (!existingRetailerIds.includes(retailerId)) {
+            const updatedBeatData = {
+              ...beatData,
+              retailer_ids: [...existingRetailerIds, retailerId]
+            };
+            
+            await supabase
+              .from('beat_plans')
+              .update({ beat_data: updatedBeatData, updated_at: new Date().toISOString() })
+              .eq('id', existingPlan.id);
+            
+            console.log('[Online] Updated today\'s beat plan with new retailer:', retailerId);
+          }
+        }
+      } catch (err) {
+        console.error('[Online] Error updating beat plan:', err);
+      }
+    }
+  };
+
   // ONLINE SAVE - dispatch refresh event after saving
   const handleOnlineSave = async (payload: any) => {
     const { data, error } = await supabase.from('retailers').insert(payload).select('id, name').maybeSingle();
@@ -488,6 +558,9 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
     } catch (cacheError) {
       console.error('[Online] Failed to cache retailer:', cacheError);
     }
+    
+    // CRITICAL: Update today's beat plan retailer_ids so new retailer shows in My Visits
+    await updateTodaysBeatPlanRetailerIds(data.id, payload.beat_id, false);
     
     // Dispatch event to refresh My Visits page with new retailer ID AND full data for immediate display
     console.log('[Online] Dispatching visitDataChanged event with newRetailerId:', data.id);
@@ -526,6 +599,9 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
         retailer: payload,
         tempId: tempId
       });
+
+      // CRITICAL: Update today's beat plan retailer_ids so new retailer shows in My Visits (offline)
+      await updateTodaysBeatPlanRetailerIds(tempId, payload.beat_id, true);
 
       setIsSaving(false);
       
