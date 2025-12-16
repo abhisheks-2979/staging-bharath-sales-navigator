@@ -343,6 +343,45 @@ export const VisitCard = ({
     
     if (!currentUserId) return;
     
+    // ALWAYS fetch pending amount first - this is retailer-specific data independent of visit status caching
+    // This ensures pending payment tag is always displayed regardless of cache state
+    try {
+      const { data: retailerPendingData, error: pendingError } = await supabase
+        .from('retailers')
+        .select('pending_amount')
+        .eq('id', visitRetailerId)
+        .maybeSingle();
+      
+      if (!pendingError && retailerPendingData?.pending_amount) {
+        const newPendingAmount = Number(retailerPendingData.pending_amount);
+        if (pendingAmount !== newPendingAmount) {
+          setPendingAmount(newPendingAmount);
+        }
+        
+        // Fetch the oldest order with pending amount to get "pending since" date
+        if (!pendingSinceDate) {
+          const { data: oldestOrder } = await supabase
+            .from('orders')
+            .select('order_date')
+            .eq('retailer_id', visitRetailerId)
+            .gt('pending_amount', 0)
+            .order('order_date', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          
+          if (oldestOrder) {
+            setPendingSinceDate(oldestOrder.order_date);
+          }
+        }
+      } else if (!pendingError && !retailerPendingData?.pending_amount && pendingAmount !== 0) {
+        // Reset pending amount if no longer pending
+        setPendingAmount(0);
+        setPendingSinceDate(null);
+      }
+    } catch (err) {
+      console.error('Error fetching pending amount:', err);
+    }
+    
     // Skip if initial check is done and NOT a forced refresh (from registry notification)
     const hasInitialCheck = retailerStatusRegistry.hasInitialCheckDone(visitRetailerId);
     const needsRefresh = retailerStatusRegistry.needsRefresh(visitRetailerId);
@@ -438,28 +477,8 @@ export const VisitCard = ({
             }
           }
 
-          // Fetch pending amount for this retailer
-          const {
-            data: retailerData,
-            error: retailerError
-          } = await supabase.from('retailers').select('pending_amount').eq('id', visitRetailerId).maybeSingle();
-          if (!retailerError && retailerData?.pending_amount) {
-            setPendingAmount(Number(retailerData.pending_amount));
-            
-            // Fetch the oldest order with pending amount to get "pending since" date
-            const { data: oldestOrder } = await supabase
-              .from('orders')
-              .select('order_date')
-              .eq('retailer_id', visitRetailerId)
-              .gt('pending_amount', 0)
-              .order('order_date', { ascending: true })
-              .limit(1)
-              .maybeSingle();
-            
-            if (oldestOrder) {
-              setPendingSinceDate(oldestOrder.order_date);
-            }
-          }
+          // NOTE: Pending amount is now fetched at the start of checkStatus (before cache check)
+          // to ensure it's always displayed regardless of visit status caching
 
           // Check if analytics viewed
           const {
