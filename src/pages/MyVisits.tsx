@@ -34,6 +34,7 @@ import { schedulePrefetch } from "@/utils/backgroundProductPrefetch";
 
 interface Visit {
   id: string;
+  retailerId?: string;
   retailerName: string;
   address: string;
   phone: string;
@@ -42,6 +43,7 @@ interface Visit {
   visitType: string;
   time?: string;
   day?: string;
+  createdAt?: string;
   checkInStatus?: "not-checked-in" | "checked-in-correct" | "checked-in-wrong-location";
   hasOrder?: boolean;
   orderValue?: number;
@@ -350,6 +352,7 @@ export const MyVisits = () => {
         retailerCategory: retailer.category || '',
         status,
         visitType: 'Regular Visit',
+        createdAt: retailer.created_at || undefined,
         visitId: visit?.id,
         hasOrder,
         orderValue: totalOrderValue,
@@ -829,6 +832,7 @@ export const MyVisits = () => {
           status,
           visitType,
           day: 'Today',
+          createdAt: retailer.created_at || undefined,
           checkInStatus: hasCheckIn ? 'checked-in' as const : 'not-checked-in' as const,
           hasOrder,
           orderValue: orderTotal,
@@ -985,25 +989,32 @@ export const MyVisits = () => {
         } catch (e) {
           console.error('Failed to parse newlyAddedRetailerIds:', e);
         }
-        
+
         // Check both retailerId and id fields
         const aId = a.retailerId || a.id;
         const bId = b.retailerId || b.id;
         const aTimestamp = timestampMap.get(aId) || 0;
         const bTimestamp = timestampMap.get(bId) || 0;
-        
+
         // Newer retailers (higher timestamp) come first
         if (aTimestamp !== bTimestamp) {
           return bTimestamp - aTimestamp;
         }
-        
+
+        // Fallback: use retailer createdAt if available (covers retailers added from other screens)
+        const aCreated = a.createdAt ? Date.parse(a.createdAt) : 0;
+        const bCreated = b.createdAt ? Date.parse(b.createdAt) : 0;
+        if (!Number.isNaN(aCreated) && !Number.isNaN(bCreated) && aCreated !== bCreated) {
+          return bCreated - aCreated;
+        }
+
         // Fall back to A-Z for non-new retailers
         return a.retailerName.toLowerCase().localeCompare(b.retailerName.toLowerCase());
       }
-      
+
       const nameA = a.retailerName.toLowerCase();
       const nameB = b.retailerName.toLowerCase();
-      
+
       if (sortOrder === 'asc') {
         return nameA.localeCompare(nameB);
       } else {
