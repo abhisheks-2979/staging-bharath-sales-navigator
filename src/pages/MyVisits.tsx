@@ -972,43 +972,47 @@ export const MyVisits = () => {
     // Apply sorting
     return filtered.sort((a, b) => {
       if (sortOrder === 'recent') {
-        // Get newly added retailer IDs from sessionStorage with timestamps
-        let timestampMap = new Map<string, number>();
+        // Primary sort: use retailer createdAt from database (most reliable)
+        const aCreated = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bCreated = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        
+        // If both have valid createdAt dates, sort by newest first
+        if (aCreated > 0 || bCreated > 0) {
+          // Retailers with createdAt come before those without
+          if (aCreated > 0 && bCreated === 0) return -1;
+          if (bCreated > 0 && aCreated === 0) return 1;
+          // Both have createdAt - sort newest first
+          if (aCreated !== bCreated) {
+            return bCreated - aCreated;
+          }
+        }
+
+        // Secondary: check sessionStorage for same-session additions
         try {
           const stored = sessionStorage.getItem('newlyAddedRetailerIds');
           if (stored) {
             const parsed = JSON.parse(stored);
             if (Array.isArray(parsed)) {
+              const timestampMap = new Map<string, number>();
               parsed.forEach((item: { id: string; timestamp: number }) => {
                 if (item.id && item.timestamp) {
                   timestampMap.set(item.id, item.timestamp);
                 }
               });
+              const aId = a.retailerId || a.id;
+              const bId = b.retailerId || b.id;
+              const aTimestamp = timestampMap.get(aId) || 0;
+              const bTimestamp = timestampMap.get(bId) || 0;
+              if (aTimestamp !== bTimestamp) {
+                return bTimestamp - aTimestamp;
+              }
             }
           }
         } catch (e) {
           console.error('Failed to parse newlyAddedRetailerIds:', e);
         }
 
-        // Check both retailerId and id fields
-        const aId = a.retailerId || a.id;
-        const bId = b.retailerId || b.id;
-        const aTimestamp = timestampMap.get(aId) || 0;
-        const bTimestamp = timestampMap.get(bId) || 0;
-
-        // Newer retailers (higher timestamp) come first
-        if (aTimestamp !== bTimestamp) {
-          return bTimestamp - aTimestamp;
-        }
-
-        // Fallback: use retailer createdAt if available (covers retailers added from other screens)
-        const aCreated = a.createdAt ? Date.parse(a.createdAt) : 0;
-        const bCreated = b.createdAt ? Date.parse(b.createdAt) : 0;
-        if (!Number.isNaN(aCreated) && !Number.isNaN(bCreated) && aCreated !== bCreated) {
-          return bCreated - aCreated;
-        }
-
-        // Fall back to A-Z for non-new retailers
+        // Fall back to A-Z only if no date info available
         return a.retailerName.toLowerCase().localeCompare(b.retailerName.toLowerCase());
       }
 
