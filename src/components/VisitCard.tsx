@@ -787,6 +787,53 @@ export const VisitCard = ({
     };
   }, [myRetailerId, skipInitialCheck]); // Removed checkStatus and visit.status from deps to prevent re-running
 
+  // ALWAYS fetch pending amount for retailer - independent of visit status caching
+  // This ensures pending payment tag is always displayed regardless of skipInitialCheck or cache state
+  useEffect(() => {
+    const fetchPendingAmount = async () => {
+      const visitRetailerId = visit.retailerId || visit.id;
+      
+      try {
+        const { data: retailerPendingData, error: pendingError } = await supabase
+          .from('retailers')
+          .select('pending_amount')
+          .eq('id', visitRetailerId)
+          .maybeSingle();
+        
+        if (!pendingError && retailerPendingData?.pending_amount) {
+          const newPendingAmount = Number(retailerPendingData.pending_amount);
+          if (pendingAmount !== newPendingAmount) {
+            setPendingAmount(newPendingAmount);
+          }
+          
+          // Fetch the oldest order with pending amount to get "pending since" date
+          if (!pendingSinceDate && newPendingAmount > 0) {
+            const { data: oldestOrder } = await supabase
+              .from('orders')
+              .select('order_date')
+              .eq('retailer_id', visitRetailerId)
+              .gt('pending_amount', 0)
+              .order('order_date', { ascending: true })
+              .limit(1)
+              .maybeSingle();
+            
+            if (oldestOrder) {
+              setPendingSinceDate(oldestOrder.order_date);
+            }
+          }
+        } else if (!pendingError && !retailerPendingData?.pending_amount && pendingAmount !== 0) {
+          // Reset pending amount if no longer pending
+          setPendingAmount(0);
+          setPendingSinceDate(null);
+        }
+      } catch (err) {
+        console.error('Error fetching pending amount:', err);
+      }
+    };
+    
+    fetchPendingAmount();
+  }, [myRetailerId]); // Only depend on retailerId, run once per retailer
+
   // Listen for custom events to refresh status - trigger full data reload
   useEffect(() => {
     const handleStatusChange = async (event: any) => {
