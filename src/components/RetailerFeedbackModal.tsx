@@ -124,8 +124,8 @@ export const RetailerFeedbackModal = ({
       const feedbackData = {
         user_id: user.id,
         retailer_id: retailerId,
-        visit_id: visitId || null,
-        feedback_type: 'retailer_feedback',
+        visit_id: visitId && visitId.length > 10 ? visitId : null,
+        feedback_type: 'product_feedback',
         feedback_date: new Date().toISOString().split('T')[0],
         product_packaging: feedback.product_packaging,
         product_sku_range: feedback.product_sku_range,

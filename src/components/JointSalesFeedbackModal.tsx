@@ -264,11 +264,14 @@ export const JointSalesFeedbackModal = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Ensure visit_id is either a valid UUID or null (not empty string)
+      const validVisitId = visitId && visitId.length > 10 ? visitId : null;
+      
       const feedbackData: any = {
         manager_id: selectedManagerId,
         fse_user_id: user.id,
         retailer_id: retailerId,
-        visit_id: visitId || null,
+        visit_id: validVisitId,
         feedback_date: new Date().toISOString().split('T')[0],
         product_packaging_feedback: feedback.product_packaging_feedback || null,
         product_sku_range_feedback: feedback.product_sku_range_feedback || null,
