@@ -74,8 +74,44 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // Cache for date-based data to enable instant switching
   const dateDataCacheRef = useRef<Map<string, { beatPlans: any[], visits: any[], retailers: any[], orders: any[], progressStats: ProgressStats, timestamp: number }>>(new Map());
+  
   // Track newly added retailer IDs to put them at the top of the list
-  const newlyAddedRetailerIdsRef = useRef<Set<string>>(new Set());
+  // CRITICAL: Initialize from sessionStorage so it persists across navigation
+  const getInitialNewRetailerIds = (): Set<string> => {
+    try {
+      const stored = sessionStorage.getItem('newlyAddedRetailerIds');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Only keep IDs from last 30 minutes
+        const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
+        const validIds = parsed.filter((item: { id: string; timestamp: number }) => item.timestamp > thirtyMinutesAgo);
+        if (validIds.length !== parsed.length) {
+          sessionStorage.setItem('newlyAddedRetailerIds', JSON.stringify(validIds));
+        }
+        return new Set(validIds.map((item: { id: string }) => item.id));
+      }
+    } catch (e) {
+      console.error('Failed to load newlyAddedRetailerIds from sessionStorage:', e);
+    }
+    return new Set<string>();
+  };
+  
+  const newlyAddedRetailerIdsRef = useRef<Set<string>>(getInitialNewRetailerIds());
+  
+  // Helper to persist new retailer ID to sessionStorage
+  const persistNewRetailerId = (retailerId: string) => {
+    try {
+      const stored = sessionStorage.getItem('newlyAddedRetailerIds');
+      const existing = stored ? JSON.parse(stored) : [];
+      // Add new ID with timestamp
+      existing.push({ id: retailerId, timestamp: Date.now() });
+      sessionStorage.setItem('newlyAddedRetailerIds', JSON.stringify(existing));
+      newlyAddedRetailerIdsRef.current.add(retailerId);
+      console.log('📌 [PERSIST] Saved new retailer ID to sessionStorage:', retailerId);
+    } catch (e) {
+      console.error('Failed to persist newlyAddedRetailerId:', e);
+    }
+  };
 
   // Helper to check if date is in the past (before today)
   const isOldDate = useCallback((dateStr: string): boolean => {
@@ -765,12 +801,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             if (!aIsNew && bIsNew) return 1;
             return 0; // Keep original order for non-new retailers
           });
-          // Don't clear the set immediately - let it persist for a bit to handle multiple re-renders
-          // Clear after 5 seconds to avoid permanent tracking
-          setTimeout(() => {
-            console.log('📌 [useVisitsDataOptimized] Clearing newlyAddedRetailerIds after timeout');
-            newlyAddedRetailerIdsRef.current.clear();
-          }, 5000);
+          // NOTE: IDs are now managed via sessionStorage with 30-minute expiry - no setTimeout clear
         }
         
         setRetailers(finalRetailers);
@@ -1003,7 +1034,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       
       if (newRetailerId) {
         console.log('📌 [useVisitsDataOptimized] New retailer added:', newRetailerId);
-        newlyAddedRetailerIdsRef.current.add(newRetailerId);
+        persistNewRetailerId(newRetailerId);
         
         // IMMEDIATE UPDATE: If we have retailer data, add to current retailers immediately
         if (newRetailerData) {
