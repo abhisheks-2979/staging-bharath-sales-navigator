@@ -49,6 +49,7 @@ interface Visit {
   status: "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
   visitType: string;
   time?: string;
+  createdAt?: string;
   checkInStatus?: "not-checked-in" | "checked-in-correct" | "checked-in-wrong-location";
   hasOrder?: boolean;
   orderValue?: number;
@@ -1893,6 +1894,15 @@ export const VisitCard = ({
                 {stockRecordCount} Stock{stockRecordCount !== 1 ? 's' : ''}
               </Badge>}
             <div className="text-xs text-muted-foreground">{visit.retailerCategory}</div>
+            {visit.createdAt && (
+              <div className="text-[10px] text-muted-foreground/70">
+                Added: {new Date(visit.createdAt).toLocaleDateString('en-IN', { 
+                  day: 'numeric', 
+                  month: 'short', 
+                  year: 'numeric' 
+                })}
+              </div>
+            )}
           </div>
         </div>
 

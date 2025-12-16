@@ -12,6 +12,7 @@ interface Visit {
   visitType: string;
   time?: string;
   day?: string;
+  createdAt?: string;
   checkInStatus?: "not-checked-in" | "checked-in-correct" | "checked-in-wrong-location";
   hasOrder?: boolean;
   orderValue?: number;
