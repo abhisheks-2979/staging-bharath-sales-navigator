@@ -238,27 +238,26 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         const visitRetailerIds = filteredVisits.map((v: any) => v.retailer_id);
         const orderRetailerIds = filteredOrders.map((o: any) => o.retailer_id);
 
-        // Extract retailer IDs from beat_data.retailer_ids if explicitly specified AND has actual items
-        let plannedRetailerIds: string[] = [];
+        // Extract retailer IDs from beat_data.retailer_ids if explicitly specified
+        let explicitRetailerIds: string[] = [];
         for (const beatPlan of filteredBeatPlans) {
           const beatData = (beatPlan as any).beat_data as any;
           if (beatData && Array.isArray(beatData.retailer_ids) && beatData.retailer_ids.length > 0) {
-            plannedRetailerIds.push(...beatData.retailer_ids);
+            explicitRetailerIds.push(...beatData.retailer_ids);
           }
         }
 
-        // ALWAYS fall back to beat_id matching if we found no retailer_ids from beat_data
-        // This ensures retailers are shown even when beat_data.retailer_ids is empty [] or undefined
+        // ALWAYS ALSO get retailers by beat_id matching (union, not fallback)
+        // This ensures newly added retailers appear even if beat_data.retailer_ids wasn't updated
         const plannedBeatIds = filteredBeatPlans.map((bp: any) => bp.beat_id);
-        if (plannedRetailerIds.length === 0 && plannedBeatIds.length > 0) {
-          const beatRetailers = cachedRetailers.filter((r: any) => 
-            r.user_id === userId && plannedBeatIds.includes(r.beat_id)
-          );
-          plannedRetailerIds = beatRetailers.map((r: any) => r.id);
-          console.log('📦 [CACHE] Fallback to beat_id matching:', plannedRetailerIds.length, 'retailers for', plannedBeatIds.length, 'beats');
-        } else if (plannedRetailerIds.length > 0) {
-          console.log('📦 [CACHE] Using explicit retailer_ids from beat_data:', plannedRetailerIds.length, 'retailers');
-        }
+        const beatRetailers = cachedRetailers.filter((r: any) => 
+          r.user_id === userId && plannedBeatIds.includes(r.beat_id)
+        );
+        const beatRetailerIds = beatRetailers.map((r: any) => r.id);
+        
+        // UNION both sources: explicit IDs from beat_data + all retailers matching beat_id
+        const plannedRetailerIds = Array.from(new Set([...explicitRetailerIds, ...beatRetailerIds]));
+        console.log('📦 [CACHE] Retailer IDs - explicit:', explicitRetailerIds.length, 'beat_id match:', beatRetailerIds.length, 'union:', plannedRetailerIds.length);
         
         // Combine all retailer IDs: from visits, explicit beat_data.retailer_ids/beat_id fallback, AND orders
         const allRetailerIds = Array.from(new Set([...visitRetailerIds, ...plannedRetailerIds, ...orderRetailerIds]));
@@ -483,47 +482,41 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         // Get all retailer IDs we need
         const visitRetailerIds = (visitsData || []).map((v: any) => v.retailer_id);
         
-        // Extract retailer IDs from beat_data.retailer_ids if specified AND has actual items
-        let plannedRetailerIds: string[] = [];
+        // Extract retailer IDs from beat_data.retailer_ids if specified
+        let explicitRetailerIds: string[] = [];
         for (const beatPlan of beatPlansData) {
           const beatData = beatPlan.beat_data as any;
           if (beatData && Array.isArray(beatData.retailer_ids) && beatData.retailer_ids.length > 0) {
-            plannedRetailerIds.push(...beatData.retailer_ids);
+            explicitRetailerIds.push(...beatData.retailer_ids);
           }
         }
         
-        console.log('📋 Planned retailer IDs from beat_data:', plannedRetailerIds.length);
+        console.log('📋 Explicit retailer IDs from beat_data:', explicitRetailerIds.length);
         
-        // ALWAYS fall back to fetching by beat_id if no retailer_ids found from beat_data
-        // This ensures retailers are shown even when beat_data.retailer_ids is empty [] or undefined
+        // ALWAYS ALSO fetch retailers by beat_id (union, not fallback)
+        // This ensures newly added retailers appear even if beat_data.retailer_ids wasn't updated
         const plannedBeatIds = (beatPlansData || []).map((bp: any) => bp.beat_id);
-        console.log('🔍 [DEBUG] plannedBeatIds:', plannedBeatIds.length, 'plannedRetailerIds from beat_data:', plannedRetailerIds.length);
+        console.log('🔍 [DEBUG] plannedBeatIds:', plannedBeatIds.length, 'explicitRetailerIds from beat_data:', explicitRetailerIds.length);
         
-        if (plannedRetailerIds.length === 0 && plannedBeatIds.length > 0) {
-          console.log('🔍 [DEBUG] Fallback - fetching retailers by beat_id:', plannedBeatIds);
-          
-          const { data: plannedRetailers, error: retailersError } = await supabase
+        let beatRetailerIds: string[] = [];
+        if (plannedBeatIds.length > 0) {
+          const { data: beatRetailers, error: retailersError } = await supabase
             .from('retailers')
             .select('id')
             .eq('user_id', userId)
             .in('beat_id', plannedBeatIds);
 
-          console.log('🔍 [DEBUG] Fallback query result:', { 
-            error: retailersError, 
-            count: plannedRetailers?.length,
-            userId,
-            plannedBeatIds 
-          });
-
           if (retailersError) {
-            console.error('Error fetching planned retailers:', retailersError);
+            console.error('Error fetching retailers by beat_id:', retailersError);
           } else {
-            plannedRetailerIds = (plannedRetailers || []).map((r: any) => r.id);
-            console.log('📋 Found', plannedRetailerIds.length, 'retailers for', plannedBeatIds.length, 'planned beats (fallback by beat_id)');
+            beatRetailerIds = (beatRetailers || []).map((r: any) => r.id);
+            console.log('📋 Found', beatRetailerIds.length, 'retailers by beat_id match');
           }
-        } else if (plannedRetailerIds.length > 0) {
-          console.log('📋 Using', plannedRetailerIds.length, 'specific retailers from beat plan data');
         }
+        
+        // UNION both sources: explicit IDs from beat_data + all retailers matching beat_id
+        const plannedRetailerIds = Array.from(new Set([...explicitRetailerIds, ...beatRetailerIds]));
+        console.log('📋 Union result:', plannedRetailerIds.length, 'total planned retailers');
 
         // IMPORTANT: Also fetch orders for today to get retailer IDs from orders
         // This ensures retailers with orders show up even if not in planned beats or visits
