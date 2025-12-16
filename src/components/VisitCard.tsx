@@ -39,6 +39,7 @@ import { retailerStatusRegistry } from "@/lib/retailerStatusRegistry";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
 import { RetailerDetailModal } from "./RetailerDetailModal";
+import { FeedbackListView } from "./FeedbackListView";
 interface Visit {
   id: string;
   retailerId?: string;
@@ -109,6 +110,7 @@ export const VisitCard = ({
   const [hasBrandingRequest, setHasBrandingRequest] = useState(false);
   const [hasCompetitionData, setHasCompetitionData] = useState(false);
   const [feedbackViewMode, setFeedbackViewMode] = useState<'menu' | 'list'>('menu');
+  const [feedbackListType, setFeedbackListType] = useState<'retailer' | 'branding' | 'competition' | 'joint-sales' | null>(null);
   const { user } = useAuth();
   const [hasOrderToday, setHasOrderToday] = useState(!!visit.hasOrder);
   const [actualOrderValue, setActualOrderValue] = useState<number>(0);
@@ -2626,7 +2628,7 @@ export const VisitCard = ({
               <Button 
                 variant="outline" 
                 className={`w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-primary/5 hover:border-primary/50 transition-all group ${hasRetailerFeedback ? 'border-green-300 bg-green-50/50 dark:bg-green-900/20' : ''}`} 
-                onClick={() => setFeedbackActiveTab("retailer-feedback")}
+                onClick={() => { setFeedbackListType('retailer'); setShowFeedbackModal(false); }}
               >
                 <div className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${hasRetailerFeedback ? 'bg-green-100 dark:bg-green-900/50' : 'bg-blue-100 dark:bg-blue-900/30 group-hover:bg-blue-200 dark:group-hover:bg-blue-800/50'}`}>
                   <MessageSquare size={22} className={hasRetailerFeedback ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'} />
@@ -2643,7 +2645,7 @@ export const VisitCard = ({
               <Button 
                 variant="outline" 
                 className={`w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-primary/5 hover:border-primary/50 transition-all group ${hasBrandingRequest ? 'border-green-300 bg-green-50/50 dark:bg-green-900/20' : ''}`} 
-                onClick={() => setFeedbackActiveTab("branding")}
+                onClick={() => { setFeedbackListType('branding'); setShowFeedbackModal(false); }}
               >
                 <div className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${hasBrandingRequest ? 'bg-green-100 dark:bg-green-900/50' : 'bg-orange-100 dark:bg-orange-900/30 group-hover:bg-orange-200 dark:group-hover:bg-orange-800/50'}`}>
                   <Paintbrush size={22} className={hasBrandingRequest ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'} />
@@ -2661,7 +2663,7 @@ export const VisitCard = ({
                 <Button 
                   variant="outline" 
                   className={`w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-primary/5 hover:border-primary/50 transition-all group ${hasJointSalesFeedback ? 'border-green-300 bg-green-50/50 dark:bg-green-900/20' : ''}`} 
-                  onClick={() => setFeedbackActiveTab("joint-sales-feedback")}
+                  onClick={() => { setFeedbackListType('joint-sales'); setShowFeedbackModal(false); }}
                 >
                   <div className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${hasJointSalesFeedback ? 'bg-green-100 dark:bg-green-900/50' : 'bg-green-100 dark:bg-green-900/30 group-hover:bg-green-200 dark:group-hover:bg-green-800/50'}`}>
                     <Users size={22} className={hasJointSalesFeedback ? 'text-green-600 dark:text-green-400' : 'text-green-600 dark:text-green-400'} />
@@ -2680,7 +2682,7 @@ export const VisitCard = ({
                 <Button 
                   variant="outline" 
                   className={`w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-300 dark:hover:border-purple-700 transition-all group ${hasJointSalesFeedback ? 'border-green-300 bg-green-50/50 dark:bg-green-900/20' : ''}`} 
-                  onClick={() => setFeedbackActiveTab("joint-sales-feedback")}
+                  onClick={() => { setFeedbackListType('joint-sales'); setShowFeedbackModal(false); }}
                 >
                   <div className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${hasJointSalesFeedback ? 'bg-green-100 dark:bg-green-900/50' : 'bg-purple-100 dark:bg-purple-900/30 group-hover:bg-purple-200 dark:group-hover:bg-purple-800/50'}`}>
                     <UserCheck size={22} className={hasJointSalesFeedback ? 'text-green-600 dark:text-green-400' : 'text-purple-600 dark:text-purple-400'} />
@@ -2698,7 +2700,7 @@ export const VisitCard = ({
               <Button 
                 variant="outline" 
                 className={`w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300 dark:hover:border-red-700 transition-all group ${hasCompetitionData ? 'border-green-300 bg-green-50/50 dark:bg-green-900/20' : ''}`} 
-                onClick={() => setFeedbackActiveTab("competition")}
+                onClick={() => { setFeedbackListType('competition'); setShowFeedbackModal(false); }}
               >
                 <div className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${hasCompetitionData ? 'bg-green-100 dark:bg-green-900/50' : 'bg-red-100 dark:bg-red-900/30 group-hover:bg-red-200 dark:group-hover:bg-red-800/50'}`}>
                   <BarChart3 size={22} className={hasCompetitionData ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
@@ -2795,6 +2797,27 @@ export const VisitCard = ({
             onClose={() => setShowRetailerOverview(false)}
             retailer={retailerOverviewData}
             onSuccess={() => {}}
+          />
+        )}
+
+        {/* Feedback List Views */}
+        {feedbackListType && (
+          <FeedbackListView
+            isOpen={!!feedbackListType}
+            onClose={() => setFeedbackListType(null)}
+            feedbackType={feedbackListType}
+            retailerId={(visit.retailerId || visit.id) as string}
+            retailerName={visit.retailerName}
+            visitId={currentVisitId}
+            selectedDate={selectedDate}
+            onAddNew={() => {
+              setFeedbackListType(null);
+              if (feedbackListType === 'retailer') setFeedbackActiveTab('retailer-feedback');
+              else if (feedbackListType === 'branding') setFeedbackActiveTab('branding');
+              else if (feedbackListType === 'joint-sales') setFeedbackActiveTab('joint-sales-feedback');
+              else if (feedbackListType === 'competition') setFeedbackActiveTab('competition');
+              setShowFeedbackModal(true);
+            }}
           />
         )}
       </CardContent>

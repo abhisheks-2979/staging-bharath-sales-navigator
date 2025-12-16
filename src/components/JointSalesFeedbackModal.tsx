@@ -264,8 +264,20 @@ export const JointSalesFeedbackModal = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Ensure visit_id is either a valid UUID or null (not empty string)
-      const validVisitId = visitId && visitId.length > 10 ? visitId : null;
+      // Validate visit_id exists in visits table before using it
+      let validVisitId: string | null = null;
+      if (visitId && visitId.length === 36) {
+        // Check if this visit_id actually exists in the visits table
+        const { data: visitExists } = await supabase
+          .from('visits')
+          .select('id')
+          .eq('id', visitId)
+          .maybeSingle();
+        
+        if (visitExists) {
+          validVisitId = visitId;
+        }
+      }
       
       const feedbackData: any = {
         manager_id: selectedManagerId,
