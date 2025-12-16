@@ -131,6 +131,159 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     return checkDate.getTime() === today.getTime();
   }, []);
 
+  // Background network sync - fires and forgets, updates cache and state only if data changed
+  const backgroundNetworkSync = useCallback(async (syncUserId: string, syncDate: string) => {
+    if (!navigator.onLine) return;
+    
+    console.log('🔄 [BG-SYNC] Background network sync starting for:', syncDate);
+    
+    try {
+      const dateStart = new Date(syncDate);
+      dateStart.setHours(0, 0, 0, 0);
+      const dateEnd = new Date(syncDate);
+      dateEnd.setHours(23, 59, 59, 999);
+
+      const [beatPlansResult, visitsResult, ordersResult] = await Promise.all([
+        supabase
+          .from('beat_plans')
+          .select('*')
+          .eq('user_id', syncUserId)
+          .eq('plan_date', syncDate),
+        supabase
+          .from('visits')
+          .select('id, retailer_id, status, no_order_reason, planned_date, user_id, check_in_time, check_out_time, created_at')
+          .eq('user_id', syncUserId)
+          .eq('planned_date', syncDate),
+        supabase
+          .from('orders')
+          .select('id, retailer_id, total_amount, status, order_date, user_id, created_at')
+          .eq('user_id', syncUserId)
+          .eq('status', 'confirmed')
+          .eq('order_date', syncDate)
+      ]);
+
+      if (beatPlansResult.error || visitsResult.error || ordersResult.error) {
+        console.log('🔄 [BG-SYNC] Network error, skipping update');
+        return;
+      }
+
+      const beatPlansData = beatPlansResult.data || [];
+      const visitsData = visitsResult.data || [];
+      const ordersData = ordersResult.data || [];
+
+      // Get all retailer IDs needed
+      const visitRetailerIds = visitsData.map((v: any) => v.retailer_id);
+      const orderRetailerIds = ordersData.map((o: any) => o.retailer_id);
+      
+      let explicitRetailerIds: string[] = [];
+      for (const beatPlan of beatPlansData) {
+        const beatData = beatPlan.beat_data as any;
+        if (beatData && Array.isArray(beatData.retailer_ids) && beatData.retailer_ids.length > 0) {
+          explicitRetailerIds.push(...beatData.retailer_ids);
+        }
+      }
+      
+      const plannedBeatIds = beatPlansData.map((bp: any) => bp.beat_id);
+      let beatRetailerIds: string[] = [];
+      
+      if (plannedBeatIds.length > 0) {
+        const { data: beatRetailers } = await supabase
+          .from('retailers')
+          .select('id')
+          .eq('user_id', syncUserId)
+          .in('beat_id', plannedBeatIds);
+        beatRetailerIds = (beatRetailers || []).map((r: any) => r.id);
+      }
+      
+      const plannedRetailerIds = Array.from(new Set([...explicitRetailerIds, ...beatRetailerIds]));
+      const allRetailerIds = Array.from(new Set([...visitRetailerIds, ...plannedRetailerIds, ...orderRetailerIds]));
+      
+      let retailersData: any[] = [];
+      if (allRetailerIds.length > 0) {
+        const { data: retailers } = await supabase
+          .from('retailers')
+          .select('id, name, address, phone, category, parent_name, potential, user_id, beat_id, pending_amount, latitude, longitude, created_at')
+          .eq('user_id', syncUserId)
+          .in('id', allRetailerIds);
+        retailersData = retailers || [];
+      }
+
+      // Calculate progress stats
+      const retailersWithOrders = new Set(ordersData.map((o: any) => o.retailer_id));
+      let planned = 0, productive = 0, unproductive = 0;
+      const countedRetailers = new Set<string>();
+      
+      const latestVisitsByRetailer = new Map<string, any>();
+      visitsData.forEach((visit: any) => {
+        const existingVisit = latestVisitsByRetailer.get(visit.retailer_id);
+        if (!existingVisit || new Date(visit.created_at) > new Date(existingVisit.created_at)) {
+          latestVisitsByRetailer.set(visit.retailer_id, visit);
+        }
+      });
+      
+      latestVisitsByRetailer.forEach((visit: any) => {
+        const hasOrder = retailersWithOrders.has(visit.retailer_id);
+        countedRetailers.add(visit.retailer_id);
+        if (hasOrder) productive++;
+        else if (visit.status === 'unproductive') unproductive++;
+        else if (visit.status === 'productive') productive++;
+        else planned++;
+      });
+      
+      retailersWithOrders.forEach((rid: string) => {
+        if (!countedRetailers.has(rid)) {
+          productive++;
+          countedRetailers.add(rid);
+        }
+      });
+      
+      retailersData.forEach((r: any) => {
+        if (!countedRetailers.has(r.id)) planned++;
+      });
+
+      const newStats = { 
+        planned, 
+        productive, 
+        unproductive, 
+        totalOrders: ordersData.length, 
+        totalOrderValue: ordersData.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0) 
+      };
+
+      // Update in-memory cache
+      dateDataCacheRef.current.set(syncDate, {
+        beatPlans: beatPlansData,
+        visits: visitsData,
+        retailers: retailersData,
+        orders: ordersData,
+        progressStats: newStats,
+        timestamp: Date.now()
+      });
+
+      // Update offline storage in background
+      Promise.all([
+        ...beatPlansData.map(plan => offlineStorage.save(STORES.BEAT_PLANS, plan)),
+        ...visitsData.map(visit => offlineStorage.save(STORES.VISITS, visit)),
+        ...retailersData.map(retailer => offlineStorage.save(STORES.RETAILERS, retailer)),
+        ...ordersData.map(order => offlineStorage.save(STORES.ORDERS, order))
+      ]).catch(console.error);
+
+      // Only update React state if this is still the current date being viewed
+      // This prevents stale updates from overwriting newer data
+      if (lastLoadedDateRef.current === syncDate) {
+        console.log('🔄 [BG-SYNC] Updating state with fresh data');
+        setBeatPlans(beatPlansData);
+        setVisits(visitsData);
+        setOrders(ordersData);
+        if (retailersData.length > 0) setRetailers(retailersData);
+        setProgressStats(newStats);
+      }
+      
+      console.log('✅ [BG-SYNC] Background sync complete for:', syncDate);
+    } catch (error) {
+      console.log('🔄 [BG-SYNC] Background sync failed (silent):', error);
+    }
+  }, []);
+
   // CACHE-FIRST LOADING: Load from cache immediately, sync in background
   const loadData = useCallback(async (forceRefresh = false) => {
     if (!userId || !selectedDate) {
@@ -436,11 +589,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       console.log('Cache read error (non-critical):', cacheError);
     }
 
-    // SMART NETWORK STRATEGY:
-    // - Old dates (before today): Skip network ONLY if we have actual retailers loaded
-    //   Empty cache for old dates should still try network once
-    // - Today: Always fetch fresh data when online
-    // - Future dates: Fetch to check for beat plan updates
+    // SMART NETWORK STRATEGY - CACHE-FIRST, NEVER BLOCK UI:
+    // If cache has data, we're DONE loading - network sync happens in background only
+    // This ensures instant UI response even on slow internet
+    
     const shouldSkipNetwork = isOldDate(selectedDate) && hasLoadedFromCache && loadedRetailersCount > 0;
     
     if (shouldSkipNetwork) {
@@ -454,9 +606,32 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       return;
     }
 
-  // STEP 2: Background sync from network if online
+    // CRITICAL: If cache loaded with data, UI is ready - network sync is background-only
+    if (hasLoadedFromCache && loadedRetailersCount > 0) {
+      console.log('✅ [CACHE-FIRST] Cache loaded successfully, network sync in background');
+      setIsLoading(false);
+      isLoadingRef.current = false;
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+      
+      // Fire background sync without blocking - fire and forget
+      if (navigator.onLine) {
+        const bgSelectedDate = selectedDate;
+        const bgUserId = userId;
+        requestIdleCallback?.(() => {
+          backgroundNetworkSync(bgUserId, bgSelectedDate);
+        }) || setTimeout(() => {
+          backgroundNetworkSync(bgUserId, bgSelectedDate);
+        }, 100);
+      }
+      return;
+    }
+
+  // STEP 2: Only await network if cache had no data (first load scenario)
     if (navigator.onLine) {
-      console.log('🌐 [VisitsData] Device is online, fetching fresh data from network...');
+      console.log('🌐 [VisitsData] No cache data, fetching from network (first load)...');
       try {
         // Calculate date range for queries
         const dateStart = new Date(selectedDate);

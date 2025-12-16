@@ -345,35 +345,50 @@ export const OrderEntry = () => {
     selectedDate: new Date().toISOString().split('T')[0]
   });
   
-  // Fetch retailer coordinates
+  // Fetch retailer coordinates - CACHE FIRST, non-blocking
   useEffect(() => {
-    const fetchRetailerCoordinates = async () => {
-      if (!validRetailerId) return;
+    if (!validRetailerId) return;
+    
+    const loadRetailerCoordinates = async () => {
+      console.log('📍 Loading retailer coordinates for:', validRetailerId);
       
-      console.log('📍 Fetching retailer coordinates for:', validRetailerId);
-      
+      // 1. Try cache first (instant) - from offlineStorage
       try {
-        const { data, error } = await supabase
-          .from('retailers')
-          .select('latitude, longitude')
-          .eq('id', validRetailerId)
-          .single();
+        const { offlineStorage, STORES } = await import('@/lib/offlineStorage');
+        const cachedRetailers = await offlineStorage.getAll<any>(STORES.RETAILERS);
+        const cachedRetailer = cachedRetailers.find((r: any) => r.id === validRetailerId);
         
-        console.log('📍 Retailer coordinates fetched:', { data, error });
-        
-        if (!error && data) {
-          const lat = data.latitude;
-          const lng = data.longitude;
-          console.log('📍 Setting retailer coordinates:', { lat, lng, type_lat: typeof lat, type_lng: typeof lng });
-          setRetailerLat(lat);
-          setRetailerLng(lng);
+        if (cachedRetailer?.latitude && cachedRetailer?.longitude) {
+          console.log('📍 Using cached coordinates:', { lat: cachedRetailer.latitude, lng: cachedRetailer.longitude });
+          setRetailerLat(cachedRetailer.latitude);
+          setRetailerLng(cachedRetailer.longitude);
         }
-      } catch (error) {
-        console.error('Error fetching retailer coordinates:', error);
+      } catch (cacheError) {
+        console.log('📍 Cache read failed (non-critical):', cacheError);
+      }
+      
+      // 2. Background network fetch - fire and forget, don't block
+      if (navigator.onLine) {
+        const fetchFromNetwork = () => {
+          supabase
+            .from('retailers')
+            .select('latitude, longitude')
+            .eq('id', validRetailerId)
+            .single()
+            .then(({ data, error }) => {
+              if (!error && data?.latitude && data?.longitude) {
+                console.log('📍 Updated coordinates from network:', { lat: data.latitude, lng: data.longitude });
+                setRetailerLat(data.latitude);
+                setRetailerLng(data.longitude);
+              }
+            });
+        };
+        
+        requestIdleCallback?.(fetchFromNetwork) || setTimeout(fetchFromNetwork, 50);
       }
     };
     
-    fetchRetailerCoordinates();
+    loadRetailerCoordinates();
   }, [validRetailerId]);
 
   // Debug location tracking state
