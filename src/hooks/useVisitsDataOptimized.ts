@@ -143,7 +143,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       const dateEnd = new Date(syncDate);
       dateEnd.setHours(23, 59, 59, 999);
 
-      const [beatPlansResult, visitsResult, ordersResult] = await Promise.all([
+      const [beatPlansResult, visitsResult, ordersResult, pointsResult] = await Promise.all([
         supabase
           .from('beat_plans')
           .select('*')
@@ -159,10 +159,16 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           .select('id, retailer_id, total_amount, status, order_date, user_id, created_at')
           .eq('user_id', syncUserId)
           .eq('status', 'confirmed')
-          .eq('order_date', syncDate)
+          .eq('order_date', syncDate),
+        supabase
+          .from('gamification_points')
+          .select('points, reference_id, reference_type')
+          .eq('user_id', syncUserId)
+          .gte('earned_at', dateStart.toISOString())
+          .lte('earned_at', dateEnd.toISOString())
       ]);
 
-      if (beatPlansResult.error || visitsResult.error || ordersResult.error) {
+      if (beatPlansResult.error || visitsResult.error || ordersResult.error || pointsResult.error) {
         console.log('🔄 [BG-SYNC] Network error, skipping update');
         return;
       }
@@ -170,6 +176,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       const beatPlansData = beatPlansResult.data || [];
       const visitsData = visitsResult.data || [];
       const ordersData = ordersResult.data || [];
+      const pointsRawData = pointsResult.data || [];
 
       // Get all retailer IDs needed
       const visitRetailerIds = visitsData.map((v: any) => v.retailer_id);
@@ -270,12 +277,32 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       // Only update React state if this is still the current date being viewed
       // This prevents stale updates from overwriting newer data
       if (lastLoadedDateRef.current === syncDate) {
-        console.log('🔄 [BG-SYNC] Updating state with fresh data');
+        // Calculate points data for state update
+        const totalPoints = pointsRawData.reduce((sum: number, item: any) => sum + item.points, 0);
+        const retailerPointsMap = new Map<string, { name: string; points: number; visitId: string | null }>();
+        const retailerNamesMap = new Map<string, string>();
+        retailersData.forEach((r: any) => retailerNamesMap.set(r.id, r.name));
+        visitsData.forEach((visit: any) => {
+          const retailerId = visit.retailer_id;
+          const retailerPoints = pointsRawData
+            .filter((p: any) => p.reference_id === retailerId)
+            .reduce((sum: number, p: any) => sum + p.points, 0);
+          if (retailerPoints > 0) {
+            retailerPointsMap.set(retailerId, {
+              name: retailerNamesMap.get(retailerId) || 'Unknown Retailer',
+              points: retailerPoints,
+              visitId: visit.id
+            });
+          }
+        });
+        
+        console.log('🔄 [BG-SYNC] Updating state with fresh data, points:', totalPoints);
         setBeatPlans(beatPlansData);
         setVisits(visitsData);
         setOrders(ordersData);
         if (retailersData.length > 0) setRetailers(retailersData);
         setProgressStats(newStats);
+        setPointsData({ total: totalPoints, byRetailer: retailerPointsMap });
       }
       
       console.log('✅ [BG-SYNC] Background sync complete for:', syncDate);
