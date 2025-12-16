@@ -1990,7 +1990,16 @@ export const OrderEntry = () => {
                         console.log('⚠️ Cart clear skipped:', storageError);
                       }
                       
-                      window.dispatchEvent(new Event('visitDataChanged'));
+                      // CRITICAL: Dispatch visitStatusChanged with proper details for progress stats update
+                      window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+                        detail: { 
+                          visitId: effectiveVisitId, 
+                          status: 'unproductive', 
+                          retailerId,
+                          noOrderReason: finalReason
+                        }
+                      }));
+                      console.log('✅ NO ORDER OFFLINE: Dispatched visitStatusChanged event');
                       
                       setTimeout(() => {
                         navigate("/visits/retailers");
@@ -2075,9 +2084,16 @@ export const OrderEntry = () => {
                           duration: 3000
                         });
                         
-                        // Trigger refresh and navigate
-                        window.dispatchEvent(new Event('visitDataChanged'));
-                        console.log('✅ NO ORDER: Dispatched visitDataChanged event');
+                        // CRITICAL: Dispatch visitStatusChanged for progress stats update
+                        window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+                          detail: { 
+                            visitId: effectiveVisitId, 
+                            status: 'unproductive', 
+                            retailerId,
+                            noOrderReason: finalReason
+                          }
+                        }));
+                        console.log('✅ NO ORDER: Dispatched visitStatusChanged event');
                         
                         setTimeout(() => {
                           navigate("/visits/retailers");
@@ -2148,10 +2164,16 @@ export const OrderEntry = () => {
                       console.log('⚠️ NO ORDER: Cart clear skipped:', storageError);
                     }
 
-                    // Update cache and dispatch refresh BEFORE navigation
-                    // so the MyVisits page loads with fresh data
-                    window.dispatchEvent(new Event('visitDataChanged'));
-                    console.log('✅ NO ORDER: Dispatched visitDataChanged event');
+                    // CRITICAL: Dispatch visitStatusChanged with proper details for progress stats update
+                    window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+                      detail: { 
+                        visitId: effectiveVisitId, 
+                        status: 'unproductive', 
+                        retailerId,
+                        noOrderReason: finalReason
+                      }
+                    }));
+                    console.log('✅ NO ORDER: Dispatched visitStatusChanged event with details');
                     
                     // Small delay to ensure cache/event processing, then navigate
                     setTimeout(() => {

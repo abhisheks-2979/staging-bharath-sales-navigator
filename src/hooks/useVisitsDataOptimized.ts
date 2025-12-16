@@ -1017,10 +1017,60 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     // Listen for visitStatusChanged events to recalculate progress stats
     const handleStatusChange = (event: any) => {
       console.log('🔔 [useVisitsDataOptimized] visitStatusChanged event received:', event.detail);
-      // Trigger a recalculation and data refresh
+      
+      const { visitId, status, retailerId } = event.detail || {};
+      
+      // IMMEDIATE: Update progress stats based on the status change
+      if (status === 'unproductive' && retailerId) {
+        console.log('📊 [IMMEDIATE] Updating progress stats for unproductive status');
+        
+        // Clear in-memory cache for today to ensure fresh calculation
+        const today = new Date().toISOString().split('T')[0];
+        dateDataCacheRef.current.delete(today);
+        dateDataCacheRef.current.delete(selectedDate);
+        
+        // If we have the visit in our visits array, update it immediately
+        setVisits(prev => {
+          const existingVisitIndex = prev.findIndex(v => v.id === visitId || v.retailer_id === retailerId);
+          if (existingVisitIndex >= 0) {
+            const updated = [...prev];
+            updated[existingVisitIndex] = { ...updated[existingVisitIndex], status: 'unproductive' };
+            return updated;
+          } else {
+            // Add a placeholder visit for the retailer
+            return [...prev, { id: visitId || `temp-${retailerId}`, retailer_id: retailerId, status: 'unproductive', user_id: userId }];
+          }
+        });
+        
+        // Trigger immediate progress recalculation via dataVersion
+        setDataVersion(prev => prev + 1);
+      } else if (status === 'productive' && retailerId) {
+        console.log('📊 [IMMEDIATE] Updating progress stats for productive status');
+        
+        // Clear cache
+        const today = new Date().toISOString().split('T')[0];
+        dateDataCacheRef.current.delete(today);
+        dateDataCacheRef.current.delete(selectedDate);
+        
+        // Update visit status immediately
+        setVisits(prev => {
+          const existingVisitIndex = prev.findIndex(v => v.id === visitId || v.retailer_id === retailerId);
+          if (existingVisitIndex >= 0) {
+            const updated = [...prev];
+            updated[existingVisitIndex] = { ...updated[existingVisitIndex], status: 'productive' };
+            return updated;
+          }
+          return prev;
+        });
+        
+        // Trigger immediate progress recalculation
+        setDataVersion(prev => prev + 1);
+      }
+      
+      // Also do a background data refresh after a short delay to sync with server
       setTimeout(() => {
         loadData(true);
-      }, 500); // Small delay to allow database updates to complete
+      }, 500);
     };
 
     // Listen for visitDataChanged events (e.g., new beat plans added, new retailers)
