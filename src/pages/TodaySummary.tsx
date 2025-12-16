@@ -23,6 +23,7 @@ import { ReportGenerator } from "@/components/ReportGenerator";
 import { calculateJointVisitScore } from "@/components/JointSalesFeedbackModal";
 import { JointSalesFeedbackViewModal } from "@/components/JointSalesFeedbackViewModal";
 import { useAuth } from "@/hooks/useAuth";
+import { FeedbackSummarySection } from "@/components/FeedbackSummarySection";
 
 type DateFilterType = 'today' | 'week' | 'lastWeek' | 'month' | 'custom' | 'dateRange';
 
@@ -2024,6 +2025,13 @@ export const TodaySummary = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Feedback Summary Section */}
+        <FeedbackSummarySection 
+          dateFrom={dateRange.from} 
+          dateTo={dateRange.to}
+          userId={isAdmin && selectedUserIds.length > 0 ? selectedUserIds[0] : undefined}
+        />
 
         {/* Product-wise Sales */}
         <Card>
