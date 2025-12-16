@@ -61,9 +61,11 @@ export const PaymentMarkingModal = ({
     return publicUrl;
   };
 
+  const requiresProof = paymentMethod === "cheque" || paymentMethod === "upi" || paymentMethod === "neft";
+
   const handleFullPayment = async () => {
-    if ((paymentMethod === "cheque" || paymentMethod === "upi") && !capturedProof) {
-      toast.error(`Please capture ${paymentMethod === "cheque" ? "cheque" : "UPI"} photo`);
+    if (requiresProof && !capturedProof) {
+      toast.error(`Please capture ${paymentMethod === "cheque" ? "cheque" : paymentMethod === "upi" ? "UPI" : "NEFT"} photo`);
       return;
     }
 
@@ -106,8 +108,8 @@ export const PaymentMarkingModal = ({
       return;
     }
 
-    if ((paymentMethod === "cheque" || paymentMethod === "upi") && !capturedProof) {
-      toast.error(`Please capture ${paymentMethod === "cheque" ? "cheque" : "UPI"} photo`);
+    if (requiresProof && !capturedProof) {
+      toast.error(`Please capture ${paymentMethod === "cheque" ? "cheque" : paymentMethod === "upi" ? "UPI" : "NEFT"} photo`);
       return;
     }
 
@@ -165,7 +167,7 @@ export const PaymentMarkingModal = ({
           {/* Payment Method Selection */}
           <div className="space-y-3">
             <Label>Payment Method</Label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <Button
                 type="button"
                 variant={paymentMethod === "cash" ? "default" : "outline"}
@@ -190,14 +192,22 @@ export const PaymentMarkingModal = ({
               >
                 UPI
               </Button>
+              <Button
+                type="button"
+                variant={paymentMethod === "neft" ? "default" : "outline"}
+                className="w-full h-auto py-3 whitespace-normal leading-tight text-center"
+                onClick={() => setPaymentMethod("neft")}
+              >
+                NEFT
+              </Button>
             </div>
           </div>
 
-          {/* Camera Capture for Cheque/UPI */}
-          {(paymentMethod === "cheque" || paymentMethod === "upi") && (
+          {/* Camera Capture for Cheque/UPI/NEFT */}
+          {requiresProof && (
             <div className="space-y-2">
               <Label>
-                {paymentMethod === "cheque" ? "Cheque Photo" : "UPI Screenshot"}
+                {paymentMethod === "cheque" ? "Cheque Photo" : paymentMethod === "upi" ? "UPI Screenshot" : "NEFT Proof"}
               </Label>
               {proofPreview ? (
                 <div className="space-y-2">
@@ -225,7 +235,7 @@ export const PaymentMarkingModal = ({
                   className="w-full"
                 >
                   <Camera className="w-4 h-4 mr-2" />
-                  Capture {paymentMethod === "cheque" ? "Cheque" : "UPI"} Photo
+                  Capture {paymentMethod === "cheque" ? "Cheque" : paymentMethod === "upi" ? "UPI" : "NEFT"} Photo
                 </Button>
               )}
             </div>
@@ -294,8 +304,8 @@ export const PaymentMarkingModal = ({
           isOpen={cameraOpen}
           onClose={() => setCameraOpen(false)}
           onCapture={handleCameraCapture}
-          title={`Capture ${paymentMethod === "cheque" ? "Cheque" : "UPI"} Photo`}
-          description={`Take a clear photo of the ${paymentMethod === "cheque" ? "cheque" : "UPI transaction"}`}
+          title={`Capture ${paymentMethod === "cheque" ? "Cheque" : paymentMethod === "upi" ? "UPI" : "NEFT"} Photo`}
+          description={`Take a clear photo of the ${paymentMethod === "cheque" ? "cheque" : paymentMethod === "upi" ? "UPI transaction" : "NEFT transfer proof"}`}
         />
 
         <DialogFooter>
