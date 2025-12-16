@@ -105,6 +105,10 @@ export const VisitCard = ({
   const [jointSalesChecked, setJointSalesChecked] = useState(false);
   const [hasJointSalesFeedback, setHasJointSalesFeedback] = useState(false);
   const [showJointSalesFeedbackView, setShowJointSalesFeedbackView] = useState(false);
+  const [hasRetailerFeedback, setHasRetailerFeedback] = useState(false);
+  const [hasBrandingRequest, setHasBrandingRequest] = useState(false);
+  const [hasCompetitionData, setHasCompetitionData] = useState(false);
+  const [feedbackViewMode, setFeedbackViewMode] = useState<'menu' | 'list'>('menu');
   const { user } = useAuth();
   const [hasOrderToday, setHasOrderToday] = useState(!!visit.hasOrder);
   const [actualOrderValue, setActualOrderValue] = useState<number>(0);
@@ -834,6 +838,65 @@ export const VisitCard = ({
     
     fetchPendingAmount();
   }, [myRetailerId]); // Only depend on retailerId, run once per retailer
+
+  // Check for existing feedback data to show tick marks
+  useEffect(() => {
+    const checkFeedbackExists = async () => {
+      const visitRetailerId = visit.retailerId || visit.id;
+      const targetDate = selectedDate || new Date().toISOString().split('T')[0];
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+        
+        // Check for retailer feedback
+        const { data: retailerFeedback } = await supabase
+          .from('retailer_feedback')
+          .select('id')
+          .eq('retailer_id', visitRetailerId)
+          .eq('feedback_date', targetDate)
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        setHasRetailerFeedback(!!retailerFeedback);
+        
+        // Check for branding requests
+        const { data: brandingRequest } = await supabase
+          .from('branding_requests')
+          .select('id')
+          .eq('retailer_id', visitRetailerId)
+          .gte('created_at', `${targetDate}T00:00:00.000Z`)
+          .lte('created_at', `${targetDate}T23:59:59.999Z`)
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        setHasBrandingRequest(!!brandingRequest);
+        
+        // Check for competition data
+        const { data: competitionData } = await supabase
+          .from('competition_data')
+          .select('id')
+          .eq('retailer_id', visitRetailerId)
+          .gte('created_at', `${targetDate}T00:00:00.000Z`)
+          .lte('created_at', `${targetDate}T23:59:59.999Z`)
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        setHasCompetitionData(!!competitionData);
+        
+        // Check for joint sales feedback
+        const { data: jointFeedback } = await supabase
+          .from('joint_sales_feedback')
+          .select('id')
+          .eq('retailer_id', visitRetailerId)
+          .eq('feedback_date', targetDate)
+          .eq('fse_user_id', session.user.id)
+          .maybeSingle();
+        setHasJointSalesFeedback(!!jointFeedback);
+      } catch (err) {
+        console.error('Error checking feedback existence:', err);
+      }
+    };
+    
+    checkFeedbackExists();
+  }, [myRetailerId, selectedDate]);
 
   // Listen for custom events to refresh status - trigger full data reload
   useEffect(() => {
@@ -2504,9 +2567,9 @@ export const VisitCard = ({
         <NoOrderModal isOpen={showNoOrderModal} onClose={() => setShowNoOrderModal(false)} onReasonSelect={handleNoOrderReasonSelect} currentReason={noOrderReason} />
 
          {/* Unified Feedback Modal with Tabs */}
-        {showFeedbackModal && feedbackActiveTab === "retailer-feedback" && <RetailerFeedbackModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); }} onBack={() => setFeedbackActiveTab("menu")} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} />}
+        {showFeedbackModal && feedbackActiveTab === "retailer-feedback" && <RetailerFeedbackModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); setHasRetailerFeedback(true); }} onBack={() => setFeedbackActiveTab("menu")} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} />}
 
-        {showFeedbackModal && feedbackActiveTab === "branding" && <BrandingRequestModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); }} onBack={() => setFeedbackActiveTab("menu")} defaultVisitId={currentVisitId} defaultRetailerId={(visit.retailerId || visit.id) as string} defaultPincode={null} />}
+        {showFeedbackModal && feedbackActiveTab === "branding" && <BrandingRequestModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); setHasBrandingRequest(true); }} onBack={() => setFeedbackActiveTab("menu")} defaultVisitId={currentVisitId} defaultRetailerId={(visit.retailerId || visit.id) as string} defaultPincode={null} />}
 
         {showFeedbackModal && feedbackActiveTab === "joint-sales-feedback" && <JointSalesFeedbackModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); }} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} beatPlanId={beatPlanId} managerId={jointSalesMemberId} onFeedbackSubmitted={() => setHasJointSalesFeedback(true)} />}
 
@@ -2515,6 +2578,7 @@ export const VisitCard = ({
             if (!open) {
               setShowFeedbackModal(false);
               setFeedbackActiveTab("menu");
+              setHasCompetitionData(true);
             }
           }}>
             <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] p-0 overflow-hidden">
@@ -2533,6 +2597,7 @@ export const VisitCard = ({
                   onSave={() => { 
                     setShowFeedbackModal(false); 
                     setFeedbackActiveTab("menu"); 
+                    setHasCompetitionData(true);
                   }} 
                 />
               </ScrollArea>
@@ -2560,44 +2625,53 @@ export const VisitCard = ({
             <div className="p-5 space-y-3">
               <Button 
                 variant="outline" 
-                className="w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-primary/5 hover:border-primary/50 transition-all group" 
+                className={`w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-primary/5 hover:border-primary/50 transition-all group ${hasRetailerFeedback ? 'border-green-300 bg-green-50/50 dark:bg-green-900/20' : ''}`} 
                 onClick={() => setFeedbackActiveTab("retailer-feedback")}
               >
-                <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-800/50 transition-colors">
-                  <MessageSquare size={22} className="text-blue-600 dark:text-blue-400" />
+                <div className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${hasRetailerFeedback ? 'bg-green-100 dark:bg-green-900/50' : 'bg-blue-100 dark:bg-blue-900/30 group-hover:bg-blue-200 dark:group-hover:bg-blue-800/50'}`}>
+                  <MessageSquare size={22} className={hasRetailerFeedback ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'} />
                 </div>
                 <div className="text-left flex-1">
-                  <div className="font-semibold text-base">Retailer Feedback</div>
-                  <div className="text-xs text-muted-foreground">Share feedback about the retailer</div>
+                  <div className="font-semibold text-base flex items-center gap-2">
+                    Retailer Feedback
+                    {hasRetailerFeedback && <Check size={16} className="text-green-600" />}
+                  </div>
+                  <div className="text-xs text-muted-foreground">{hasRetailerFeedback ? 'View or update feedback' : 'Share feedback about the retailer'}</div>
                 </div>
               </Button>
               
               <Button 
                 variant="outline" 
-                className="w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-primary/5 hover:border-primary/50 transition-all group" 
+                className={`w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-primary/5 hover:border-primary/50 transition-all group ${hasBrandingRequest ? 'border-green-300 bg-green-50/50 dark:bg-green-900/20' : ''}`} 
                 onClick={() => setFeedbackActiveTab("branding")}
               >
-                <div className="h-12 w-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center group-hover:bg-orange-200 dark:group-hover:bg-orange-800/50 transition-colors">
-                  <Paintbrush size={22} className="text-orange-600 dark:text-orange-400" />
+                <div className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${hasBrandingRequest ? 'bg-green-100 dark:bg-green-900/50' : 'bg-orange-100 dark:bg-orange-900/30 group-hover:bg-orange-200 dark:group-hover:bg-orange-800/50'}`}>
+                  <Paintbrush size={22} className={hasBrandingRequest ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'} />
                 </div>
                 <div className="text-left flex-1">
-                  <div className="font-semibold text-base">Branding Request</div>
-                  <div className="text-xs text-muted-foreground">Request branding materials</div>
+                  <div className="font-semibold text-base flex items-center gap-2">
+                    Branding Request
+                    {hasBrandingRequest && <Check size={16} className="text-green-600" />}
+                  </div>
+                  <div className="text-xs text-muted-foreground">{hasBrandingRequest ? 'View or update request' : 'Request branding materials'}</div>
                 </div>
               </Button>
               
               {isJointSalesVisit && (
                 <Button 
                   variant="outline" 
-                  className="w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-primary/5 hover:border-primary/50 transition-all group" 
+                  className={`w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-primary/5 hover:border-primary/50 transition-all group ${hasJointSalesFeedback ? 'border-green-300 bg-green-50/50 dark:bg-green-900/20' : ''}`} 
                   onClick={() => setFeedbackActiveTab("joint-sales-feedback")}
                 >
-                  <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center group-hover:bg-green-200 dark:group-hover:bg-green-800/50 transition-colors">
-                    <Users size={22} className="text-green-600 dark:text-green-400" />
+                  <div className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${hasJointSalesFeedback ? 'bg-green-100 dark:bg-green-900/50' : 'bg-green-100 dark:bg-green-900/30 group-hover:bg-green-200 dark:group-hover:bg-green-800/50'}`}>
+                    <Users size={22} className={hasJointSalesFeedback ? 'text-green-600 dark:text-green-400' : 'text-green-600 dark:text-green-400'} />
                   </div>
                   <div className="text-left flex-1">
-                    <div className="font-semibold text-base">Joint Sales Feedback</div>
-                    <div className="text-xs text-muted-foreground">Record joint visit feedback</div>
+                    <div className="font-semibold text-base flex items-center gap-2">
+                      Joint Sales Feedback
+                      {hasJointSalesFeedback && <Check size={16} className="text-green-600" />}
+                    </div>
+                    <div className="text-xs text-muted-foreground">{hasJointSalesFeedback ? 'View or update feedback' : 'Record joint visit feedback'}</div>
                   </div>
                 </Button>
               )}
@@ -2605,30 +2679,36 @@ export const VisitCard = ({
               {!isJointSalesVisit && (
                 <Button 
                   variant="outline" 
-                  className="w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-300 dark:hover:border-purple-700 transition-all group" 
+                  className={`w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-300 dark:hover:border-purple-700 transition-all group ${hasJointSalesFeedback ? 'border-green-300 bg-green-50/50 dark:bg-green-900/20' : ''}`} 
                   onClick={() => setFeedbackActiveTab("joint-sales-feedback")}
                 >
-                  <div className="h-12 w-12 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center group-hover:bg-purple-200 dark:group-hover:bg-purple-800/50 transition-colors">
-                    <UserCheck size={22} className="text-purple-600 dark:text-purple-400" />
+                  <div className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${hasJointSalesFeedback ? 'bg-green-100 dark:bg-green-900/50' : 'bg-purple-100 dark:bg-purple-900/30 group-hover:bg-purple-200 dark:group-hover:bg-purple-800/50'}`}>
+                    <UserCheck size={22} className={hasJointSalesFeedback ? 'text-green-600 dark:text-green-400' : 'text-purple-600 dark:text-purple-400'} />
                   </div>
                   <div className="text-left flex-1">
-                    <div className="font-semibold text-base">Joint Visit Feedback</div>
-                    <div className="text-xs text-muted-foreground">Record feedback from joint visit</div>
+                    <div className="font-semibold text-base flex items-center gap-2">
+                      Joint Visit Feedback
+                      {hasJointSalesFeedback && <Check size={16} className="text-green-600" />}
+                    </div>
+                    <div className="text-xs text-muted-foreground">{hasJointSalesFeedback ? 'View or update feedback' : 'Record feedback from joint visit'}</div>
                   </div>
                 </Button>
               )}
               
               <Button 
                 variant="outline" 
-                className="w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300 dark:hover:border-red-700 transition-all group" 
+                className={`w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300 dark:hover:border-red-700 transition-all group ${hasCompetitionData ? 'border-green-300 bg-green-50/50 dark:bg-green-900/20' : ''}`} 
                 onClick={() => setFeedbackActiveTab("competition")}
               >
-                <div className="h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center group-hover:bg-red-200 dark:group-hover:bg-red-800/50 transition-colors">
-                  <BarChart3 size={22} className="text-red-600 dark:text-red-400" />
+                <div className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${hasCompetitionData ? 'bg-green-100 dark:bg-green-900/50' : 'bg-red-100 dark:bg-red-900/30 group-hover:bg-red-200 dark:group-hover:bg-red-800/50'}`}>
+                  <BarChart3 size={22} className={hasCompetitionData ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
                 </div>
                 <div className="text-left flex-1">
-                  <div className="font-semibold text-base">Competition Insight</div>
-                  <div className="text-xs text-muted-foreground">Record competitor information</div>
+                  <div className="font-semibold text-base flex items-center gap-2">
+                    Competition Insight
+                    {hasCompetitionData && <Check size={16} className="text-green-600" />}
+                  </div>
+                  <div className="text-xs text-muted-foreground">{hasCompetitionData ? 'View or update data' : 'Record competitor information'}</div>
                 </div>
               </Button>
             </div>
