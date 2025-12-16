@@ -146,7 +146,7 @@ export const MyVisits = () => {
   const [selectedDate, setSelectedDate] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [filters, setFilters] = useState<FilterOptions>({});
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [sortOrder, setSortOrder] = useState<'recent' | 'asc' | 'desc'>('recent');
   const [selectedWeek, setSelectedWeek] = useState(new Date()); // Current week start
   const [weekDays, setWeekDays] = useState(() => getWeekDays(new Date()));
   const [plannedBeats, setPlannedBeats] = useState<any[]>([]);
@@ -967,6 +967,27 @@ export const MyVisits = () => {
 
     // Apply sorting
     return filtered.sort((a, b) => {
+      if (sortOrder === 'recent') {
+        // Get newly added retailer IDs from sessionStorage with timestamps
+        try {
+          const stored = sessionStorage.getItem('newlyAddedRetailerIds');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            const timestampMap = new Map<string, number>(parsed.map((item: { id: string; timestamp: number }) => [item.id, item.timestamp]));
+            const aTimestamp: number = timestampMap.get(a.retailerId) || 0;
+            const bTimestamp: number = timestampMap.get(b.retailerId) || 0;
+            // Newer retailers (higher timestamp) come first
+            if (aTimestamp !== bTimestamp) {
+              return bTimestamp - aTimestamp;
+            }
+          }
+        } catch (e) {
+          console.error('Failed to parse newlyAddedRetailerIds:', e);
+        }
+        // Fall back to A-Z for non-new retailers
+        return a.retailerName.toLowerCase().localeCompare(b.retailerName.toLowerCase());
+      }
+      
       const nameA = a.retailerName.toLowerCase();
       const nameB = b.retailerName.toLowerCase();
       
@@ -1184,6 +1205,9 @@ export const MyVisits = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-background z-50">
+                  <DropdownMenuItem onClick={() => setSortOrder('recent')} className={cn("cursor-pointer", sortOrder === 'recent' && "bg-primary/10")}>
+                    Recent
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setSortOrder('asc')} className={cn("cursor-pointer", sortOrder === 'asc' && "bg-primary/10")}>
                     A-Z
                   </DropdownMenuItem>
