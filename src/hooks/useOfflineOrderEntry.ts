@@ -46,7 +46,7 @@ interface Product {
  */
 export function useOfflineOrderEntry() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // CRITICAL: Start with false - don't block UI
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const hasFetchedRef = useRef(false);
   const isFetchingRef = useRef(false);
@@ -118,7 +118,7 @@ export function useOfflineOrderEntry() {
     }
   };
 
-  // Fetch products with offline support - instant cache load
+  // Fetch products with offline support - instant cache load, NO network blocking
   const fetchProducts = useCallback(async () => {
     // Prevent multiple simultaneous fetches
     if (isFetchingRef.current) {
@@ -133,9 +133,13 @@ export function useOfflineOrderEntry() {
     }
 
     isFetchingRef.current = true;
+    
+    // CRITICAL: Set loading false immediately - don't block UI
+    // This ensures the page renders instantly even if cache operations take time
+    setLoading(false);
 
     try {
-      // 1. Load from cache INSTANTLY - no loading state
+      // 1. Load from cache INSTANTLY - no loading state blocking
       const cachedProducts = await offlineStorage.getAll(STORES.PRODUCTS);
       const cachedVariants = await offlineStorage.getAll(STORES.VARIANTS);
       const cachedSchemes = await offlineStorage.getAll(STORES.SCHEMES);
@@ -152,44 +156,59 @@ export function useOfflineOrderEntry() {
           schemes: activeSchemes.filter((s: any) => s.product_id === product.id)
         }));
         setProducts(enrichedProducts);
-        setLoading(false);
         hasFetchedRef.current = true;
         console.log(`✅ Loaded ${enrichedProducts.length} active products from cache instantly`);
         
-        // Background sync if online (no delay, no await)
+        // Background sync if online - DO NOT await, fire and forget
         if (isOnline) {
-          syncProductsInBackground().catch(err => 
-            console.error('Background sync failed:', err)
-          );
+          // Use requestIdleCallback or setTimeout to not block main thread
+          requestIdleCallback?.(() => {
+            syncProductsInBackground().catch(err => 
+              console.error('Background sync failed:', err)
+            );
+          }) || setTimeout(() => {
+            syncProductsInBackground().catch(err => 
+              console.error('Background sync failed:', err)
+            );
+          }, 100);
         }
       } else {
-        // No cache, fetch from network immediately
-        console.log('📦 No cached products, fetching from network...');
-        setLoading(true);
-        await syncProductsInBackground();
-        hasFetchedRef.current = true;
+        // No cache - still don't block, fetch in background
+        console.log('📦 No cached products, fetching from network in background...');
+        
+        // CRITICAL: Don't await - fetch in background without blocking
+        if (isOnline) {
+          syncProductsInBackground().then(() => {
+            hasFetchedRef.current = true;
+          }).catch(err => {
+            console.error('Background sync failed:', err);
+          });
+        }
       }
     } catch (error) {
       console.error('Error fetching products:', error);
       
-      // Fallback to cache on error
-      const cachedProducts = await offlineStorage.getAll(STORES.PRODUCTS);
-      const cachedVariants = await offlineStorage.getAll(STORES.VARIANTS);
-      const cachedSchemes = await offlineStorage.getAll(STORES.SCHEMES);
+      // Try fallback to cache on error - non-blocking
+      try {
+        const cachedProducts = await offlineStorage.getAll(STORES.PRODUCTS);
+        const cachedVariants = await offlineStorage.getAll(STORES.VARIANTS);
+        const cachedSchemes = await offlineStorage.getAll(STORES.SCHEMES);
 
-      if (cachedProducts.length > 0) {
-        // Filter only active products: is_active must be true or null/undefined (never false)
-        const activeProducts = (cachedProducts || []).filter((p: any) => p.is_active !== false);
-        const activeVariants = (cachedVariants || []).filter((v: any) => v.is_active !== false);
-        const activeSchemes = (cachedSchemes || []).filter((s: any) => s.is_active !== false);
-        
-        const enrichedProducts = activeProducts.map((product: any) => ({
-          ...product,
-          variants: activeVariants.filter((v: any) => v.product_id === product.id),
-          schemes: activeSchemes.filter((s: any) => s.product_id === product.id)
-        }));
-        setProducts(enrichedProducts);
-        hasFetchedRef.current = true;
+        if (cachedProducts.length > 0) {
+          const activeProducts = (cachedProducts || []).filter((p: any) => p.is_active !== false);
+          const activeVariants = (cachedVariants || []).filter((v: any) => v.is_active !== false);
+          const activeSchemes = (cachedSchemes || []).filter((s: any) => s.is_active !== false);
+          
+          const enrichedProducts = activeProducts.map((product: any) => ({
+            ...product,
+            variants: activeVariants.filter((v: any) => v.product_id === product.id),
+            schemes: activeSchemes.filter((s: any) => s.product_id === product.id)
+          }));
+          setProducts(enrichedProducts);
+          hasFetchedRef.current = true;
+        }
+      } catch (cacheError) {
+        console.error('Cache fallback also failed:', cacheError);
       }
     } finally {
       setLoading(false);
