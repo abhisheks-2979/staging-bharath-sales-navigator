@@ -761,38 +761,79 @@ export const VisitCard = ({
       checkStatus(true); // Force refresh only for this retailer
     });
     
-    // PERFORMANCE OPTIMIZATION: Skip initial checkStatus if data is pre-loaded by parent
-    // The parent component (useVisitsDataOptimized) already loads status, orders, etc.
-    // Only run checkStatus when explicitly triggered (e.g., after order placement)
-    if (!skipInitialCheck) {
-      // ALWAYS run checkStatus to load order data, status, and other visit details
-      // The checkStatus function has internal optimizations to skip redundant network calls
-      // But we need it to load order values, pending amounts, etc.
-      console.log('🔍 [VisitCard] Running initial checkStatus for:', myRetailerId);
-      checkStatus(false);
-    } else {
-      console.log('⚡ [VisitCard] Skipping initial checkStatus (data pre-loaded):', myRetailerId);
-      // Initialize from visit props since they're pre-loaded
-      if (visit.hasOrder) {
-        setHasOrderToday(true);
-        setActualOrderValue(visit.orderValue || 0);
+    // CRITICAL FIX: ALWAYS check cache first, even when skipInitialCheck is true
+    // This ensures orders placed before navigation are immediately displayed
+    // because Cart.tsx sets visitStatusCache BEFORE dispatching event and navigating
+    const initFromCache = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUserId = session?.user?.id || userId;
+      const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
+      
+      if (!currentUserId) return false;
+      
+      // Check cache first - this has the freshest data from just-placed orders
+      const cachedStatus = await visitStatusCache.get(myRetailerId, currentUserId, targetDate);
+      
+      if (cachedStatus && cachedStatus.status === 'productive' && cachedStatus.orderValue && cachedStatus.orderValue > 0) {
+        console.log('⚡ [VisitCard] CACHE HIT on mount - using cached productive status:', cachedStatus.orderValue);
         setCurrentStatus('productive');
+        setActualOrderValue(cachedStatus.orderValue);
+        setHasOrderToday(true);
         setStatusLoadedFromDB(true);
         setPhase('completed');
+        setIsCheckedOut(true);
+        if (cachedStatus.visitId) setCurrentVisitId(cachedStatus.visitId);
+        return true; // Cache had the data we needed
       }
-      if (visit.noOrderReason) {
-        setIsNoOrderMarked(true);
-        setNoOrderReason(visit.noOrderReason);
+      
+      if (cachedStatus && cachedStatus.status === 'unproductive' && cachedStatus.noOrderReason) {
+        console.log('⚡ [VisitCard] CACHE HIT on mount - using cached unproductive status');
         setCurrentStatus('unproductive');
+        setIsNoOrderMarked(true);
+        setNoOrderReason(cachedStatus.noOrderReason);
         setStatusLoadedFromDB(true);
         setPhase('completed');
+        setIsCheckedOut(true);
+        return true;
       }
-    }
+      
+      return false; // Cache didn't have final status
+    };
+    
+    // Start with cache check, then fall back to props or checkStatus
+    initFromCache().then(foundInCache => {
+      if (foundInCache) {
+        console.log('⚡ [VisitCard] Initialized from cache, skipping props/checkStatus');
+        return;
+      }
+      
+      // Fallback: use props or run checkStatus
+      if (skipInitialCheck) {
+        console.log('⚡ [VisitCard] No cache, using props (data pre-loaded):', myRetailerId);
+        if (visit.hasOrder) {
+          setHasOrderToday(true);
+          setActualOrderValue(visit.orderValue || 0);
+          setCurrentStatus('productive');
+          setStatusLoadedFromDB(true);
+          setPhase('completed');
+        }
+        if (visit.noOrderReason) {
+          setIsNoOrderMarked(true);
+          setNoOrderReason(visit.noOrderReason);
+          setCurrentStatus('unproductive');
+          setStatusLoadedFromDB(true);
+          setPhase('completed');
+        }
+      } else {
+        console.log('🔍 [VisitCard] No cache, running initial checkStatus for:', myRetailerId);
+        checkStatus(false);
+      }
+    });
     
     return () => {
       unregister();
     };
-  }, [myRetailerId, skipInitialCheck]); // Removed checkStatus and visit.status from deps to prevent re-running
+  }, [myRetailerId, skipInitialCheck, userId, selectedDate]); // Added userId and selectedDate for cache check
 
   // OPTIMIZED: Fetch pending amount for retailer - deferred to not block initial render
   // Using a ref to prevent duplicate fetches
