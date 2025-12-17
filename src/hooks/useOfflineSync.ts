@@ -153,21 +153,14 @@ export function useOfflineSync() {
         syncOrdersToVanStock(getTodayDateString()).catch(err => {
           console.error('Error in final van stock sync:', err);
         });
-        
-        // Show toast notification for successful sync
-        toast({
-          title: "✅ Sync Complete",
-          description: `${successCount} item(s) synced successfully`,
-        });
       }
 
-      // Silent sync - no automatic toasts
-      // Users can check sync progress via the sync icon/modal
+      // SILENT sync - no toasts, no notifications
+      // Data refresh happens via syncComplete event dispatch in SyncStatusIndicator
       if (successCount > 0 && failCount === 0) {
-        console.log(`✅ Silent sync complete: ${successCount} items synced successfully`);
+        console.log(`✅ Silent sync complete: ${successCount} items synced`);
       } else if (failCount > 0) {
-        const failedActions = failedItems.map(f => f.action).join(', ');
-        console.log(`⚠️ Silent sync partial: ${successCount} succeeded, ${failCount} failed (${failedActions})`);
+        console.log(`⚠️ Silent sync partial: ${successCount} succeeded, ${failCount} failed`);
       }
     } catch (error) {
       console.error('❌ Error processing sync queue:', error);
