@@ -351,7 +351,41 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     // Check if this is a different date
     const isSameDate = lastLoadedDateRef.current === selectedDate;
     const isDateChange = !isSameDate;
-    
+
+    // OFFLINE CACHE MERGE: When we go offline, the in-memory snapshot can be stale.
+    // Merge in any newly cached retailers that belong to today's planned beats.
+    const mergePlannedBeatRetailersFromOfflineCache = async (existingRetailers: any[]) => {
+      try {
+        const [cachedBeatPlans, cachedRetailers] = await Promise.all([
+          offlineStorage.getAll<any>(STORES.BEAT_PLANS),
+          offlineStorage.getAll<any>(STORES.RETAILERS)
+        ]);
+
+        const plannedBeatIds = (cachedBeatPlans || [])
+          .filter((bp: any) => bp.user_id === userId && bp.plan_date === selectedDate)
+          .map((bp: any) => bp.beat_id);
+
+        if (plannedBeatIds.length === 0) return existingRetailers;
+
+        const plannedBeatRetailers = (cachedRetailers || []).filter((r: any) => {
+          return r.user_id === userId && plannedBeatIds.includes(r.beat_id);
+        });
+
+        if (plannedBeatRetailers.length === 0) return existingRetailers;
+
+        const existingIds = new Set((existingRetailers || []).map((r: any) => r.id));
+        const newOnes = plannedBeatRetailers.filter((r: any) => !existingIds.has(r.id));
+
+        if (newOnes.length === 0) return existingRetailers;
+
+        console.log('📦 [OFFLINE-MERGE] Adding newly cached planned-beat retailers:', newOnes.length);
+        return [...newOnes, ...(existingRetailers || [])];
+      } catch (e) {
+        console.log('📦 [OFFLINE-MERGE] Failed to merge retailers (non-critical):', e);
+        return existingRetailers;
+      }
+    };
+
     // FASTEST PATH: Check in-memory cache first for instant date switching
     const cachedDateData = dateDataCacheRef.current.get(selectedDate);
     const hasCachedRetailers = cachedDateData && cachedDateData.retailers && cachedDateData.retailers.length > 0;
@@ -386,6 +420,18 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         // Continue to network fetch below, but UI is already showing cached data
       } else {
         console.log('📴 [OFFLINE] Using cached data only');
+
+        // Fix: when going offline, in-memory cache can miss newly cached retailers from Add Retailer.
+        const mergedRetailers = await mergePlannedBeatRetailersFromOfflineCache(cachedDateData.retailers);
+        if (mergedRetailers.length !== cachedDateData.retailers.length) {
+          setRetailers(mergedRetailers);
+          dateDataCacheRef.current.set(selectedDate, {
+            ...cachedDateData,
+            retailers: mergedRetailers,
+            timestamp: Date.now()
+          });
+        }
+
         isLoadingRef.current = false;
         return;
       }
@@ -429,6 +475,21 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           // For today/future, continue to network check but UI is ready
           if (!navigator.onLine) {
             console.log('📴 [OFFLINE] Using snapshot data only');
+
+            // Fix: snapshot can be stale vs newly cached retailers added just before going offline.
+            const mergedRetailers = await mergePlannedBeatRetailersFromOfflineCache(snapshot.retailers);
+            if (mergedRetailers.length !== snapshot.retailers.length) {
+              setRetailers(mergedRetailers);
+              dateDataCacheRef.current.set(selectedDate, {
+                beatPlans: snapshot.beatPlans,
+                visits: snapshot.visits,
+                retailers: mergedRetailers,
+                orders: snapshot.orders,
+                progressStats: snapshot.progressStats,
+                timestamp: Date.now()
+              });
+            }
+
             isLoadingRef.current = false;
             return;
           }
@@ -477,35 +538,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       console.log('📦 [CACHE] Filtered orders for date:', selectedDate, 'count:', filteredOrders.length);
 
       // CRITICAL: If no beat plans for this date from cache
-      // Check if there are recently created retailers (last 24h) that should still be shown
+      // For old dates, we should still try network ONCE to load data that might not be cached
+      // Only show empty state and skip network if we're offline
       if (filteredBeatPlans.length === 0) {
         console.log('📦 [CACHE] No beat plans in cache for this date:', selectedDate);
         
-        // NEW: Check for recently created retailers even without beat plans
-        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        const recentRetailersNoBeat = cachedRetailers.filter((r: any) => {
-          return r.user_id === userId && r.created_at && r.created_at >= twentyFourHoursAgo;
-        });
-        
-        if (recentRetailersNoBeat.length > 0 && !navigator.onLine) {
-          // We have recent retailers to show even without beat plans
-          console.log('📦 [CACHE] Found recent retailers without beat plans:', recentRetailersNoBeat.length);
-          setBeatPlans([]);
-          setVisits(filteredVisits);
-          setRetailers(recentRetailersNoBeat);
-          setOrders(filteredOrders);
-          setProgressStats({ 
-            planned: recentRetailersNoBeat.length, 
-            productive: 0, 
-            unproductive: 0, 
-            totalOrders: filteredOrders.length, 
-            totalOrderValue: filteredOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0) 
-          });
-          hasLoadedFromCache = true;
-          loadedRetailersCount = recentRetailersNoBeat.length;
-          setIsLoading(false);
-          console.log('📴 [CACHE] Offline - showing recent retailers without beat plans');
-        } else if (!navigator.onLine) {
+        // IMPORTANT: Don't show empty state yet if we're online - let network fetch try first
+        // Only show empty state if offline
+        if (!navigator.onLine) {
           setBeatPlans([]);
           setVisits([]);
           setRetailers([]);
@@ -543,20 +583,11 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         );
         const beatRetailerIds = beatRetailers.map((r: any) => r.id);
         
-        // NEW: Include recently created retailers (last 24 hours) so they appear even without beat plan
-        // This ensures retailers added online just before going offline are visible
-        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        const recentRetailers = cachedRetailers.filter((r: any) => {
-          return r.user_id === userId && r.created_at && r.created_at >= twentyFourHoursAgo;
-        });
-        const recentRetailerIds = recentRetailers.map((r: any) => r.id);
-        console.log('📦 [CACHE] Recent retailers (last 24h):', recentRetailerIds.length);
+        // UNION both sources: explicit IDs from beat_data + all retailers matching beat_id
+        const plannedRetailerIds = Array.from(new Set([...explicitRetailerIds, ...beatRetailerIds]));
+        console.log('📦 [CACHE] Retailer IDs - explicit:', explicitRetailerIds.length, 'beat_id match:', beatRetailerIds.length, 'union:', plannedRetailerIds.length);
         
-        // UNION both sources: explicit IDs from beat_data + all retailers matching beat_id + recent retailers
-        const plannedRetailerIds = Array.from(new Set([...explicitRetailerIds, ...beatRetailerIds, ...recentRetailerIds]));
-        console.log('📦 [CACHE] Retailer IDs - explicit:', explicitRetailerIds.length, 'beat_id match:', beatRetailerIds.length, 'recent:', recentRetailerIds.length, 'union:', plannedRetailerIds.length);
-        
-        // Combine all retailer IDs: from visits, explicit beat_data.retailer_ids/beat_id fallback, recent, AND orders
+        // Combine all retailer IDs: from visits, explicit beat_data.retailer_ids/beat_id fallback, AND orders
         const allRetailerIds = Array.from(new Set([...visitRetailerIds, ...plannedRetailerIds, ...orderRetailerIds]));
         
         // CRITICAL: Filter retailers that are in our combined list AND belong to this user
