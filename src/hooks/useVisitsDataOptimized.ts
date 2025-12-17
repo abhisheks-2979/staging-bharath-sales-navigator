@@ -1656,20 +1656,42 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       }, 2000); // Give sync a moment to complete
     };
     
+    // Listen for sync complete event (offline -> online sync finished)
+    const handleSyncComplete = () => {
+      console.log('🔄 [SYNC-COMPLETE] Sync finished, refreshing Today\'s Progress...');
+      setTimeout(() => {
+        loadData(true);
+      }, 500); // Small delay to ensure DB is updated
+    };
+    
     window.addEventListener('online', handleOnline);
     window.addEventListener('visitStatusChanged', handleStatusChange);
     window.addEventListener('visitDataChanged', handleDataChange);
+    window.addEventListener('syncComplete', handleSyncComplete);
+    
+    // Auto-refresh every 30 seconds for TODAY only
+    let autoRefreshInterval: NodeJS.Timeout | undefined;
+    if (isToday(selectedDate)) {
+      autoRefreshInterval = setInterval(() => {
+        if (navigator.onLine) {
+          console.log('⏰ [AUTO-REFRESH] 30s interval refresh for today');
+          loadData(true);
+        }
+      }, 30000);
+    }
     
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('visitStatusChanged', handleStatusChange);
       window.removeEventListener('visitDataChanged', handleDataChange);
+      window.removeEventListener('syncComplete', handleSyncComplete);
+      if (autoRefreshInterval) clearInterval(autoRefreshInterval);
       // Clean up loading timeout on unmount
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
       }
     };
-  }, [loadData, selectedDate]);
+  }, [loadData, selectedDate, isToday]);
 
   const invalidateData = useCallback(() => {
     // Background refresh - don't show loading spinner

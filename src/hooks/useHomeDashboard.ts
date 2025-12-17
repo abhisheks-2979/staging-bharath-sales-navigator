@@ -485,22 +485,38 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
   useEffect(() => {
     loadDashboardData();
     
-    // Auto-refresh every 60 seconds (only for today)
+    // Auto-refresh every 30 seconds (only for today) - matches My Visits
     let interval: NodeJS.Timeout | undefined;
     if (isToday) {
-      interval = setInterval(loadDashboardData, 60000);
+      interval = setInterval(() => {
+        if (navigator.onLine) {
+          console.log('⏰ [HOME] 30s auto-refresh for today');
+          loadDashboardData();
+        }
+      }, 30000);
     }
     
     // Listen for explicit visit data changes
     const handleVisitDataChanged = () => {
+      console.log('📢 [HOME] visitDataChanged event received, refreshing...');
       loadDashboardData();
     };
     
+    // Listen for sync complete event (offline -> online sync finished)
+    const handleSyncComplete = () => {
+      console.log('🔄 [HOME] Sync complete, refreshing dashboard...');
+      setTimeout(() => {
+        loadDashboardData();
+      }, 500);
+    };
+    
     window.addEventListener('visitDataChanged', handleVisitDataChanged);
+    window.addEventListener('syncComplete', handleSyncComplete);
     
     return () => {
       if (interval) clearInterval(interval);
       window.removeEventListener('visitDataChanged', handleVisitDataChanged);
+      window.removeEventListener('syncComplete', handleSyncComplete);
     };
   }, [loadDashboardData, isToday]);
 
