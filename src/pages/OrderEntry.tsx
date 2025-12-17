@@ -405,14 +405,7 @@ export const OrderEntry = () => {
   // Use visitId and retailerId from URL params consistently
   const activeStorageKey = validVisitId && validRetailerId ? `order_cart:${validVisitId}:${validRetailerId}` : validRetailerId ? `order_cart:temp:${validRetailerId}` : 'order_cart:fallback';
 
-  // Debug storage keys
-  console.log('Storage Debug:', {
-    visitId,
-    retailerId,
-    validVisitId,
-    validRetailerId,
-    activeStorageKey
-  });
+  // NOTE: Avoid logging in render path to keep Order Entry fast on slow devices/networks
 
   // Load cart and sync quantities - this runs every time we come back to OrderEntry
   useEffect(() => {
@@ -664,11 +657,14 @@ export const OrderEntry = () => {
     fetchOfflineProducts();
   }, [fetchOfflineProducts]);
 
-  // Map cached products to the format needed by OrderEntry
+  // Map cached products ONLY when Grid mode is used (keeps initial Table load fast)
   useEffect(() => {
-    if (cachedProducts && cachedProducts.length > 0) {
+    if (orderMode !== "grid") return;
+    if (!cachedProducts || cachedProducts.length === 0) return;
+
+    const run = () => {
       try {
-        console.log('📦 Mapping cached products:', cachedProducts.length);
+        console.log('📦 Mapping cached products (grid mode):', cachedProducts.length);
 
         // Extract unique categories
         const uniqueCategories = new Set<string>();
@@ -695,9 +691,10 @@ export const OrderEntry = () => {
             closingStock: p.closing_stock || 0,
             sku: p.sku,
             hasScheme: productSchemes.length > 0,
-            schemeDetails: productSchemes.length > 0 ? 
-              `Buy ${productSchemes[0].condition_quantity} get ${productSchemes[0].discount_percentage}% off` : 
-              undefined,
+            schemeDetails:
+              productSchemes.length > 0
+                ? `Buy ${productSchemes[0].condition_quantity} get ${productSchemes[0].discount_percentage}% off`
+                : undefined,
             schemeConditionQuantity: productSchemes[0]?.condition_quantity,
             schemeDiscountPercentage: productSchemes[0]?.discount_percentage,
             variants: productVariants.map((v: any) => ({
@@ -713,24 +710,29 @@ export const OrderEntry = () => {
               focused_type: v.focused_type,
               focused_due_date: v.focused_due_date,
               focused_recurring_config: v.focused_recurring_config,
-              focused_territories: v.focused_territories
+              focused_territories: v.focused_territories,
             })),
             is_focused_product: p.is_focused_product,
             focused_type: p.focused_type,
             focused_due_date: p.focused_due_date,
             focused_recurring_config: p.focused_recurring_config,
-            focused_territories: p.focused_territories
+            focused_territories: p.focused_territories,
           };
         });
 
         setProducts(mapped);
         setSchemes(cachedProducts.flatMap((p: any) => p.schemes || []));
-        console.log('✅ Mapped products:', mapped.length);
+        console.log('✅ Mapped products (grid mode):', mapped.length);
       } catch (error) {
         console.error('💥 Error mapping cached products:', error);
       }
-    }
-  }, [cachedProducts]);
+    };
+
+    // Defer heavy mapping so the Order Entry page becomes interactive immediately
+    const ric = (window as any).requestIdleCallback as undefined | ((cb: () => void) => void);
+    if (ric) ric(run);
+    else setTimeout(run, 0);
+  }, [cachedProducts, orderMode]);
 
   // Real-time subscriptions DISABLED for performance
   // Products load from cache instantly and sync in background
