@@ -427,14 +427,14 @@ export async function awardPointsForCompetitionData(userId: string, retailerId: 
     ))
   );
 
-  // Fetch actions for applicable games
+  // Fetch actions for applicable games - check for both 'competition_data' and 'competition_insight' action types
   const gameIds = applicableGames.map(g => g.id);
   const { data: actions } = await supabase
     .from("gamification_actions")
     .select("*")
     .in("game_id", gameIds)
     .eq("is_enabled", true)
-    .eq("action_type", "competition_data");
+    .in("action_type", ["competition_data", "competition_insight"]);
 
   if (!actions || actions.length === 0) return;
 
@@ -464,6 +464,80 @@ export async function awardPointsForCompetitionData(userId: string, retailerId: 
         metadata: { retailer_id: retailerId },
       });
       console.log(`Awarded ${action.points} points for competition data capture`);
+    }
+  }
+}
+
+export async function awardPointsForRetailerFeedback(userId: string, retailerId: string) {
+  const today = new Date();
+  const todayStart = startOfDay(today);
+  const todayEnd = endOfDay(today);
+
+  // Fetch user's territories
+  const { data: userProfile } = await supabase
+    .from("profiles")
+    .select("territories_covered, work_location")
+    .eq("id", userId)
+    .single();
+
+  const userTerritories = userProfile?.territories_covered || [];
+  const userLocation = userProfile?.work_location;
+
+  // Fetch active games
+  const { data: activeGames } = await supabase
+    .from("gamification_games")
+    .select("*")
+    .eq("is_active", true)
+    .lte("start_date", today.toISOString())
+    .gte("end_date", today.toISOString());
+
+  if (!activeGames || activeGames.length === 0) return;
+
+  // Filter games applicable to user's territory
+  const applicableGames = activeGames.filter((game: any) => 
+    game.is_all_territories || 
+    (game.territories && game.territories.some((t: string) => 
+      userTerritories.includes(t) || t === userLocation
+    ))
+  );
+
+  // Fetch actions for applicable games
+  const gameIds = applicableGames.map(g => g.id);
+  const { data: actions } = await supabase
+    .from("gamification_actions")
+    .select("*")
+    .in("game_id", gameIds)
+    .eq("is_enabled", true)
+    .eq("action_type", "retailer_feedback");
+
+  if (!actions || actions.length === 0) return;
+
+  for (const action of actions) {
+    const game = applicableGames.find(g => g.id === action.game_id);
+    if (!game) continue;
+
+    // Check if already awarded today for this retailer
+    const { count } = await supabase
+      .from("gamification_points")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("action_id", action.id)
+      .eq("game_id", game.id)
+      .eq("reference_id", retailerId)
+      .gte("earned_at", todayStart.toISOString())
+      .lte("earned_at", todayEnd.toISOString());
+
+    if (count === 0) {
+      await supabase.from("gamification_points").insert({
+        user_id: userId,
+        game_id: game.id,
+        action_id: action.id,
+        points: action.points,
+        reference_type: "feedback",
+        reference_id: retailerId,
+        metadata: { retailer_id: retailerId },
+      });
+      console.log(`Awarded ${action.points} points for retailer feedback`);
     }
   }
 }

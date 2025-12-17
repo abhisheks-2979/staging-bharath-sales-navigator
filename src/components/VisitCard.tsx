@@ -2128,7 +2128,13 @@ export const VisitCard = ({
               <span className="text-xs">Order</span>
             </Button>
 
-            <Button variant="outline" size="sm" className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5" onClick={async () => {
+            <Button 
+              variant={(hasRetailerFeedback || hasCompetitionData) ? "default" : "outline"} 
+              size="sm" 
+              className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
+                (hasRetailerFeedback || hasCompetitionData) ? "bg-success text-success-foreground" : ""
+              }`}
+              onClick={async () => {
             // Start tracking visit time and location
             await startTracking('feedback', skipCheckInReason === 'phone-order');
             setShowFeedbackModal(true);
