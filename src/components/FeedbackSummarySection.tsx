@@ -11,7 +11,8 @@ import {
   Building2,
   AlertCircle,
   ThumbsUp,
-  TrendingUp
+  TrendingUp,
+  Users
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -49,11 +50,21 @@ interface CompetitionDataItem {
   created_at: string;
 }
 
+interface JointSalesFeedbackData {
+  id: string;
+  retailer_name: string;
+  manager_name: string;
+  overall_score: number;
+  impact_notes: string;
+  created_at: string;
+}
+
 export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSummaryProps) {
   const [loading, setLoading] = useState(true);
   const [retailerFeedback, setRetailerFeedback] = useState<RetailerFeedbackData[]>([]);
   const [brandingRequests, setBrandingRequests] = useState<BrandingRequestData[]>([]);
   const [competitionData, setCompetitionData] = useState<CompetitionDataItem[]>([]);
+  const [jointSalesFeedback, setJointSalesFeedback] = useState<JointSalesFeedbackData[]>([]);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   useEffect(() => {
@@ -152,6 +163,63 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
         })));
       }
 
+      // Fetch joint sales feedback
+      const { data: jointSalesResult } = await supabase
+        .from('joint_sales_feedback')
+        .select(`
+          id,
+          branding_rating,
+          retailing_rating,
+          pricing_feedback_rating,
+          schemes_rating,
+          competition_rating,
+          joint_sales_impact,
+          created_at,
+          retailer_id,
+          manager_id
+        `)
+        .eq('fse_user_id', targetUserId)
+        .gte('created_at', `${fromDate}T00:00:00`)
+        .lte('created_at', `${toDate}T23:59:59`)
+        .order('created_at', { ascending: false });
+
+      if (jointSalesResult && jointSalesResult.length > 0) {
+        // Fetch retailer names
+        const retailerIds = jointSalesResult.map(j => j.retailer_id).filter(Boolean);
+        const managerIds = jointSalesResult.map(j => j.manager_id).filter(Boolean);
+        
+        const { data: retailers } = await supabase
+          .from('retailers')
+          .select('id, name')
+          .in('id', retailerIds);
+        
+        const { data: managers } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', managerIds);
+        
+        const retailerMap = new Map(retailers?.map(r => [r.id, r.name]) || []);
+        const managerMap = new Map(managers?.map(m => [m.id, m.full_name]) || []);
+        
+        setJointSalesFeedback(jointSalesResult.map((j: any) => {
+          // Calculate average score from all ratings
+          const ratings = [
+            j.branding_rating, j.retailing_rating, j.pricing_feedback_rating,
+            j.schemes_rating, j.competition_rating
+          ].filter(r => r != null && r > 0);
+          const avgScore = ratings.length > 0 ? Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length) : 0;
+          
+          return {
+            id: j.id,
+            retailer_name: retailerMap.get(j.retailer_id) || 'Unknown',
+            manager_name: managerMap.get(j.manager_id) || 'Unknown Manager',
+            overall_score: avgScore,
+            impact_notes: j.joint_sales_impact || '',
+            created_at: j.created_at
+          };
+        }));
+      }
+
     } catch (error) {
       console.error('Error fetching feedback data:', error);
     } finally {
@@ -159,7 +227,7 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
     }
   };
 
-  const totalFeedback = retailerFeedback.length + brandingRequests.length + competitionData.length;
+  const totalFeedback = retailerFeedback.length + brandingRequests.length + competitionData.length + jointSalesFeedback.length;
 
   if (loading) {
     return (
@@ -226,7 +294,7 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
       
       <CardContent className="space-y-3 pt-4">
         {/* Summary Pills */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
           <div 
             className={`p-3 rounded-xl text-center cursor-pointer transition-all duration-200 ${
               retailerFeedback.length > 0 
@@ -270,6 +338,21 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
               {competitionData.length}
             </div>
             <div className="text-xs text-muted-foreground">Competition</div>
+          </div>
+          
+          <div 
+            className={`p-3 rounded-xl text-center cursor-pointer transition-all duration-200 ${
+              jointSalesFeedback.length > 0 
+                ? 'bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20 hover:border-green-500/40' 
+                : 'bg-muted/50'
+            }`}
+            onClick={() => setExpandedSection(expandedSection === 'jointSales' ? null : 'jointSales')}
+          >
+            <Users className={`h-5 w-5 mx-auto mb-1 ${jointSalesFeedback.length > 0 ? 'text-green-500' : 'text-muted-foreground'}`} />
+            <div className={`text-xl font-bold ${jointSalesFeedback.length > 0 ? 'text-green-600' : 'text-muted-foreground'}`}>
+              {jointSalesFeedback.length}
+            </div>
+            <div className="text-xs text-muted-foreground">Joint Sales</div>
           </div>
         </div>
 
@@ -389,6 +472,52 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
           </div>
         )}
 
+        {expandedSection === 'jointSales' && jointSalesFeedback.length > 0 && (
+          <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center gap-2 text-sm font-medium text-green-600 mb-2">
+              <Users size={14} />
+              Joint Sales Feedback
+            </div>
+            <ScrollArea className="max-h-48">
+              <div className="space-y-2 pr-2">
+                {jointSalesFeedback.map((feedback) => (
+                  <div 
+                    key={feedback.id} 
+                    className="p-3 bg-gradient-to-r from-green-500/5 to-transparent rounded-lg border border-green-500/10"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Building2 size={12} className="text-green-500 flex-shrink-0" />
+                          <span className="font-medium text-sm truncate">{feedback.retailer_name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 ml-4 mb-1">
+                          <Users size={10} className="text-muted-foreground" />
+                          <span className="text-xs font-medium">with {feedback.manager_name}</span>
+                        </div>
+                        {feedback.impact_notes && (
+                          <p className="text-xs text-muted-foreground line-clamp-2 ml-4">
+                            {feedback.impact_notes}
+                          </p>
+                        )}
+                      </div>
+                      {feedback.overall_score > 0 && (
+                        <Badge className={`text-xs ${
+                          feedback.overall_score >= 8 ? 'bg-green-100 text-green-700' :
+                          feedback.overall_score >= 5 ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-orange-100 text-orange-700'
+                        }`}>
+                          {feedback.overall_score}/10
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
+
         {/* Quick Preview when not expanded */}
         {!expandedSection && (
           <div className="space-y-2">
@@ -435,7 +564,28 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
               </div>
             ))}
             
-            {totalFeedback > 3 && (
+            {jointSalesFeedback.slice(0, 1).map((feedback) => (
+              <div 
+                key={feedback.id}
+                className="flex items-center gap-3 p-2 rounded-lg bg-green-500/5 cursor-pointer hover:bg-green-500/10 transition-colors"
+                onClick={() => setExpandedSection('jointSales')}
+              >
+                <Users size={14} className="text-green-500 flex-shrink-0" />
+                <span className="text-sm truncate flex-1">{feedback.retailer_name} - {feedback.manager_name}</span>
+                {feedback.overall_score > 0 && (
+                  <Badge className={`text-xs ${
+                    feedback.overall_score >= 8 ? 'bg-green-100 text-green-700' :
+                    feedback.overall_score >= 5 ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-orange-100 text-orange-700'
+                  }`}>
+                    {feedback.overall_score}/10
+                  </Badge>
+                )}
+                <ChevronRight size={14} className="text-muted-foreground" />
+              </div>
+            ))}
+            
+            {totalFeedback > 4 && (
               <div className="text-center text-xs text-muted-foreground pt-1">
                 Tap any category above to see all entries
               </div>
