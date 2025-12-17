@@ -2026,12 +2026,6 @@ export const TodaySummary = () => {
           </Card>
         )}
 
-        {/* Feedback Summary Section */}
-        <FeedbackSummarySection 
-          dateFrom={dateRange.from} 
-          dateTo={dateRange.to}
-          userId={isAdmin && selectedUserIds.length > 0 ? selectedUserIds[0] : undefined}
-        />
 
         {/* Product-wise Sales */}
         <Card>
@@ -2073,6 +2067,13 @@ export const TodaySummary = () => {
             </Table>
           </CardContent>
         </Card>
+
+        {/* Feedback Summary Section - Moved to last */}
+        <FeedbackSummarySection 
+          dateFrom={dateRange.from} 
+          dateTo={dateRange.to}
+          userId={isAdmin && selectedUserIds.length > 0 ? selectedUserIds[0] : undefined}
+        />
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="sm:max-w-lg">
