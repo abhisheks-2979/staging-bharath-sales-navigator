@@ -900,9 +900,10 @@ export const TodaySummary = () => {
       });
 
       // Update visit breakdown - Planned (total), Productive, Unproductive, Pending
+      // CRITICAL: Use productiveCount (retailers with orders OR productive visits) not productiveVisits.length
       setVisitBreakdown([
         { status: "Planned", count: totalPlannedFromBeatPlans, color: "primary" },
-        { status: "Productive", count: productiveVisits.length, color: "success" },
+        { status: "Productive", count: productiveCount, color: "success" },
         { status: "Unproductive", count: unproductiveVisits.length + closedVisits.length, color: "destructive" },
         { status: "Pending", count: totalPendingCount, color: "warning" }
       ]);

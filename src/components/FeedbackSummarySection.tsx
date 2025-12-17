@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { FeedbackDetailModal } from "./FeedbackDetailModal";
 
 interface FeedbackSummaryProps {
   dateFrom: Date;
@@ -35,6 +36,7 @@ interface BrandingRequestData {
   title: string;
   status: string;
   requested_assets: string;
+  description?: string;
   created_at: string;
 }
 
@@ -53,6 +55,7 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
   const [brandingRequests, setBrandingRequests] = useState<BrandingRequestData[]>([]);
   const [competitionData, setCompetitionData] = useState<CompetitionDataItem[]>([]);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [selectedFeedback, setSelectedFeedback] = useState<{ type: 'retailer' | 'branding' | 'competition', data: any } | null>(null);
 
   useEffect(() => {
     fetchFeedbackData();
@@ -81,7 +84,7 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
       // Fetch branding requests without inner join
       const { data: brandingData } = await supabase
         .from('branding_requests')
-        .select('id, title, status, requested_assets, created_at, retailer_id')
+        .select('id, title, status, requested_assets, description, created_at, retailer_id')
         .eq('user_id', targetUserId)
         .gte('created_at', `${fromDate}T00:00:00`)
         .lte('created_at', `${toDate}T23:59:59`)
@@ -147,6 +150,7 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
           title: b.title,
           status: b.status,
           requested_assets: b.requested_assets,
+          description: b.description,
           created_at: b.created_at
         })));
       }
@@ -291,12 +295,13 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
               <ThumbsUp size={14} />
               Retailer Feedback
             </div>
-            <ScrollArea className="max-h-48">
+            <ScrollArea className="h-48">
               <div className="space-y-2 pr-2">
                 {retailerFeedback.map((feedback) => (
                   <div 
                     key={feedback.id} 
-                    className="p-3 bg-gradient-to-r from-blue-500/5 to-transparent rounded-lg border border-blue-500/10"
+                    className="p-3 bg-gradient-to-r from-blue-500/5 to-transparent rounded-lg border border-blue-500/10 cursor-pointer hover:bg-blue-500/10 transition-colors"
+                    onClick={() => setSelectedFeedback({ type: 'retailer', data: feedback })}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
@@ -330,12 +335,13 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
               <Palette size={14} />
               Branding Requests
             </div>
-            <ScrollArea className="max-h-48">
+            <ScrollArea className="h-48">
               <div className="space-y-2 pr-2">
                 {brandingRequests.map((request) => (
                   <div 
                     key={request.id} 
-                    className="p-3 bg-gradient-to-r from-purple-500/5 to-transparent rounded-lg border border-purple-500/10"
+                    className="p-3 bg-gradient-to-r from-purple-500/5 to-transparent rounded-lg border border-purple-500/10 cursor-pointer hover:bg-purple-500/10 transition-colors"
+                    onClick={() => setSelectedFeedback({ type: 'branding', data: request })}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
@@ -364,12 +370,13 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
               <Target size={14} />
               Competition Insights
             </div>
-            <ScrollArea className="max-h-48">
+            <ScrollArea className="h-48">
               <div className="space-y-2 pr-2">
                 {competitionData.map((data) => (
                   <div 
                     key={data.id} 
-                    className="p-3 bg-gradient-to-r from-orange-500/5 to-transparent rounded-lg border border-orange-500/10"
+                    className="p-3 bg-gradient-to-r from-orange-500/5 to-transparent rounded-lg border border-orange-500/10 cursor-pointer hover:bg-orange-500/10 transition-colors"
+                    onClick={() => setSelectedFeedback({ type: 'competition', data })}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
@@ -454,6 +461,14 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
           </div>
         )}
       </CardContent>
+
+      {/* Feedback Detail Modal */}
+      <FeedbackDetailModal
+        open={!!selectedFeedback}
+        onClose={() => setSelectedFeedback(null)}
+        type={selectedFeedback?.type || 'retailer'}
+        data={selectedFeedback?.data}
+      />
     </Card>
   );
 }
