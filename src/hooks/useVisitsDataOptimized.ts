@@ -163,7 +163,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           .eq('order_date', syncDate),
         supabase
           .from('gamification_points')
-          .select('points, reference_id, reference_type')
+          .select('points, reference_id, reference_type, metadata')
           .eq('user_id', syncUserId)
           .gte('earned_at', dateStart.toISOString())
           .lte('earned_at', dateEnd.toISOString())
@@ -731,9 +731,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             .eq('planned_date', selectedDate),
           supabase
             .from('gamification_points')
-            .select('points, reference_id, reference_type')
+            .select('points, reference_id, reference_type, metadata')
             .eq('user_id', userId)
-            .eq('reference_type', 'order')
             .gte('earned_at', dateStart.toISOString())
             .lte('earned_at', dateEnd.toISOString())
         ]);

@@ -481,49 +481,52 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
               </Card>
             </TabsContent>
 
-            <TabsContent value="chart" className="space-y-3 mt-3">
+            <TabsContent value="chart" className="space-y-3 mt-3 overflow-x-hidden">
               <Card>
                 <CardHeader className="p-3 sm:p-6">
                   <CardTitle className="text-sm sm:text-base">Points by Game Category</CardTitle>
                 </CardHeader>
-                <CardContent className="p-2 sm:p-6">
+                <CardContent className="p-2 sm:p-6 overflow-x-hidden">
                   {gameChartData.length === 0 ? (
                     <div className="text-center text-muted-foreground py-8 text-sm">
                       No data available
                     </div>
                   ) : (
-                    <ChartContainer
-                      config={{
-                        points: {
-                          label: "Points",
-                          color: "hsl(var(--primary))",
-                        },
-                      }}
-                      className="h-[200px] sm:h-[300px]"
-                    >
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={gameChartData}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis 
-                            dataKey="name" 
-                            angle={-45}
-                            textAnchor="end"
-                            height={80}
-                            fontSize={10}
-                            tick={{ fontSize: 9 }}
-                            interval={0}
-                          />
-                          <YAxis tick={{ fontSize: 10 }} width={30} />
-                          <ChartTooltip content={<ChartTooltipContent />} />
-                          <Bar dataKey="points" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </ChartContainer>
+                    <div className="w-full overflow-x-auto -mx-2 px-2">
+                      <ChartContainer
+                        config={{
+                          points: {
+                            label: "Points",
+                            color: "hsl(var(--primary))",
+                          },
+                        }}
+                        className="h-[200px] sm:h-[300px] min-w-[280px]"
+                      >
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={gameChartData} margin={{ left: 0, right: 10, top: 10, bottom: 60 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis 
+                              dataKey="name" 
+                              angle={-45}
+                              textAnchor="end"
+                              height={80}
+                              fontSize={8}
+                              tick={{ fontSize: 8 }}
+                              interval={0}
+                              tickFormatter={(value) => value.length > 15 ? value.substring(0, 15) + '...' : value}
+                            />
+                            <YAxis tick={{ fontSize: 10 }} width={30} />
+                            <ChartTooltip content={<ChartTooltipContent />} />
+                            <Bar dataKey="points" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </ChartContainer>
+                    </div>
                   )}
                 </CardContent>
               </Card>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
+              <div className="grid grid-cols-2 gap-2 overflow-x-hidden">
                 {uniqueGames.map(gameName => {
                   const gamePoints = pointDetails
                     .filter(p => p.game_name === gameName)
@@ -531,19 +534,19 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
                   const gameCount = pointDetails.filter(p => p.game_name === gameName).length;
 
                   return (
-                    <Card key={gameName} className="p-2 sm:p-0">
-                      <CardHeader className="p-2 sm:p-4 pb-1 sm:pb-2">
-                        <CardTitle className="text-xs sm:text-sm truncate">{gameName}</CardTitle>
+                    <Card key={gameName} className="p-2">
+                      <CardHeader className="p-2 pb-1">
+                        <CardTitle className="text-[10px] sm:text-xs truncate" title={gameName}>{gameName}</CardTitle>
                       </CardHeader>
-                      <CardContent className="p-2 sm:p-4 pt-0">
+                      <CardContent className="p-2 pt-0">
                         <div className="space-y-1">
                           <div className="flex justify-between items-center">
-                            <span className="text-[10px] sm:text-xs text-muted-foreground">Points:</span>
-                            <span className="font-bold text-primary text-sm sm:text-base">{gamePoints}</span>
+                            <span className="text-[9px] sm:text-xs text-muted-foreground">Points:</span>
+                            <span className="font-bold text-primary text-xs sm:text-sm">{gamePoints}</span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-[10px] sm:text-xs text-muted-foreground">Activities:</span>
-                            <span className="font-semibold text-xs sm:text-sm">{gameCount}</span>
+                            <span className="text-[9px] sm:text-xs text-muted-foreground">Activities:</span>
+                            <span className="font-semibold text-[10px] sm:text-xs">{gameCount}</span>
                           </div>
                         </div>
                       </CardContent>
