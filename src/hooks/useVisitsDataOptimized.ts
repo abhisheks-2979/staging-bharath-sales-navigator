@@ -1053,8 +1053,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         const dateEnd = new Date(selectedDate);
         dateEnd.setHours(23, 59, 59, 999);
 
-        // Fetch all initial data in parallel for maximum speed
-        const [beatPlansResult, visitsResult, pointsResult] = await Promise.all([
+        // TIMEOUT: On slow networks, abort after 3 seconds and show cached/empty state
+        const NETWORK_TIMEOUT_MS = 3000;
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('NETWORK_TIMEOUT')), NETWORK_TIMEOUT_MS)
+        );
+
+        // Fetch all initial data in parallel for maximum speed - with timeout
+        const networkFetch = Promise.all([
           supabase
             .from('beat_plans')
             .select('*')
@@ -1072,6 +1078,11 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             .gte('earned_at', dateStart.toISOString())
             .lte('earned_at', dateEnd.toISOString())
         ]);
+
+        const [beatPlansResult, visitsResult, pointsResult] = await Promise.race([
+          networkFetch,
+          timeoutPromise
+        ]) as any[];
 
         console.log('✅ [VisitsData] Network fetch successful:', {
           beatPlans: beatPlansResult.data?.length || 0,
@@ -1415,8 +1426,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         setIsLoading(false);
         setError(null);
         console.log('🔄 Updated with fresh data from network, progressStats:', newStats);
-      } catch (networkError) {
-        console.log('Network sync failed, using cached data:', networkError);
+      } catch (networkError: any) {
+        // TIMEOUT HANDLING: On slow network, abort and use cache - sync indicator will handle later
+        const isTimeout = networkError?.message === 'NETWORK_TIMEOUT';
+        if (isTimeout) {
+          console.log('⏱️ [TIMEOUT] Network too slow (>3s), using cached data. Will sync when network improves.');
+        } else {
+          console.log('Network sync failed, using cached data:', networkError);
+        }
         // CRITICAL: If network fails and we haven't loaded from cache, 
         // try to use cached data now as fallback
         if (!hasLoadedFromCache) {
