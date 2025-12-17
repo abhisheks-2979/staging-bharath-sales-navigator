@@ -45,7 +45,8 @@ export function useOfflineSync() {
             v?.status === 'unproductive' &&
             !!v?.no_order_reason &&
             !!v?.retailer_id &&
-            !!v?.user_id
+            !!v?.user_id &&
+            !v?._synced // Skip already synced visits
           );
 
           for (const v of candidates) {
@@ -198,20 +199,24 @@ export function useOfflineSync() {
           
           // ALWAYS look up or create visit by retailer_id + user_id + planned_date
           // This ensures we handle ALL cases: offline IDs, stale cached IDs, or missing visits
+          // Use order + limit to handle duplicate visits (get most recent one)
           console.log('🔍 Looking for existing visit in database for:', { noOrderRetailerId, noOrderUserId, plannedDate });
           
-          const { data: existingVisit, error: lookupError } = await supabase
+          const { data: existingVisits, error: lookupError } = await supabase
             .from('visits')
             .select('id')
             .eq('retailer_id', noOrderRetailerId)
             .eq('user_id', noOrderUserId)
             .eq('planned_date', plannedDate)
-            .maybeSingle();
+            .order('created_at', { ascending: false })
+            .limit(1);
           
           if (lookupError) {
             console.error('❌ Error looking up visit:', lookupError);
             throw lookupError;
           }
+          
+          const existingVisit = existingVisits && existingVisits.length > 0 ? existingVisits[0] : null;
           
           let effectiveNoOrderVisitId: string;
           
@@ -235,10 +240,10 @@ export function useOfflineSync() {
             if (updateError) throw updateError;
             console.log('✅ Visit updated with no-order reason');
             
-            // Cache the updated visit so loadData picks it up immediately
+            // Cache the updated visit with _synced flag to prevent rebuild loop
             if (updatedVisit) {
-              await offlineStorage.save(STORES.VISITS, updatedVisit);
-              console.log('✅ Updated visit cached for immediate UI refresh');
+              await offlineStorage.save(STORES.VISITS, { ...updatedVisit, _synced: true });
+              console.log('✅ Updated visit cached with _synced flag');
             }
           } else {
             // Create new visit
@@ -262,8 +267,8 @@ export function useOfflineSync() {
             effectiveNoOrderVisitId = newVisit.id;
             console.log('✅ No-order visit created successfully:', effectiveNoOrderVisitId);
             
-            // Cache the new visit
-            await offlineStorage.save(STORES.VISITS, newVisit);
+            // Cache the new visit with _synced flag
+            await offlineStorage.save(STORES.VISITS, { ...newVisit, _synced: true });
           }
           
           // Update visitStatusCache to ensure UI reflects the change
