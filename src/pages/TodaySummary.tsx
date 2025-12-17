@@ -2105,7 +2105,7 @@ export const TodaySummary = () => {
         <FeedbackSummarySection 
           dateFrom={dateRange.from} 
           dateTo={dateRange.to}
-          userId={isAdmin && selectedUserIds.length > 0 ? selectedUserIds[0] : undefined}
+          userId={isAdmin && selectedUserIds.length > 0 ? selectedUserIds[0] : user?.id}
         />
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
