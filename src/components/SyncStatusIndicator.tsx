@@ -156,16 +156,20 @@ export const SyncStatusIndicator = memo(() => {
     );
   }
   
-  // Show static indicator only if there are actual pending items AND we're online (ready to sync)
-  if (syncQueueCount > 0 && isOnline) {
+  // Show static indicator when there are actual pending items (both online and offline)
+  if (syncQueueCount > 0) {
     return (
       <>
         <button
           onClick={() => setShowModal(true)}
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-          title={`${syncQueueCount} items pending sync`}
+          title={isOnline ? `${syncQueueCount} items pending sync` : `${syncQueueCount} items waiting to sync when online`}
         >
-          <Cloud className="h-4 w-4 text-primary-foreground/70" />
+          {isOnline ? (
+            <Cloud className="h-4 w-4 text-primary-foreground/70" />
+          ) : (
+            <CloudOff className="h-4 w-4 text-yellow-400" />
+          )}
           <span className="text-xs text-primary-foreground/70">{syncQueueCount}</span>
         </button>
         <SyncProgressModal open={showModal} onOpenChange={setShowModal} />
@@ -173,8 +177,7 @@ export const SyncStatusIndicator = memo(() => {
     );
   }
   
-  // Don't show anything when queue is empty or we're offline with pending items
-  // (offline items will sync automatically when online)
+  // Don't show anything when queue is empty
   return null;
 });
 
