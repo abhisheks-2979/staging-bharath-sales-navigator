@@ -1658,10 +1658,19 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     
     // Listen for sync complete event (offline -> online sync finished)
     const handleSyncComplete = () => {
-      console.log('🔄 [SYNC-COMPLETE] Sync finished, refreshing Today\'s Progress...');
+      console.log('🔄 [SYNC-COMPLETE] Sync finished, clearing cache and refreshing data...');
+      
+      // CRITICAL: Clear in-memory cache to force fresh database fetch
+      const today = new Date().toISOString().split('T')[0];
+      dateDataCacheRef.current.delete(today);
+      dateDataCacheRef.current.delete(selectedDate);
+      
+      // Also clear snapshot cache
+      lastLoadedDateRef.current = null;
+      
       setTimeout(() => {
         loadData(true);
-      }, 500); // Small delay to ensure DB is updated
+      }, 300);
     };
     
     window.addEventListener('online', handleOnline);

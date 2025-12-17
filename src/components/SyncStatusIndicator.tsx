@@ -66,6 +66,10 @@ export const SyncStatusIndicator = memo(() => {
             setLastSyncStatus('success');
             setSyncQueueCount(0);
             
+            // Dispatch event to force data refresh across all components
+            window.dispatchEvent(new CustomEvent('syncComplete'));
+            console.log('📢 Dispatched syncComplete event to refresh data');
+            
             // Clear success status after 3 seconds
             setTimeout(() => setLastSyncStatus(null), 3000);
           } else {
