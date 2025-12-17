@@ -1427,10 +1427,17 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         setError(null);
         console.log('🔄 Updated with fresh data from network, progressStats:', newStats);
       } catch (networkError: any) {
-        // TIMEOUT HANDLING: On slow network, abort and use cache - sync indicator will handle later
+        // TIMEOUT HANDLING: On slow network, abort and use cache - schedule background retry
         const isTimeout = networkError?.message === 'NETWORK_TIMEOUT';
         if (isTimeout) {
-          console.log('⏱️ [TIMEOUT] Network too slow (>3s), using cached data. Will sync when network improves.');
+          console.log('⏱️ [TIMEOUT] Network too slow (>3s), using cached data. Scheduling background retry...');
+          // Schedule a background retry after 5 seconds to fetch latest when network improves
+          setTimeout(() => {
+            if (navigator.onLine) {
+              console.log('🔄 [RETRY] Retrying network fetch after timeout...');
+              backgroundNetworkSync(userId, selectedDate);
+            }
+          }, 5000);
         } else {
           console.log('Network sync failed, using cached data:', networkError);
         }
