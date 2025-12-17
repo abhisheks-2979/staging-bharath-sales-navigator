@@ -73,6 +73,9 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   const isLoadingRef = useRef(false);
   const pendingDateRef = useRef<string | null>(null);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Debounce ref to prevent multiple rapid reloads from events
+  const lastLoadTimeRef = useRef<number>(0);
+  const pendingLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // Cache for date-based data to enable instant switching
   const dateDataCacheRef = useRef<Map<string, { beatPlans: any[], visits: any[], retailers: any[], orders: any[], progressStats: ProgressStats, timestamp: number }>>(new Map());
   
@@ -1581,10 +1584,16 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         setDataVersion(prev => prev + 1);
       }
       
-      // Also do a background data refresh after a short delay to sync with server
-      setTimeout(() => {
-        loadData(true);
-      }, 500);
+      // DEBOUNCED: Background data refresh - only if not recently loaded
+      const now = Date.now();
+      if (now - lastLoadTimeRef.current > 2000) { // 2 second debounce
+        lastLoadTimeRef.current = now;
+        setTimeout(() => {
+          loadData(true);
+        }, 500);
+      } else {
+        console.log('⏸️ [DEBOUNCE] Skipping reload - recently loaded');
+      }
     };
 
     // Listen for visitDataChanged events (e.g., new beat plans added, new retailers)
@@ -1636,22 +1645,35 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         }
       }
       
-      // Clear in-memory cache for today to force fresh load
-      const today = new Date().toISOString().split('T')[0];
-      dateDataCacheRef.current.delete(today);
-      dateDataCacheRef.current.delete(selectedDate);
-      console.log('🗑️ [CACHE] Cleared in-memory cache for:', today, selectedDate);
-      
-      // Small delay to ensure database write completed (for online save)
-      setTimeout(() => {
-        loadData(true);
-      }, 300);
+      // DEBOUNCED: Only reload if not recently loaded
+      const now = Date.now();
+      if (now - lastLoadTimeRef.current > 2000) { // 2 second debounce
+        // Clear in-memory cache for today to force fresh load
+        const today = new Date().toISOString().split('T')[0];
+        dateDataCacheRef.current.delete(today);
+        dateDataCacheRef.current.delete(selectedDate);
+        console.log('🗑️ [CACHE] Cleared in-memory cache for:', today, selectedDate);
+        
+        lastLoadTimeRef.current = now;
+        // Small delay to ensure database write completed (for online save)
+        setTimeout(() => {
+          loadData(true);
+        }, 300);
+      } else {
+        console.log('⏸️ [DEBOUNCE] Skipping visitDataChanged reload - recently loaded');
+      }
     };
     
     // Listen for sync complete event (offline -> online sync finished)
     // This is the ONLY automatic refresh - runs once after offline data syncs to database
     const handleSyncComplete = () => {
       console.log('🔄 [SYNC-COMPLETE] Sync finished, clearing cache and refreshing data...');
+      
+      // Clear pending debounce timeout
+      if (pendingLoadTimeoutRef.current) {
+        clearTimeout(pendingLoadTimeoutRef.current);
+        pendingLoadTimeoutRef.current = null;
+      }
       
       // CRITICAL: Clear in-memory cache to force fresh database fetch
       const today = new Date().toISOString().split('T')[0];
@@ -1661,6 +1683,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       // Also clear snapshot cache
       lastLoadedDateRef.current = null;
       
+      // Force load immediately - syncComplete is high priority
+      lastLoadTimeRef.current = Date.now();
       setTimeout(() => {
         loadData(true);
       }, 300);
@@ -1681,6 +1705,9 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       // Clean up loading timeout on unmount
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
+      }
+      if (pendingLoadTimeoutRef.current) {
+        clearTimeout(pendingLoadTimeoutRef.current);
       }
     };
   }, [loadData, selectedDate]);
