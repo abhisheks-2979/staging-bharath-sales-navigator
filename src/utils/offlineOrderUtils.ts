@@ -24,25 +24,37 @@ export async function submitOrderWithOfflineSupport(
   // Try online submission first if we think we're online
   if (connectivityCheck) {
     try {
-      // Online: Submit directly
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert(orderData)
-        .select()
-        .single();
+      // Add timeout for slow networks - 10 seconds
+      const timeoutMs = 10000;
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Network timeout - submitting offline')), timeoutMs)
+      );
+      
+      // Online submission with timeout
+      const submitPromise = (async () => {
+        const { data: order, error: orderError } = await supabase
+          .from('orders')
+          .insert(orderData)
+          .select()
+          .single();
 
-      if (orderError) throw orderError;
+        if (orderError) throw orderError;
 
-      const itemsWithOrderId = orderItems.map(item => ({
-        ...item,
-        order_id: order.id
-      }));
+        const itemsWithOrderId = orderItems.map(item => ({
+          ...item,
+          order_id: order.id
+        }));
 
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(itemsWithOrderId);
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .insert(itemsWithOrderId);
 
-      if (itemsError) throw itemsError;
+        if (itemsError) throw itemsError;
+        
+        return order;
+      })();
+      
+      const order = await Promise.race([submitPromise, timeoutPromise]);
 
       options.onOnline?.();
       
@@ -56,8 +68,8 @@ export async function submitOrderWithOfflineSupport(
         order 
       };
     } catch (error: any) {
-      // If online submission fails (network error, etc.), fall back to offline mode
-      console.warn('Online submission failed, queuing for offline sync:', error);
+      // If online submission fails or times out, fall back to offline mode
+      console.warn('Online submission failed/timeout, queuing for offline sync:', error.message);
       
       // Fall through to offline logic below
     }
