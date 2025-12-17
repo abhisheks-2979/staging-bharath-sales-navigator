@@ -2,7 +2,7 @@ import { useEffect, useState, memo, useCallback, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Cloud, CloudOff, RefreshCw, CheckCircle2, AlertCircle } from "lucide-react";
 import { useConnectivity } from "@/hooks/useConnectivity";
-import { offlineStorage } from "@/lib/offlineStorage";
+import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { toast } from "@/hooks/use-toast";
 import { SyncProgressModal } from "./SyncProgressModal";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
@@ -16,7 +16,39 @@ export const SyncStatusIndicator = memo(() => {
   const [showModal, setShowModal] = useState(false);
   const mountedRef = useRef(true);
 
-  // Check sync queue periodically - less frequently when nothing to sync
+  // ONE-TIME CLEANUP: Remove old stuck items from sync queue on app open
+  useEffect(() => {
+    const cleanupOldStuckItems = async () => {
+      try {
+        const queue = await offlineStorage.getSyncQueue();
+        const oneHourAgo = Date.now() - 60 * 60 * 1000;
+        
+        // Find items to remove (stuck/old)
+        const itemsToRemove = queue.filter((item: any) => {
+          // Remove items that have failed 5+ times
+          if (item.retryCount >= 5) return true;
+          // Remove items older than 1 hour
+          if (item.timestamp && item.timestamp < oneHourAgo) return true;
+          return false;
+        });
+        
+        // Delete stuck items
+        for (const item of itemsToRemove) {
+          await offlineStorage.delete(STORES.SYNC_QUEUE, item.id);
+        }
+        
+        if (itemsToRemove.length > 0) {
+          console.log(`🧹 [SyncStatusIndicator] Cleaned up ${itemsToRemove.length} old/stuck sync items`);
+        }
+      } catch (error) {
+        console.error('Error cleaning up old sync items:', error);
+      }
+    };
+    
+    cleanupOldStuckItems();
+  }, []); // Run only once on mount
+
+  // Check sync queue periodically - only count ACTUAL pending items (not old/stuck ones)
   useEffect(() => {
     mountedRef.current = true;
     
@@ -24,8 +56,20 @@ export const SyncStatusIndicator = memo(() => {
       if (!mountedRef.current) return;
       try {
         const queue = await offlineStorage.getSyncQueue();
+        
+        // Filter out old items (older than 1 hour) and items that failed 5+ times
+        // These are stuck items that shouldn't show the sync indicator
+        const oneHourAgo = Date.now() - 60 * 60 * 1000;
+        const actualPendingItems = queue.filter((item: any) => {
+          // Skip items that have failed 5+ times
+          if (item.retryCount >= 5) return false;
+          // Skip items older than 1 hour that haven't been synced
+          if (item.timestamp && item.timestamp < oneHourAgo && !item._syncing) return false;
+          return true;
+        });
+        
         if (mountedRef.current) {
-          setSyncQueueCount(queue.length);
+          setSyncQueueCount(actualPendingItems.length);
         }
       } catch (error) {
         console.error('Error checking sync queue:', error);
@@ -92,22 +136,17 @@ export const SyncStatusIndicator = memo(() => {
     }
   }, [isOnline, syncQueueCount, isSyncing, processSyncQueue]);
 
-  // Only show when syncing or have pending items
-  if (isSyncing || syncQueueCount > 0) {
+  // Only show when ACTIVELY syncing or have ACTUAL pending items (not stuck/old ones)
+  // Don't show just because we checked the queue - only when there's real work to do
+  if (isSyncing) {
     return (
       <>
         <button
           onClick={() => setShowModal(true)}
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-          title="Click to view sync progress"
+          title="Syncing data..."
         >
-          {isSyncing ? (
-            <RefreshCw className="h-4 w-4 animate-spin text-primary-foreground/70" />
-          ) : isOnline ? (
-            <Cloud className="h-4 w-4 text-primary-foreground/70" />
-          ) : (
-            <CloudOff className="h-4 w-4 text-primary-foreground/70" />
-          )}
+          <RefreshCw className="h-4 w-4 animate-spin text-primary-foreground/70" />
           {syncQueueCount > 0 && (
             <span className="text-xs text-primary-foreground/70">{syncQueueCount}</span>
           )}
@@ -117,6 +156,25 @@ export const SyncStatusIndicator = memo(() => {
     );
   }
   
+  // Show static indicator only if there are actual pending items AND we're online (ready to sync)
+  if (syncQueueCount > 0 && isOnline) {
+    return (
+      <>
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          title={`${syncQueueCount} items pending sync`}
+        >
+          <Cloud className="h-4 w-4 text-primary-foreground/70" />
+          <span className="text-xs text-primary-foreground/70">{syncQueueCount}</span>
+        </button>
+        <SyncProgressModal open={showModal} onOpenChange={setShowModal} />
+      </>
+    );
+  }
+  
+  // Don't show anything when queue is empty or we're offline with pending items
+  // (offline items will sync automatically when online)
   return null;
 });
 
