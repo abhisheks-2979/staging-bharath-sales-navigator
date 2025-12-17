@@ -6,6 +6,7 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, UserCheck, Star, Edit, Trash2, Calendar, IndianRupee, TrendingUp, Store, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
+import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -114,6 +115,19 @@ export const JointSalesFeedbackViewModal = ({
     
     setIsDeleting(true);
     try {
+      // Move to recycle bin first
+      const movedToRecycleBin = await moveToRecycleBin({
+        tableName: 'joint_sales_feedback',
+        recordId: feedback.id,
+        recordData: feedback,
+        moduleName: 'Joint Sales Feedback',
+        recordName: `Joint visit with ${feedback.manager_name} - ${retailerName}`,
+      });
+
+      if (!movedToRecycleBin) {
+        throw new Error("Failed to move to recycle bin");
+      }
+
       const { error } = await supabase
         .from('joint_sales_feedback')
         .delete()
@@ -123,7 +137,7 @@ export const JointSalesFeedbackViewModal = ({
 
       toast({
         title: "Deleted",
-        description: "Joint sales feedback has been deleted"
+        description: "Moved to recycle bin. You can restore it if needed."
       });
       
       onDeleted();
@@ -366,8 +380,7 @@ export const JointSalesFeedbackViewModal = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Feedback?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the joint sales feedback for {retailerName}. 
-              This action cannot be undone.
+              This feedback will be moved to recycle bin. You can restore it later if needed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
