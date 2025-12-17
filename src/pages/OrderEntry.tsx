@@ -1987,19 +1987,29 @@ export const OrderEntry = () => {
                       const queueItems = await offlineStorage.getSyncQueue();
                       console.log('📦 Sync queue now contains:', queueItems.length, 'items');
                       
-                      // Update local cache if visit exists
+                      // CRITICAL: Always save/update visit in offline cache for progress stats to update
+                      const visitToSave = {
+                        id: effectiveVisitId || `offline_noorder_${retailerId}_${Date.now()}`,
+                        retailer_id: retailerId,
+                        user_id: userId,
+                        planned_date: today,
+                        status: 'unproductive',
+                        no_order_reason: finalReason,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                      };
+                      
+                      // If we have an existing visit ID, try to merge with cached data
                       if (effectiveVisitId) {
                         const cachedVisit = await offlineStorage.getById<any>(STORES.VISITS, effectiveVisitId);
                         if (cachedVisit) {
-                          await offlineStorage.save(STORES.VISITS, {
-                            ...cachedVisit,
-                            status: 'unproductive',
-                            no_order_reason: finalReason,
-                            updated_at: new Date().toISOString()
-                          });
-                          console.log('✅ Updated visit in offline cache');
+                          visitToSave.id = cachedVisit.id;
+                          visitToSave.created_at = cachedVisit.created_at || visitToSave.created_at;
                         }
                       }
+                      
+                      await offlineStorage.save(STORES.VISITS, visitToSave);
+                      console.log('✅ Saved unproductive visit to offline cache:', visitToSave.id);
                       
                       toast({
                         title: "📴 Saved Offline",
