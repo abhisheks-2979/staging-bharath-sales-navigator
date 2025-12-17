@@ -794,11 +794,16 @@ export const VisitCard = ({
     };
   }, [myRetailerId, skipInitialCheck]); // Removed checkStatus and visit.status from deps to prevent re-running
 
-  // ALWAYS fetch pending amount for retailer - independent of visit status caching
-  // This ensures pending payment tag is always displayed regardless of skipInitialCheck or cache state
+  // OPTIMIZED: Fetch pending amount for retailer - deferred to not block initial render
+  // Using a ref to prevent duplicate fetches
+  const pendingAmountFetchedRef = useRef(false);
+  
   useEffect(() => {
+    if (pendingAmountFetchedRef.current) return;
+    
     const fetchPendingAmount = async () => {
       const visitRetailerId = visit.retailerId || visit.id;
+      pendingAmountFetchedRef.current = true;
       
       try {
         const { data: retailerPendingData, error: pendingError } = await supabase
@@ -838,11 +843,26 @@ export const VisitCard = ({
       }
     };
     
-    fetchPendingAmount();
-  }, [myRetailerId]); // Only depend on retailerId, run once per retailer
+    // OPTIMIZATION: Defer pending amount fetch to let critical data load first
+    const timeoutId = setTimeout(() => {
+      if (typeof requestIdleCallback !== 'undefined') {
+        requestIdleCallback(() => fetchPendingAmount());
+      } else {
+        fetchPendingAmount();
+      }
+    }, 300); // 300ms delay - slightly before feedback check
+    
+    return () => clearTimeout(timeoutId);
+  }, [myRetailerId, visit.id, visit.retailerId, pendingAmount, pendingSinceDate]);
 
-  // Check for existing feedback data to show tick marks
+  // OPTIMIZED: Check for existing feedback data - run in parallel and only when needed
+  // This lazy loads feedback indicators to reduce network calls on page load
+  const feedbackCheckedRef = useRef(false);
+  
   useEffect(() => {
+    // Only check once per card - feedback indicators don't change frequently
+    if (feedbackCheckedRef.current) return;
+    
     const checkFeedbackExists = async () => {
       const visitRetailerId = visit.retailerId || visit.id;
       const targetDate = selectedDate || new Date().toISOString().split('T')[0];
@@ -851,54 +871,64 @@ export const VisitCard = ({
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) return;
         
-        // Check for retailer feedback
-        const { data: retailerFeedback } = await supabase
-          .from('retailer_feedback')
-          .select('id')
-          .eq('retailer_id', visitRetailerId)
-          .eq('feedback_date', targetDate)
-          .eq('user_id', session.user.id)
-          .maybeSingle();
-        setHasRetailerFeedback(!!retailerFeedback);
+        feedbackCheckedRef.current = true;
         
-        // Check for branding requests
-        const { data: brandingRequest } = await supabase
-          .from('branding_requests')
-          .select('id')
-          .eq('retailer_id', visitRetailerId)
-          .gte('created_at', `${targetDate}T00:00:00.000Z`)
-          .lte('created_at', `${targetDate}T23:59:59.999Z`)
-          .eq('user_id', session.user.id)
-          .maybeSingle();
-        setHasBrandingRequest(!!brandingRequest);
+        // OPTIMIZATION: Run all 4 checks in parallel instead of sequential
+        const [retailerFeedbackResult, brandingResult, competitionResult, jointFeedbackResult] = await Promise.all([
+          supabase
+            .from('retailer_feedback')
+            .select('id')
+            .eq('retailer_id', visitRetailerId)
+            .eq('feedback_date', targetDate)
+            .eq('user_id', session.user.id)
+            .maybeSingle(),
+          supabase
+            .from('branding_requests')
+            .select('id')
+            .eq('retailer_id', visitRetailerId)
+            .gte('created_at', `${targetDate}T00:00:00.000Z`)
+            .lte('created_at', `${targetDate}T23:59:59.999Z`)
+            .eq('user_id', session.user.id)
+            .maybeSingle(),
+          supabase
+            .from('competition_data')
+            .select('id')
+            .eq('retailer_id', visitRetailerId)
+            .gte('created_at', `${targetDate}T00:00:00.000Z`)
+            .lte('created_at', `${targetDate}T23:59:59.999Z`)
+            .eq('user_id', session.user.id)
+            .maybeSingle(),
+          supabase
+            .from('joint_sales_feedback')
+            .select('id')
+            .eq('retailer_id', visitRetailerId)
+            .eq('feedback_date', targetDate)
+            .eq('fse_user_id', session.user.id)
+            .maybeSingle()
+        ]);
         
-        // Check for competition data
-        const { data: competitionData } = await supabase
-          .from('competition_data')
-          .select('id')
-          .eq('retailer_id', visitRetailerId)
-          .gte('created_at', `${targetDate}T00:00:00.000Z`)
-          .lte('created_at', `${targetDate}T23:59:59.999Z`)
-          .eq('user_id', session.user.id)
-          .maybeSingle();
-        setHasCompetitionData(!!competitionData);
-        
-        // Check for joint sales feedback
-        const { data: jointFeedback } = await supabase
-          .from('joint_sales_feedback')
-          .select('id')
-          .eq('retailer_id', visitRetailerId)
-          .eq('feedback_date', targetDate)
-          .eq('fse_user_id', session.user.id)
-          .maybeSingle();
-        setHasJointSalesFeedback(!!jointFeedback);
+        // Update all states together
+        setHasRetailerFeedback(!!retailerFeedbackResult.data);
+        setHasBrandingRequest(!!brandingResult.data);
+        setHasCompetitionData(!!competitionResult.data);
+        setHasJointSalesFeedback(!!jointFeedbackResult.data);
       } catch (err) {
         console.error('Error checking feedback existence:', err);
       }
     };
     
-    checkFeedbackExists();
-  }, [myRetailerId, selectedDate]);
+    // OPTIMIZATION: Defer feedback check to not block initial render
+    // Use requestIdleCallback for low-priority background fetch
+    const timeoutId = setTimeout(() => {
+      if (typeof requestIdleCallback !== 'undefined') {
+        requestIdleCallback(() => checkFeedbackExists());
+      } else {
+        checkFeedbackExists();
+      }
+    }, 500); // 500ms delay to let critical data load first
+    
+    return () => clearTimeout(timeoutId);
+  }, [myRetailerId, selectedDate, visit.id, visit.retailerId]);
 
   // Listen for custom events to refresh status - trigger full data reload
   useEffect(() => {

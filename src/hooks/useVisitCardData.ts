@@ -28,6 +28,7 @@ interface UseVisitCardDataProps {
 }
 
 // Batch data cache - shared across all VisitCards
+// OPTIMIZED: Extended cache TTL to reduce network calls on slow internet
 const batchDataCache = new Map<string, {
   data: Map<string, any>;
   timestamp: number;
@@ -38,8 +39,11 @@ let batchQueue: string[] = [];
 let batchTimeout: NodeJS.Timeout | null = null;
 let batchPromiseResolvers: Map<string, (data: any) => void> = new Map();
 
-const BATCH_DELAY = 50; // Wait 50ms to collect retailer IDs before batch fetch
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const BATCH_DELAY = 100; // Wait 100ms to collect retailer IDs before batch fetch (was 50ms)
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutes - extended from 5 minutes for slow network optimization
+
+// Track if batch fetch is in progress to prevent duplicate fetches
+let isBatchFetchInProgress = false;
 
 // Batch fetch function that fetches data for multiple retailers at once
 async function executeBatchFetch(retailerIds: string[], userId: string, selectedDate: string) {
@@ -257,10 +261,23 @@ export const useVisitCardData = ({
     }
   }, [selectedDate]);
 
-  // Batch fetch data
+  // OPTIMIZED: Skip batch fetch if props already have complete data (productive status with order)
+  // This prevents unnecessary network calls when parent already has fresh data
+  const shouldSkipFetch = hasOrderProp || visitStatus === 'productive' || visitStatus === 'unproductive';
+  
+  // Batch fetch data - but ONLY if we don't have final status from props
   useEffect(() => {
     if (!userId || !retailerId || !selectedDate) return;
     if (hasFetchedRef.current) return;
+    
+    // OPTIMIZATION: If we already have final status from props, skip network fetch
+    // Props data comes from useVisitsDataOptimized which already has the correct status
+    if (shouldSkipFetch) {
+      console.log('⚡ [VisitCardData] Skipping fetch - have complete data from props:', { hasOrderProp, visitStatus });
+      setData(prev => ({ ...prev, isLoading: false }));
+      hasFetchedRef.current = true;
+      return;
+    }
 
     const fetchData = async () => {
       hasFetchedRef.current = true;
@@ -279,7 +296,7 @@ export const useVisitCardData = ({
     };
 
     fetchData();
-  }, [retailerId, userId, selectedDate]);
+  }, [retailerId, userId, selectedDate, shouldSkipFetch]);
 
   // Sync with prop changes (when parent has fresh data)
   useEffect(() => {

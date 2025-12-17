@@ -49,6 +49,13 @@ const progressStatsEqual = (a: ProgressStats, b: ProgressStats): boolean => {
     a.totalOrderValue === b.totalOrderValue;
 };
 
+// CACHE FRESHNESS CONFIG - Only sync if cache is older than this (in milliseconds)
+const CACHE_FRESHNESS_MS = 15 * 60 * 1000; // 15 minutes - reduces network calls on slow internet
+const BACKGROUND_SYNC_DEBOUNCE_MS = 30000; // 30 seconds between background syncs
+
+// Session-level sync tracker to prevent redundant network calls
+const sessionSyncTracker = new Map<string, number>();
+
 export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOptimizedProps) => {
   const [beatPlans, setBeatPlans] = useState<any[]>([]);
   const [visits, setVisits] = useState<any[]>([]);
@@ -72,6 +79,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   const isLoadingRef = useRef(false);
   const pendingDateRef = useRef<string | null>(null);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSyncTimeRef = useRef<number>(0); // Track last sync time to prevent rapid re-syncs
   // Cache for date-based data to enable instant switching
   const dateDataCacheRef = useRef<Map<string, { beatPlans: any[], visits: any[], retailers: any[], orders: any[], progressStats: ProgressStats, timestamp: number }>>(new Map());
   
@@ -131,9 +139,41 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     return checkDate.getTime() === today.getTime();
   }, []);
 
+  // Helper to check if cache is still fresh (within CACHE_FRESHNESS_MS)
+  const isCacheFresh = useCallback((cacheTimestamp: number): boolean => {
+    return (Date.now() - cacheTimestamp) < CACHE_FRESHNESS_MS;
+  }, []);
+
+  // Helper to check if we should skip background sync (rate limiting)
+  const shouldSkipSync = useCallback((dateKey: string): boolean => {
+    const lastSync = sessionSyncTracker.get(dateKey) || 0;
+    const timeSinceLastSync = Date.now() - lastSync;
+    return timeSinceLastSync < BACKGROUND_SYNC_DEBOUNCE_MS;
+  }, []);
+
   // Background network sync - fires and forgets, updates cache and state only if data changed
-  const backgroundNetworkSync = useCallback(async (syncUserId: string, syncDate: string) => {
+  // OPTIMIZED: Includes rate limiting to prevent excessive network calls on slow internet
+  const backgroundNetworkSync = useCallback(async (syncUserId: string, syncDate: string, forceSync = false) => {
     if (!navigator.onLine) return;
+    
+    const syncKey = `${syncUserId}-${syncDate}`;
+    
+    // RATE LIMITING: Skip if we synced recently (unless forced)
+    if (!forceSync && shouldSkipSync(syncKey)) {
+      console.log('⏸️ [BG-SYNC] Skipping - synced recently for:', syncDate);
+      return;
+    }
+    
+    // Check if in-memory cache is still fresh - skip network entirely
+    const cachedData = dateDataCacheRef.current.get(syncDate);
+    if (!forceSync && cachedData && isCacheFresh(cachedData.timestamp)) {
+      console.log('✅ [BG-SYNC] Cache still fresh, skipping network for:', syncDate);
+      return;
+    }
+    
+    // Update sync tracker
+    sessionSyncTracker.set(syncKey, Date.now());
+    lastSyncTimeRef.current = Date.now();
     
     console.log('🔄 [BG-SYNC] Background network sync starting for:', syncDate);
     
@@ -309,7 +349,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     } catch (error) {
       console.log('🔄 [BG-SYNC] Background sync failed (silent):', error);
     }
-  }, []);
+  }, [isCacheFresh, shouldSkipSync]);
 
   // CACHE-FIRST LOADING: Load from cache immediately, sync in background
   const loadData = useCallback(async (forceRefresh = false) => {
@@ -354,9 +394,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     // FAST PATH: Check in-memory cache first for instant date switching
     const cachedDateData = dateDataCacheRef.current.get(selectedDate);
     const hasCachedRetailers = cachedDateData && cachedDateData.retailers && cachedDateData.retailers.length > 0;
+    const cacheIsFresh = cachedDateData && isCacheFresh(cachedDateData.timestamp);
     
     if (cachedDateData && !forceRefresh) {
-      console.log('⚡ [FAST] Loading from in-memory cache for date:', selectedDate, 'retailers:', cachedDateData.retailers.length);
+      console.log('⚡ [FAST] Loading from in-memory cache for date:', selectedDate, 'retailers:', cachedDateData.retailers.length, 'fresh:', cacheIsFresh);
       setBeatPlans(cachedDateData.beatPlans);
       setVisits(cachedDateData.visits);
       setRetailers(cachedDateData.retailers);
@@ -379,9 +420,17 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         return;
       }
       
-      // For today OR future dates, ALWAYS check network for updates when online
-      if (navigator.onLine) {
-        console.log('📅 [TODAY/FUTURE] Will check network for real-time updates');
+      // OPTIMIZED: For today/future dates with FRESH cache, skip network sync entirely
+      // This prevents slow network from blocking the app
+      if (cacheIsFresh && hasCachedRetailers) {
+        console.log('✅ [FRESH CACHE] Cache is fresh, skipping network sync entirely');
+        isLoadingRef.current = false;
+        return;
+      }
+      
+      // For stale cache on today/future dates, continue to background sync (but don't block UI)
+      if (navigator.onLine && !cacheIsFresh) {
+        console.log('📅 [STALE CACHE] Cache is stale, will sync in background');
         // Continue to network fetch below, but UI is already showing cached data
       } else {
         console.log('📴 [OFFLINE] Using cached data only');
@@ -634,8 +683,9 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     }
 
     // CRITICAL: If cache loaded with data, UI is ready - network sync is background-only
+    // OPTIMIZED: Only run background sync if cache is stale (older than CACHE_FRESHNESS_MS)
     if (hasLoadedFromCache && loadedRetailersCount > 0) {
-      console.log('✅ [CACHE-FIRST] Cache loaded successfully, network sync in background');
+      console.log('✅ [CACHE-FIRST] Cache loaded successfully');
       setIsLoading(false);
       isLoadingRef.current = false;
       if (loadingTimeoutRef.current) {
@@ -643,15 +693,24 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         loadingTimeoutRef.current = null;
       }
       
-      // Fire background sync without blocking - fire and forget
-      if (navigator.onLine) {
+      // Check if we should skip background sync - only sync if cache is stale
+      const cachedData = dateDataCacheRef.current.get(selectedDate);
+      const cacheAge = cachedData ? Date.now() - cachedData.timestamp : Infinity;
+      const isCacheStale = cacheAge > CACHE_FRESHNESS_MS;
+      
+      // Only run background sync for TODAY if cache is stale, never for old dates
+      if (navigator.onLine && isToday(selectedDate) && isCacheStale) {
+        console.log('🔄 [CACHE-FIRST] Cache is stale, running background sync. Age:', Math.round(cacheAge / 1000), 'seconds');
         const bgSelectedDate = selectedDate;
         const bgUserId = userId;
+        // Use longer delay to not interfere with user interaction
         requestIdleCallback?.(() => {
           backgroundNetworkSync(bgUserId, bgSelectedDate);
         }) || setTimeout(() => {
           backgroundNetworkSync(bgUserId, bgSelectedDate);
-        }, 100);
+        }, 500);
+      } else {
+        console.log('⏸️ [CACHE-FIRST] Skipping background sync. Cache age:', Math.round(cacheAge / 1000), 'seconds, isToday:', isToday(selectedDate));
       }
       return;
     }
