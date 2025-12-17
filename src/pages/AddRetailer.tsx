@@ -645,8 +645,8 @@ export const AddRetailer = () => {
   };
 
   const handleSaveWithBeat = async () => {
-    if (!retailerData.name || !retailerData.phone || !retailerData.address || !retailerData.state) {
-      toast({ title: 'Missing Information', description: 'Please fill in all required fields (Name, Phone, Address, State)', variant: 'destructive' });
+    if (!retailerData.name || !retailerData.phone || !retailerData.address) {
+      toast({ title: 'Missing Information', description: 'Please fill in all required fields (Name, Phone, Address)', variant: 'destructive' });
       return;
     }
     if (!selectedBeat || selectedBeat === 'unassigned') {
@@ -675,10 +675,10 @@ export const AddRetailer = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!retailerData.name || !retailerData.phone || !retailerData.address || !retailerData.state) {
+    if (!retailerData.name || !retailerData.phone || !retailerData.address) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields (Name, Phone, Address, State)",
+        description: "Please fill in all required fields (Name, Phone, Address)",
         variant: "destructive"
       });
       return;
