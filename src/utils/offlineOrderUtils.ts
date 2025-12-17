@@ -1,7 +1,7 @@
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { supabase } from '@/integrations/supabase/client';
 import { visitStatusCache } from '@/lib/visitStatusCache';
-
+import { saveMyVisitsSnapshot, loadMyVisitsSnapshot } from '@/lib/myVisitsSnapshot';
 /**
  * Submit an order with offline support
  * @param orderData - The order data to insert
@@ -133,6 +133,47 @@ export async function submitOrderWithOfflineSupport(
   }
 
   options.onOffline?.();
+  
+  // Update My Visits snapshot with the new offline order so it shows when app reopens
+  const orderDate = offlineOrder.order_date || new Date().toISOString().split('T')[0];
+  if (orderData.user_id) {
+    try {
+      const existingSnapshot = await loadMyVisitsSnapshot(orderData.user_id, orderDate);
+      if (existingSnapshot) {
+        // Add the new order to snapshot
+        const updatedOrders = [...existingSnapshot.orders, { ...offlineOrder, items: offlineItems }];
+        
+        // Update retailer status in snapshot
+        const updatedRetailers = existingSnapshot.retailers.map((r: any) => {
+          if (r.retailer_id === orderData.retailer_id || r.id === orderData.retailer_id) {
+            return { ...r, visitStatus: 'productive', orderValue: offlineOrder.total_amount };
+          }
+          return r;
+        });
+        
+        // Recalculate progress stats
+        const productiveCount = updatedRetailers.filter((r: any) => r.visitStatus === 'productive').length;
+        const unproductiveCount = updatedRetailers.filter((r: any) => r.visitStatus === 'unproductive').length;
+        const plannedCount = existingSnapshot.progressStats.planned;
+        
+        await saveMyVisitsSnapshot(orderData.user_id, orderDate, {
+          ...existingSnapshot,
+          orders: updatedOrders,
+          retailers: updatedRetailers,
+          progressStats: {
+            ...existingSnapshot.progressStats,
+            productive: productiveCount,
+            unproductive: unproductiveCount,
+            totalOrders: updatedOrders.length,
+            totalOrderValue: updatedOrders.reduce((sum: number, o: any) => sum + (Number(o.total_amount) || 0), 0)
+          }
+        });
+        console.log('📸 [ORDER] Updated My Visits snapshot with offline order');
+      }
+    } catch (snapshotError) {
+      console.warn('[ORDER] Could not update snapshot:', snapshotError);
+    }
+  }
   
   // Trigger data refresh for Today's Progress
   console.log('✅ [ORDER] Offline order queued, triggering data refresh');
