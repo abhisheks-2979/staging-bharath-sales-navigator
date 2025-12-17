@@ -2041,18 +2041,11 @@ export const VisitCard = ({
                   ? "opacity-50 cursor-not-allowed"
                   : ""
               }`}
-              onClick={async () => {
-                console.time('⚡ Order button to navigation');
-                console.log("Order button clicked - Debug info:", {
-                  isCheckInMandatory,
-                  isCheckedIn,
-                  proceedWithoutCheckIn,
-                  isTodaysVisit,
-                  selectedDate,
-                  currentDate: new Date().toISOString().split("T")[0],
-                });
-
-                // Check if it's not today's visit
+              onClick={() => {
+                // INSTANT navigation - no awaits, no network blocking
+                const retailerId = (visit.retailerId || visit.id) as string;
+                
+                // Check if it's not today's visit (sync check, no network)
                 if (!isTodaysVisit) {
                   toast({
                     title: "Cannot Place Order",
@@ -2062,23 +2055,7 @@ export const VisitCard = ({
                   return;
                 }
 
-                const retailerId = (visit.retailerId || visit.id) as string;
-
-                // When completely offline, allow direct navigation to OrderEntry using offline order flow
-                if (typeof navigator !== "undefined" && navigator.onLine === false) {
-                  console.log("Offline mode: navigating directly to OrderEntry without ensuring visit", {
-                    retailerId,
-                  });
-                  navigate(
-                    `/order-entry?retailerId=${encodeURIComponent(retailerId)}&retailer=${encodeURIComponent(
-                      visit.retailerName,
-                    )}`,
-                  );
-                  console.timeEnd('⚡ Order button to navigation');
-                  return;
-                }
-
-                // Check if check-in is required but not done (only if location feature is enabled)
+                // Check if check-in is required but not done (sync check, no network)
                 if (isLocationEnabled && isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn) {
                   toast({
                     title: "Check-in Required",
@@ -2088,79 +2065,54 @@ export const VisitCard = ({
                   return;
                 }
 
-                try {
-                  const {
-                    data: { user },
-                  } = await supabase.auth.getUser();
+                // NAVIGATE IMMEDIATELY - this is the key to instant opening
+                const retailerNameEncoded = encodeURIComponent(visit.retailerName);
+                const retailerIdEncoded = encodeURIComponent(retailerId);
+                navigate(`/order-entry?retailerId=${retailerIdEncoded}&retailer=${retailerNameEncoded}`);
 
-                  if (!user) {
-                    toast({
-                      title: "Login required",
-                      description: "Please sign in to place orders.",
-                      variant: "destructive",
-                    });
-                    return;
+                // ALL network operations in background (non-blocking)
+                (async () => {
+                  try {
+                    // Use getSession (reads from localStorage, works offline) instead of getUser (network call)
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const user = session?.user;
+                    
+                    // Fallback to cached user ID if session unavailable
+                    const userId = user?.id || localStorage.getItem('cached_user_id');
+                    
+                    if (!userId) {
+                      console.log('No user session available for background visit creation');
+                      return;
+                    }
+
+                    const today = new Date().toISOString().split("T")[0];
+                    const cachedVisitKey = `visit_${userId}_${retailerId}_${today}`;
+
+                    // If already cached, no need to hit Supabase again
+                    if (localStorage.getItem(cachedVisitKey)) {
+                      return;
+                    }
+
+                    const visitId = await ensureVisit(userId, retailerId, today);
+                    localStorage.setItem(cachedVisitKey, visitId);
+                    setCurrentVisitId(visitId);
+
+                    // Update URL with visitId without blocking initial navigation
+                    navigate(
+                      `/order-entry?retailerId=${retailerIdEncoded}&visitId=${encodeURIComponent(visitId)}&retailer=${retailerNameEncoded}`,
+                      { replace: true },
+                    );
+                  } catch (err) {
+                    console.error('Background ensureVisit failed:', err);
                   }
 
-                  const today = new Date().toISOString().split("T")[0];
-
-                  // Navigate immediately for instant feedback
-                  const retailerNameEncoded = encodeURIComponent(visit.retailerName);
-                  const retailerIdEncoded = encodeURIComponent(retailerId);
-
-                  navigate(
-                    `/order-entry?retailerId=${retailerIdEncoded}&retailer=${retailerNameEncoded}`,
-                  );
-                  console.timeEnd('⚡ Order button to navigation');
-
-                  // In the background (non-blocking), ensure visit exists and cache visitId for future
-                  (async () => {
-                    try {
-                      const {
-                        data: { user },
-                      } = await supabase.auth.getUser();
-
-                      if (!user) {
-                        return;
-                      }
-
-                      const today = new Date().toISOString().split("T")[0];
-                      const cachedVisitKey = `visit_${user.id}_${retailerId}_${today}`;
-
-                      // If already cached, no need to hit Supabase again
-                      if (localStorage.getItem(cachedVisitKey)) {
-                        return;
-                      }
-
-                      const visitId = await ensureVisit(user.id, retailerId, today);
-                      localStorage.setItem(cachedVisitKey, visitId);
-                      setCurrentVisitId(visitId);
-
-                      // Optionally update URL with visitId without blocking initial navigation
-                      const visitIdEncoded = encodeURIComponent(visitId);
-                      navigate(
-                        `/order-entry?retailerId=${retailerIdEncoded}&visitId=${visitIdEncoded}&retailer=${retailerNameEncoded}`,
-                        { replace: true },
-                      );
-                    } catch (err) {
-                      console.error('Background ensureVisit failed:', err);
-                    }
-
-                    // Run tracking in background (still non-blocking for UI)
-                    try {
-                      await startTracking('order', skipCheckInReason === 'phone-order');
-                    } catch (err) {
-                      console.error('Background tracking failed:', err);
-                    }
-                  })();
-                } catch (err: any) {
-                  console.error("Open order entry error:", err);
-                  toast({
-                    title: "Unable to open order entry",
-                    description: err?.message || "Please try again.",
-                    variant: "destructive",
-                  });
-                }
+                  // Run tracking in background
+                  try {
+                    await startTracking('order', skipCheckInReason === 'phone-order');
+                  } catch (err) {
+                    console.error('Background tracking failed:', err);
+                  }
+                })();
               }}
               title={
                 isLocationEnabled && !isCheckedIn && !proceedWithoutCheckIn
