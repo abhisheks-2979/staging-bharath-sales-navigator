@@ -327,7 +327,13 @@ export const MyVisits = () => {
     
     // Process own retailers
     const processedRetailers = optimizedRetailers.map(retailer => {
-      const visit = optimizedVisits.find(v => v.retailer_id === retailer.id);
+      // CRITICAL: Get the LATEST visit for this retailer (handles duplicates)
+      const retailerVisits = optimizedVisits.filter(v => v.retailer_id === retailer.id);
+      const visit = retailerVisits.length > 0 
+        ? retailerVisits.reduce((latest, current) => 
+            new Date(current.updated_at || current.created_at) > new Date(latest.updated_at || latest.created_at) ? current : latest
+          )
+        : null;
       const orders = optimizedOrders.filter(o => o.retailer_id === retailer.id);
       const totalOrderValue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
       const hasOrder = orders.length > 0;
