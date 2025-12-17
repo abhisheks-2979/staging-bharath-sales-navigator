@@ -9,10 +9,7 @@ import {
   Star,
   ChevronRight,
   Building2,
-  AlertCircle,
-  ThumbsUp,
-  TrendingUp,
-  Users
+  ThumbsUp
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -28,7 +25,7 @@ interface RetailerFeedbackData {
   retailer_name: string;
   feedback_type: string;
   rating: number;
-  feedback_text: string;
+  summary_notes: string;
   created_at: string;
 }
 
@@ -50,21 +47,11 @@ interface CompetitionDataItem {
   created_at: string;
 }
 
-interface JointSalesFeedbackData {
-  id: string;
-  retailer_name: string;
-  manager_name: string;
-  overall_score: number;
-  impact_notes: string;
-  created_at: string;
-}
-
 export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSummaryProps) {
   const [loading, setLoading] = useState(true);
   const [retailerFeedback, setRetailerFeedback] = useState<RetailerFeedbackData[]>([]);
   const [brandingRequests, setBrandingRequests] = useState<BrandingRequestData[]>([]);
   const [competitionData, setCompetitionData] = useState<CompetitionDataItem[]>([]);
-  const [jointSalesFeedback, setJointSalesFeedback] = useState<JointSalesFeedbackData[]>([]);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   useEffect(() => {
@@ -82,53 +69,81 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
       const fromDate = format(dateFrom, 'yyyy-MM-dd');
       const toDate = format(dateTo, 'yyyy-MM-dd');
 
-      // Fetch retailer feedback
+      // Fetch retailer feedback without inner join
       const { data: feedbackData } = await supabase
         .from('retailer_feedback')
-        .select(`
-          id,
-          feedback_type,
-          rating,
-          feedback_text,
-          created_at,
-          retailers!inner(name)
-        `)
+        .select('id, feedback_type, rating, summary_notes, created_at, retailer_id')
         .eq('user_id', targetUserId)
         .gte('created_at', `${fromDate}T00:00:00`)
         .lte('created_at', `${toDate}T23:59:59`)
         .order('created_at', { ascending: false });
 
+      // Fetch branding requests without inner join
+      const { data: brandingData } = await supabase
+        .from('branding_requests')
+        .select('id, title, status, requested_assets, created_at, retailer_id')
+        .eq('user_id', targetUserId)
+        .gte('created_at', `${fromDate}T00:00:00`)
+        .lte('created_at', `${toDate}T23:59:59`)
+        .order('created_at', { ascending: false });
+
+      // Fetch competition data without inner join
+      const { data: competitionDataResult } = await supabase
+        .from('competition_data')
+        .select('id, insight, impact_level, created_at, retailer_id, competitor_id')
+        .eq('user_id', targetUserId)
+        .gte('created_at', `${fromDate}T00:00:00`)
+        .lte('created_at', `${toDate}T23:59:59`)
+        .order('created_at', { ascending: false });
+
+      // Collect all retailer IDs and competitor IDs
+      const retailerIds = new Set<string>();
+      const competitorIds = new Set<string>();
+      
+      feedbackData?.forEach(f => f.retailer_id && retailerIds.add(f.retailer_id));
+      brandingData?.forEach(b => b.retailer_id && retailerIds.add(b.retailer_id));
+      competitionDataResult?.forEach(c => {
+        if (c.retailer_id) retailerIds.add(c.retailer_id);
+        if (c.competitor_id) competitorIds.add(c.competitor_id);
+      });
+
+      // Fetch retailer names
+      let retailerMap = new Map<string, string>();
+      if (retailerIds.size > 0) {
+        const { data: retailers } = await supabase
+          .from('retailers')
+          .select('id, name')
+          .in('id', Array.from(retailerIds));
+        retailers?.forEach(r => retailerMap.set(r.id, r.name));
+      }
+
+      // Fetch competitor names
+      let competitorMap = new Map<string, string>();
+      if (competitorIds.size > 0) {
+        const { data: competitors } = await supabase
+          .from('competition_master')
+          .select('id, competitor_name')
+          .in('id', Array.from(competitorIds));
+        competitors?.forEach(c => competitorMap.set(c.id, c.competitor_name));
+      }
+
+      // Map retailer feedback with names
       if (feedbackData) {
         setRetailerFeedback(feedbackData.map((f: any) => ({
           id: f.id,
-          retailer_name: f.retailers?.name || 'Unknown',
+          retailer_name: retailerMap.get(f.retailer_id) || 'Unknown',
           feedback_type: f.feedback_type,
           rating: f.rating,
-          feedback_text: f.feedback_text,
+          summary_notes: f.summary_notes || '',
           created_at: f.created_at
         })));
       }
 
-      // Fetch branding requests
-      const { data: brandingData } = await supabase
-        .from('branding_requests')
-        .select(`
-          id,
-          title,
-          status,
-          requested_assets,
-          created_at,
-          retailers!inner(name)
-        `)
-        .eq('user_id', targetUserId)
-        .gte('created_at', `${fromDate}T00:00:00`)
-        .lte('created_at', `${toDate}T23:59:59`)
-        .order('created_at', { ascending: false });
-
+      // Map branding requests with names
       if (brandingData) {
         setBrandingRequests(brandingData.map((b: any) => ({
           id: b.id,
-          retailer_name: b.retailers?.name || 'Unknown',
+          retailer_name: retailerMap.get(b.retailer_id) || 'Unknown',
           title: b.title,
           status: b.status,
           requested_assets: b.requested_assets,
@@ -136,96 +151,16 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
         })));
       }
 
-      // Fetch competition data
-      const { data: competitionDataResult } = await supabase
-        .from('competition_data')
-        .select(`
-          id,
-          insight,
-          impact_level,
-          created_at,
-          retailers!inner(name),
-          competition_master!inner(competitor_name)
-        `)
-        .eq('user_id', targetUserId)
-        .gte('created_at', `${fromDate}T00:00:00`)
-        .lte('created_at', `${toDate}T23:59:59`)
-        .order('created_at', { ascending: false });
-
+      // Map competition data with names
       if (competitionDataResult) {
         setCompetitionData(competitionDataResult.map((c: any) => ({
           id: c.id,
-          retailer_name: c.retailers?.name || 'Unknown',
-          competitor_name: c.competition_master?.competitor_name || 'Unknown',
+          retailer_name: retailerMap.get(c.retailer_id) || 'Unknown',
+          competitor_name: competitorMap.get(c.competitor_id) || 'Unknown',
           insight: c.insight,
           impact_level: c.impact_level,
           created_at: c.created_at
         })));
-      }
-
-      // Fetch joint sales feedback - include both as FSE and as Manager
-      const { data: jointSalesResult } = await supabase
-        .from('joint_sales_feedback')
-        .select(`
-          id,
-          branding_rating,
-          retailing_rating,
-          pricing_feedback_rating,
-          schemes_rating,
-          competition_rating,
-          joint_sales_impact,
-          created_at,
-          retailer_id,
-          manager_id,
-          fse_user_id
-        `)
-        .or(`fse_user_id.eq.${targetUserId},manager_id.eq.${targetUserId}`)
-        .gte('created_at', `${fromDate}T00:00:00`)
-        .lte('created_at', `${toDate}T23:59:59`)
-        .order('created_at', { ascending: false });
-
-      if (jointSalesResult && jointSalesResult.length > 0) {
-        // Fetch retailer names
-        const retailerIds = jointSalesResult.map(j => j.retailer_id).filter(Boolean);
-        const managerIds = jointSalesResult.map(j => j.manager_id).filter(Boolean);
-        const fseIds = jointSalesResult.map(j => j.fse_user_id).filter(Boolean);
-        const allUserIds = [...new Set([...managerIds, ...fseIds])];
-        
-        const { data: retailers } = await supabase
-          .from('retailers')
-          .select('id, name')
-          .in('id', retailerIds);
-        
-        const { data: users } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', allUserIds);
-        
-        const retailerMap = new Map(retailers?.map(r => [r.id, r.name]) || []);
-        const userMap = new Map(users?.map(m => [m.id, m.full_name]) || []);
-        
-        setJointSalesFeedback(jointSalesResult.map((j: any) => {
-          // Calculate average score from all ratings
-          const ratings = [
-            j.branding_rating, j.retailing_rating, j.pricing_feedback_rating,
-            j.schemes_rating, j.competition_rating
-          ].filter(r => r != null && r > 0);
-          const avgScore = ratings.length > 0 ? Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length) : 0;
-          
-          // Show the "other" person's name (manager if user is FSE, FSE if user is manager)
-          const partnerName = j.fse_user_id === targetUserId 
-            ? userMap.get(j.manager_id) || 'Manager'
-            : userMap.get(j.fse_user_id) || 'FSE';
-          
-          return {
-            id: j.id,
-            retailer_name: retailerMap.get(j.retailer_id) || 'Unknown',
-            manager_name: partnerName,
-            overall_score: avgScore,
-            impact_notes: j.joint_sales_impact || '',
-            created_at: j.created_at
-          };
-        }));
       }
 
     } catch (error) {
@@ -235,7 +170,7 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
     }
   };
 
-  const totalFeedback = retailerFeedback.length + brandingRequests.length + competitionData.length + jointSalesFeedback.length;
+  const totalFeedback = retailerFeedback.length + brandingRequests.length + competitionData.length;
 
   if (loading) {
     return (
@@ -301,8 +236,8 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
       </CardHeader>
       
       <CardContent className="space-y-3 pt-4">
-        {/* Summary Pills */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+        {/* Summary Pills - 3 columns for Retailer, Branding, Competition */}
+        <div className="grid grid-cols-3 gap-2 mb-4">
           <div 
             className={`p-3 rounded-xl text-center cursor-pointer transition-all duration-200 ${
               retailerFeedback.length > 0 
@@ -347,21 +282,6 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
             </div>
             <div className="text-xs text-muted-foreground">Competition</div>
           </div>
-          
-          <div 
-            className={`p-3 rounded-xl text-center cursor-pointer transition-all duration-200 ${
-              jointSalesFeedback.length > 0 
-                ? 'bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20 hover:border-green-500/40' 
-                : 'bg-muted/50'
-            }`}
-            onClick={() => setExpandedSection(expandedSection === 'jointSales' ? null : 'jointSales')}
-          >
-            <Users className={`h-5 w-5 mx-auto mb-1 ${jointSalesFeedback.length > 0 ? 'text-green-500' : 'text-muted-foreground'}`} />
-            <div className={`text-xl font-bold ${jointSalesFeedback.length > 0 ? 'text-green-600' : 'text-muted-foreground'}`}>
-              {jointSalesFeedback.length}
-            </div>
-            <div className="text-xs text-muted-foreground">Joint Sales</div>
-          </div>
         </div>
 
         {/* Expanded Sections */}
@@ -384,9 +304,9 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
                           <Building2 size={12} className="text-blue-500 flex-shrink-0" />
                           <span className="font-medium text-sm truncate">{feedback.retailer_name}</span>
                         </div>
-                        {feedback.feedback_text && (
+                        {feedback.summary_notes && (
                           <p className="text-xs text-muted-foreground line-clamp-2 ml-4">
-                            {feedback.feedback_text}
+                            {feedback.summary_notes}
                           </p>
                         )}
                       </div>
@@ -458,7 +378,7 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
                           <span className="font-medium text-sm truncate">{data.retailer_name}</span>
                         </div>
                         <div className="flex items-center gap-2 ml-4 mb-1">
-                          <AlertCircle size={10} className="text-muted-foreground" />
+                          <Target size={10} className="text-muted-foreground" />
                           <span className="text-xs font-medium">{data.competitor_name}</span>
                         </div>
                         {data.insight && (
@@ -468,54 +388,8 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
                         )}
                       </div>
                       {data.impact_level && (
-                        <Badge className={`text-xs capitalize border ${getImpactColor(data.impact_level)}`}>
+                        <Badge className={`text-xs border ${getImpactColor(data.impact_level)}`}>
                           {data.impact_level}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
-        )}
-
-        {expandedSection === 'jointSales' && jointSalesFeedback.length > 0 && (
-          <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
-            <div className="flex items-center gap-2 text-sm font-medium text-green-600 mb-2">
-              <Users size={14} />
-              Joint Sales Feedback
-            </div>
-            <ScrollArea className="max-h-48">
-              <div className="space-y-2 pr-2">
-                {jointSalesFeedback.map((feedback) => (
-                  <div 
-                    key={feedback.id} 
-                    className="p-3 bg-gradient-to-r from-green-500/5 to-transparent rounded-lg border border-green-500/10"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Building2 size={12} className="text-green-500 flex-shrink-0" />
-                          <span className="font-medium text-sm truncate">{feedback.retailer_name}</span>
-                        </div>
-                        <div className="flex items-center gap-2 ml-4 mb-1">
-                          <Users size={10} className="text-muted-foreground" />
-                          <span className="text-xs font-medium">with {feedback.manager_name}</span>
-                        </div>
-                        {feedback.impact_notes && (
-                          <p className="text-xs text-muted-foreground line-clamp-2 ml-4">
-                            {feedback.impact_notes}
-                          </p>
-                        )}
-                      </div>
-                      {feedback.overall_score > 0 && (
-                        <Badge className={`text-xs ${
-                          feedback.overall_score >= 8 ? 'bg-green-100 text-green-700' :
-                          feedback.overall_score >= 5 ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-orange-100 text-orange-700'
-                        }`}>
-                          {feedback.overall_score}/10
                         </Badge>
                       )}
                     </div>
@@ -572,28 +446,7 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
               </div>
             ))}
             
-            {jointSalesFeedback.slice(0, 1).map((feedback) => (
-              <div 
-                key={feedback.id}
-                className="flex items-center gap-3 p-2 rounded-lg bg-green-500/5 cursor-pointer hover:bg-green-500/10 transition-colors"
-                onClick={() => setExpandedSection('jointSales')}
-              >
-                <Users size={14} className="text-green-500 flex-shrink-0" />
-                <span className="text-sm truncate flex-1">{feedback.retailer_name} - {feedback.manager_name}</span>
-                {feedback.overall_score > 0 && (
-                  <Badge className={`text-xs ${
-                    feedback.overall_score >= 8 ? 'bg-green-100 text-green-700' :
-                    feedback.overall_score >= 5 ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-orange-100 text-orange-700'
-                  }`}>
-                    {feedback.overall_score}/10
-                  </Badge>
-                )}
-                <ChevronRight size={14} className="text-muted-foreground" />
-              </div>
-            ))}
-            
-            {totalFeedback > 4 && (
+            {totalFeedback > 3 && (
               <div className="text-center text-xs text-muted-foreground pt-1">
                 Tap any category above to see all entries
               </div>
