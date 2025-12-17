@@ -163,7 +163,7 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
         })));
       }
 
-      // Fetch joint sales feedback
+      // Fetch joint sales feedback - include both as FSE and as Manager
       const { data: jointSalesResult } = await supabase
         .from('joint_sales_feedback')
         .select(`
@@ -176,9 +176,10 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
           joint_sales_impact,
           created_at,
           retailer_id,
-          manager_id
+          manager_id,
+          fse_user_id
         `)
-        .eq('fse_user_id', targetUserId)
+        .or(`fse_user_id.eq.${targetUserId},manager_id.eq.${targetUserId}`)
         .gte('created_at', `${fromDate}T00:00:00`)
         .lte('created_at', `${toDate}T23:59:59`)
         .order('created_at', { ascending: false });
@@ -187,19 +188,21 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
         // Fetch retailer names
         const retailerIds = jointSalesResult.map(j => j.retailer_id).filter(Boolean);
         const managerIds = jointSalesResult.map(j => j.manager_id).filter(Boolean);
+        const fseIds = jointSalesResult.map(j => j.fse_user_id).filter(Boolean);
+        const allUserIds = [...new Set([...managerIds, ...fseIds])];
         
         const { data: retailers } = await supabase
           .from('retailers')
           .select('id, name')
           .in('id', retailerIds);
         
-        const { data: managers } = await supabase
+        const { data: users } = await supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', managerIds);
+          .in('id', allUserIds);
         
         const retailerMap = new Map(retailers?.map(r => [r.id, r.name]) || []);
-        const managerMap = new Map(managers?.map(m => [m.id, m.full_name]) || []);
+        const userMap = new Map(users?.map(m => [m.id, m.full_name]) || []);
         
         setJointSalesFeedback(jointSalesResult.map((j: any) => {
           // Calculate average score from all ratings
@@ -209,10 +212,15 @@ export function FeedbackSummarySection({ dateFrom, dateTo, userId }: FeedbackSum
           ].filter(r => r != null && r > 0);
           const avgScore = ratings.length > 0 ? Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length) : 0;
           
+          // Show the "other" person's name (manager if user is FSE, FSE if user is manager)
+          const partnerName = j.fse_user_id === targetUserId 
+            ? userMap.get(j.manager_id) || 'Manager'
+            : userMap.get(j.fse_user_id) || 'FSE';
+          
           return {
             id: j.id,
             retailer_name: retailerMap.get(j.retailer_id) || 'Unknown',
-            manager_name: managerMap.get(j.manager_id) || 'Unknown Manager',
+            manager_name: partnerName,
             overall_score: avgScore,
             impact_notes: j.joint_sales_impact || '',
             created_at: j.created_at
