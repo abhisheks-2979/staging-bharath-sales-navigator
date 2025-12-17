@@ -4,6 +4,7 @@ import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { syncOrdersToVanStock, getTodayDateString } from '@/utils/vanStockSync';
+import { visitStatusCache } from '@/lib/visitStatusCache';
 
 export function useOfflineSync() {
   const connectivityStatus = useConnectivity();
@@ -215,9 +216,21 @@ export function useOfflineSync() {
             await offlineStorage.save(STORES.VISITS, newVisit);
           }
           
+          // Update visitStatusCache to ensure UI reflects the change
+          await visitStatusCache.set(
+            effectiveNoOrderVisitId,
+            noOrderRetailerId,
+            noOrderUserId,
+            plannedDate,
+            'unproductive',
+            undefined,
+            noOrderReason
+          );
+          console.log('✅ Visit status cache updated for retailer:', noOrderRetailerId);
+          
           // Dispatch events to update UI
           window.dispatchEvent(new CustomEvent('visitStatusChanged', {
-            detail: { visitId: effectiveNoOrderVisitId, status: 'unproductive', retailerId: noOrderRetailerId }
+            detail: { visitId: effectiveNoOrderVisitId, status: 'unproductive', retailerId: noOrderRetailerId, noOrderReason }
           }));
         
         setTimeout(() => {
