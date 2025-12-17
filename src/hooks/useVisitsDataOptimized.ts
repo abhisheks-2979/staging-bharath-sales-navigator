@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
+import { loadMyVisitsSnapshot, saveMyVisitsSnapshot, cleanupOldSnapshots } from '@/lib/myVisitsSnapshot';
 
 interface UseVisitsDataOptimizedProps {
   userId: string | undefined;
@@ -351,7 +352,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     const isSameDate = lastLoadedDateRef.current === selectedDate;
     const isDateChange = !isSameDate;
     
-    // FAST PATH: Check in-memory cache first for instant date switching
+    // FASTEST PATH: Check in-memory cache first for instant date switching
     const cachedDateData = dateDataCacheRef.current.get(selectedDate);
     const hasCachedRetailers = cachedDateData && cachedDateData.retailers && cachedDateData.retailers.length > 0;
     
@@ -388,7 +389,57 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         isLoadingRef.current = false;
         return;
       }
-    } else if (isDateChange) {
+    } else if (!forceRefresh) {
+      // SECOND PATH: No in-memory cache - try loading from persistent SNAPSHOT (app restart scenario)
+      // This ensures data shows instantly even after app restart on slow/no network
+      try {
+        const snapshot = await loadMyVisitsSnapshot(userId, selectedDate);
+        if (snapshot && snapshot.retailers.length > 0) {
+          console.log('📸 [SNAPSHOT] Loading from persistent snapshot for date:', selectedDate, 'retailers:', snapshot.retailers.length);
+          setBeatPlans(snapshot.beatPlans);
+          setVisits(snapshot.visits);
+          setRetailers(snapshot.retailers);
+          setOrders(snapshot.orders);
+          setProgressStats(snapshot.progressStats);
+          setIsLoading(false);
+          lastLoadedDateRef.current = selectedDate;
+          
+          // Also populate in-memory cache for subsequent fast access
+          dateDataCacheRef.current.set(selectedDate, {
+            beatPlans: snapshot.beatPlans,
+            visits: snapshot.visits,
+            retailers: snapshot.retailers,
+            orders: snapshot.orders,
+            progressStats: snapshot.progressStats,
+            timestamp: snapshot.timestamp
+          });
+          
+          // Clear loading timeout since we loaded from snapshot
+          if (loadingTimeoutRef.current) {
+            clearTimeout(loadingTimeoutRef.current);
+          }
+          
+          // For old dates, skip network - data won't change
+          if (isOldDate(selectedDate)) {
+            console.log('📅 [OLD DATE] Skipping network - using snapshot data');
+            isLoadingRef.current = false;
+            return;
+          }
+          
+          // For today/future, continue to network check but UI is ready
+          if (!navigator.onLine) {
+            console.log('📴 [OFFLINE] Using snapshot data only');
+            isLoadingRef.current = false;
+            return;
+          }
+          // Continue to network sync in background
+        }
+      } catch (snapshotError) {
+        console.log('Snapshot load failed (non-critical):', snapshotError);
+      }
+    }
+    
+    if (isDateChange) {
       // Only show loading if we don't have cache and date changed
       // But only briefly - cache loading is very fast
       console.log('📅 [VisitsData] Date changed from', lastLoadedDateRef.current, 'to', selectedDate);
@@ -959,6 +1010,18 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         });
         console.log('⚡ [FAST CACHE] Saved to in-memory cache for date:', selectedDate);
 
+        // SAVE SNAPSHOT for instant loading on app restart (persistent storage)
+        // Snapshot contains everything needed to display My Visits instantly
+        const beatNames = beatPlansData.map(plan => plan.beat_name).join(', ') || 'No beats planned';
+        saveMyVisitsSnapshot(userId, selectedDate, {
+          beatPlans: beatPlansData,
+          visits: visitsData,
+          retailers: retailersData.length > 0 ? retailersData : retailers,
+          orders: ordersData,
+          progressStats: newStats,
+          currentBeatName: beatNames
+        }).catch(console.error);
+
         // DIRECT UPDATE: Set state from network data
         // Only update retailers if we got data from network, otherwise keep cache data
         console.log('📡 [NETWORK] Setting data from network:', {
@@ -1203,6 +1266,13 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     
     setProgressStats(newStats);
   }, [userId, dataVersion, orders, visits, retailers, beatPlans]);
+
+  // Cleanup old snapshots on mount (background)
+  useEffect(() => {
+    if (userId) {
+      cleanupOldSnapshots(userId).catch(console.error);
+    }
+  }, [userId]);
 
   useEffect(() => {
     console.log('🔄 useVisitsDataOptimized: Setting up for date:', selectedDate);
