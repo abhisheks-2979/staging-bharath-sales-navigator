@@ -19,6 +19,8 @@ interface JointSalesFeedbackModalProps {
   visitId?: string;
   managerId?: string | null;
   onFeedbackSubmitted?: () => void;
+  editId?: string | null;
+  editData?: any;
 }
 
 // Scoring configuration - New model: each positive response = 5 points, low = 1 point
@@ -108,7 +110,9 @@ export const JointSalesFeedbackModal = ({
   beatPlanId,
   visitId,
   managerId,
-  onFeedbackSubmitted
+  onFeedbackSubmitted,
+  editId,
+  editData
 }: JointSalesFeedbackModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedManagerId, setSelectedManagerId] = useState(managerId || "");
@@ -185,9 +189,31 @@ export const JointSalesFeedbackModal = ({
     }
   }, [isOpen, managerId]);
 
-  // Load existing feedback
+  // Load existing feedback from editData or from database
   useEffect(() => {
     const loadExistingFeedback = async () => {
+      // If editData is provided, use it directly
+      if (editData) {
+        setSelectedManagerId(editData.manager_id || '');
+        setFeedback({
+          product_packaging_feedback: editData.product_packaging_feedback?.toString() || "",
+          product_sku_range_feedback: editData.product_sku_range_feedback?.toString() || "",
+          placement_feedback: editData.placement_feedback || "",
+          willingness_to_grow_range: editData.willingness_to_grow_range || "",
+          product_quality_feedback: editData.product_quality_feedback?.toString() || "",
+          service_feedback: editData.service_feedback?.toString() || "",
+          schemes_feedback: editData.schemes_feedback || "",
+          pricing_feedback: editData.pricing_feedback || "",
+          consumer_feedback: editData.consumer_feedback?.toString() || "",
+          promotion_vs_competition: editData.promotion_vs_competition || "",
+          product_usp_feedback: editData.product_usp_feedback || "",
+          joint_sales_impact: editData.joint_sales_impact || "",
+          order_increase_amount: editData.order_increase_amount?.toString() || "",
+          monthly_potential_6months: editData.monthly_potential_6months?.toString() || ""
+        });
+        return;
+      }
+
       try {
         const today = new Date().toISOString().split('T')[0];
         let query = supabase

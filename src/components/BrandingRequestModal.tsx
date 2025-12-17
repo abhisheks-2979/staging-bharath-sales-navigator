@@ -23,6 +23,8 @@ interface BrandingRequestModalProps {
   defaultRetailerId?: string | null;
   defaultPincode?: string | null;
   onCreated?: (id: string) => void;
+  editId?: string | null;
+  editData?: any;
 }
 
 interface RetailerOption { id: string; name: string; address?: string | null }
@@ -74,7 +76,7 @@ const emptyAsset: AssetLineItem = {
   impactRating: 0,
 };
 
-export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, defaultRetailerId, defaultPincode, onCreated }: BrandingRequestModalProps) => {
+export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, defaultRetailerId, defaultPincode, onCreated, editId, editData }: BrandingRequestModalProps) => {
   const [loading, setLoading] = useState(false);
   const [retailerId, setRetailerId] = useState<string | undefined>(defaultRetailerId || undefined);
   const [visitId, setVisitId] = useState<string | undefined>(defaultVisitId || undefined);
