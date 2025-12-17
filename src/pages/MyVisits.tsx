@@ -906,7 +906,8 @@ export const MyVisits = () => {
   // Show visits for selected date based on planned beats
   const allVisits = retailers;
   const filteredVisits = useMemo(() => {
-    if (dataLoading) return [];
+    // REMOVED: Don't return empty array when loading - show cached data while refreshing in background
+    // if (dataLoading) return [];
     const filtered = allVisits.filter(visit => {
       const matchesSearch = visit.retailerName.toLowerCase().includes(searchTerm.toLowerCase()) || visit.phone.includes(searchTerm);
       let matchesStatus = true;
