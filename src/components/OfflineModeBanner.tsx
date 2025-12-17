@@ -42,22 +42,10 @@ export function OfflineModeBanner() {
     return null;
   }
   
-  // Auto-clear old sync items when online to prevent stale banners
-  useEffect(() => {
-    if (isOnline && syncQueueCount > 0) {
-      const clearStaleItems = async () => {
-        try {
-          await offlineStorage.deleteOldSyncedItems(1000 * 60 * 5); // 5 minutes old
-          // Re-check queue count after cleanup
-          const queue = await offlineStorage.getSyncQueue();
-          setSyncQueueCount(queue.length);
-        } catch (error) {
-          console.error('Error clearing stale sync items:', error);
-        }
-      };
-      clearStaleItems();
-    }
-  }, [isOnline, syncQueueCount]);
+  // NOTE: We intentionally do NOT auto-delete pending sync items.
+  // They may still be unsynced (e.g., poor connectivity, app in background).
+  // Users can clear the queue manually using the X button once they confirm.
+
 
   const handleClearQueue = async () => {
     try {
