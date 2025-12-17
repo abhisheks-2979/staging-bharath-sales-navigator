@@ -190,6 +190,42 @@ export const TodaySummary = () => {
     fetchTodaysData();
   }, [dateRangeKey, filterType, selectedUsersKey]);
 
+  // Auto-refresh for today + sync complete listener
+  useEffect(() => {
+    // Auto-refresh every 30 seconds (only for today)
+    let interval: NodeJS.Timeout | undefined;
+    if (filterType === 'today') {
+      interval = setInterval(() => {
+        if (navigator.onLine) {
+          console.log('⏰ [SUMMARY] 30s auto-refresh for today');
+          fetchTodaysData();
+        }
+      }, 30000);
+    }
+    
+    // Listen for sync complete event
+    const handleSyncComplete = () => {
+      console.log('🔄 [SUMMARY] Sync complete, refreshing...');
+      setTimeout(() => {
+        fetchTodaysData();
+      }, 500);
+    };
+    
+    const handleVisitDataChanged = () => {
+      console.log('📢 [SUMMARY] visitDataChanged, refreshing...');
+      fetchTodaysData();
+    };
+    
+    window.addEventListener('syncComplete', handleSyncComplete);
+    window.addEventListener('visitDataChanged', handleVisitDataChanged);
+    
+    return () => {
+      if (interval) clearInterval(interval);
+      window.removeEventListener('syncComplete', handleSyncComplete);
+      window.removeEventListener('visitDataChanged', handleVisitDataChanged);
+    };
+  }, [filterType]);
+
   // Real-time subscription for points updates
   useEffect(() => {
     if (filterType !== 'today') return;
@@ -226,9 +262,6 @@ export const TodaySummary = () => {
       }
     };
   }, [filterType]);
-
-  // Remove auto-refresh effects to prevent constant reloading
-  // Data will refresh when user navigates to page or changes date filter
 
   const handleDateFilterChange = (type: DateFilterType, date?: Date, rangeTo?: Date) => {
     setFilterType(type);
