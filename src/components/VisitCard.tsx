@@ -2119,11 +2119,11 @@ export const VisitCard = ({
                 }
 
                 try {
-                  const {
-                    data: { user },
-                  } = await supabase.auth.getUser();
+                  // Use getSession() - instant from cache, no network call
+                  const { data: { session } } = await supabase.auth.getSession();
+                  const currentUser = session?.user;
 
-                  if (!user) {
+                  if (!currentUser) {
                     toast({
                       title: "Login required",
                       description: "Please sign in to place orders.",
@@ -2146,23 +2146,20 @@ export const VisitCard = ({
                   // In the background (non-blocking), ensure visit exists and cache visitId for future
                   (async () => {
                     try {
-                      const {
-                        data: { user },
-                      } = await supabase.auth.getUser();
-
-                      if (!user) {
+                      // Use cached session user - no network call
+                      if (!currentUser) {
                         return;
                       }
 
                       const today = new Date().toISOString().split("T")[0];
-                      const cachedVisitKey = `visit_${user.id}_${retailerId}_${today}`;
+                      const cachedVisitKey = `visit_${currentUser.id}_${retailerId}_${today}`;
 
                       // If already cached, no need to hit Supabase again
                       if (localStorage.getItem(cachedVisitKey)) {
                         return;
                       }
 
-                      const visitId = await ensureVisit(user.id, retailerId, today);
+                      const visitId = await ensureVisit(currentUser.id, retailerId, today);
                       localStorage.setItem(cachedVisitKey, visitId);
                       setCurrentVisitId(visitId);
 
