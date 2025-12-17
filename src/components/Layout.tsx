@@ -39,8 +39,11 @@ export const Layout = memo(({ children }: LayoutProps) => {
       wasOfflineRef.current = false;
       console.log('🔄 Layout: Connectivity restored, triggering sync...');
       // Small delay to ensure network is stable
-      setTimeout(() => {
-        processSyncQueue();
+      setTimeout(async () => {
+        await processSyncQueue();
+        // Always dispatch syncComplete to ensure data refresh
+        console.log('📢 Layout: Dispatching syncComplete for data refresh');
+        window.dispatchEvent(new CustomEvent('syncComplete'));
       }, 1000);
     }
   }, [isOnline, processSyncQueue]);
