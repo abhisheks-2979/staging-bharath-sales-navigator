@@ -101,11 +101,15 @@ export const SyncStatusIndicator = memo(() => {
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           title="Click to view sync progress"
         >
-          <RefreshCw className="h-4 w-4 animate-spin text-primary-foreground/70" />
+          {isSyncing ? (
+            <RefreshCw className="h-4 w-4 animate-spin text-primary-foreground/70" />
+          ) : isOnline ? (
+            <Cloud className="h-4 w-4 text-primary-foreground/70" />
+          ) : (
+            <CloudOff className="h-4 w-4 text-primary-foreground/70" />
+          )}
           {syncQueueCount > 0 && (
-            <span className="text-xs text-primary-foreground/70">
-              {syncQueueCount}
-            </span>
+            <span className="text-xs text-primary-foreground/70">{syncQueueCount}</span>
           )}
         </button>
         <SyncProgressModal open={showModal} onOpenChange={setShowModal} />
