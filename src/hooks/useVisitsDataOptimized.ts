@@ -1648,15 +1648,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       }, 300);
     };
     
-    // Listen for online/offline changes to refresh data
-    const handleOnline = () => {
-      console.log('🌐 Connection restored! Refreshing data to pick up synced changes...');
-      setTimeout(() => {
-        loadData(true);
-      }, 2000); // Give sync a moment to complete
-    };
-    
     // Listen for sync complete event (offline -> online sync finished)
+    // This is the ONLY automatic refresh - runs once after offline data syncs to database
     const handleSyncComplete = () => {
       console.log('🔄 [SYNC-COMPLETE] Sync finished, clearing cache and refreshing data...');
       
@@ -1673,34 +1666,24 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       }, 300);
     };
     
-    window.addEventListener('online', handleOnline);
+    // REMOVED: 30-second auto-refresh and "online" event listener
+    // These caused constant UI refreshes showing different data
+    // Now only refreshes on: page open, syncComplete, and explicit data changes
+    
     window.addEventListener('visitStatusChanged', handleStatusChange);
     window.addEventListener('visitDataChanged', handleDataChange);
     window.addEventListener('syncComplete', handleSyncComplete);
     
-    // Auto-refresh every 30 seconds for TODAY only
-    let autoRefreshInterval: NodeJS.Timeout | undefined;
-    if (isToday(selectedDate)) {
-      autoRefreshInterval = setInterval(() => {
-        if (navigator.onLine) {
-          console.log('⏰ [AUTO-REFRESH] 30s interval refresh for today');
-          loadData(true);
-        }
-      }, 30000);
-    }
-    
     return () => {
-      window.removeEventListener('online', handleOnline);
       window.removeEventListener('visitStatusChanged', handleStatusChange);
       window.removeEventListener('visitDataChanged', handleDataChange);
       window.removeEventListener('syncComplete', handleSyncComplete);
-      if (autoRefreshInterval) clearInterval(autoRefreshInterval);
       // Clean up loading timeout on unmount
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
       }
     };
-  }, [loadData, selectedDate, isToday]);
+  }, [loadData, selectedDate]);
 
   const invalidateData = useCallback(() => {
     // Background refresh - don't show loading spinner
