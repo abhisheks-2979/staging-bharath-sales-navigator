@@ -6,6 +6,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { shouldSuppressError } from '@/utils/offlineErrorHandler';
 import { toast } from 'sonner';
 
+// Helper: Create a timeout promise
+const createTimeout = (ms: number) => new Promise((_, reject) => 
+  setTimeout(() => reject(new Error('Network timeout')), ms)
+);
+
 // CACHE-FIRST load planned beats (instant display)
 export const loadPlannedBeatsOptimized = async (
   user: any,
@@ -20,63 +25,79 @@ export const loadPlannedBeatsOptimized = async (
     let beatPlans: any[] = [];
     let hasLoadedFromCache = false;
 
-    // STEP 1: Load from cache immediately (instant)
+    // STEP 1: ALWAYS load from cache FIRST (instant, non-blocking)
     try {
       const cachedPlans = await offlineStorage.getAll<any>(STORES.BEAT_PLANS);
       beatPlans = cachedPlans.filter(
         (p: any) => p.user_id === user.id && p.plan_date === date
       );
       
+      // Always set cached data immediately
+      setPlannedBeats(beatPlans);
       if (beatPlans.length > 0) {
-        setPlannedBeats(beatPlans);
         const beatNames = beatPlans.map(plan => plan.beat_name).join(', ');
         setCurrentBeatName(beatNames);
-        await loadAllVisitsForDate(date, beatPlans, preserveOrder);
         hasLoadedFromCache = true;
-        console.log('✅ Beats loaded from cache instantly');
+      } else {
+        setCurrentBeatName("No beats planned");
       }
+      // Load visits with whatever beat plans we have from cache
+      await loadAllVisitsForDate(date, beatPlans, preserveOrder);
+      console.log('✅ Beats loaded from cache instantly');
     } catch (cacheError) {
       console.log('Cache read error (non-critical):', cacheError);
+      setCurrentBeatName("No beats planned");
+      await loadAllVisitsForDate(date, [], preserveOrder);
     }
 
-    // STEP 2: Background sync from network if online
+    // STEP 2: Background network sync (non-blocking, with timeout for slow networks)
     if (navigator.onLine) {
-      try {
-        const { data, error } = await supabase
-          .from('beat_plans')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('plan_date', date);
-        
-        if (error) throw error;
-        beatPlans = data || [];
-        
-        // Cache for next time
-        for (const plan of beatPlans) {
-          await offlineStorage.save(STORES.BEAT_PLANS, plan);
+      // Use requestIdleCallback or setTimeout to not block UI
+      const syncFromNetwork = async () => {
+        try {
+          const result = await Promise.race([
+            supabase
+              .from('beat_plans')
+              .select('*')
+              .eq('user_id', user.id)
+              .eq('plan_date', date),
+            createTimeout(3000).then(() => null)
+          ]).catch(() => null);
+          
+          if (!result || result.error) {
+            console.log('Network sync skipped (timeout or error)');
+            return;
+          }
+          
+          const networkBeatPlans = result.data || [];
+          
+          // Cache for next time
+          for (const plan of networkBeatPlans) {
+            await offlineStorage.save(STORES.BEAT_PLANS, plan);
+          }
+          
+          // Only update UI if data is different
+          if (JSON.stringify(networkBeatPlans) !== JSON.stringify(beatPlans)) {
+            setPlannedBeats(networkBeatPlans);
+            if (networkBeatPlans.length > 0) {
+              const beatNames = networkBeatPlans.map(plan => plan.beat_name).join(', ');
+              setCurrentBeatName(beatNames);
+            } else {
+              setCurrentBeatName("No beats planned");
+            }
+            await loadAllVisitsForDate(date, networkBeatPlans, preserveOrder);
+            console.log('🔄 Beats updated from network');
+          }
+        } catch (networkError) {
+          console.log('Background network sync failed:', networkError);
         }
-        
-        // Update UI with fresh data
-        setPlannedBeats(beatPlans);
-        if (beatPlans.length > 0) {
-          const beatNames = beatPlans.map(plan => plan.beat_name).join(', ');
-          setCurrentBeatName(beatNames);
-        } else {
-          setCurrentBeatName("No beats planned");
-        }
-        await loadAllVisitsForDate(date, beatPlans, preserveOrder);
-        console.log('🔄 Beats updated from network');
-      } catch (networkError) {
-        console.log('Network sync failed, using cached data:', networkError);
-        if (!hasLoadedFromCache && !shouldSuppressError(networkError)) {
-          toast.error('Failed to load beat plans');
-        }
-      }
-    } else {
-      // Offline - show what we have
-      if (!hasLoadedFromCache) {
-        setCurrentBeatName("No beats planned");
-        await loadAllVisitsForDate(date, [], preserveOrder);
+      };
+      
+      // Run in background without blocking
+      if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(() => syncFromNetwork());
+      } else {
+        setTimeout(() => syncFromNetwork(), 100);
       }
     }
   } catch (error) {
@@ -148,108 +169,133 @@ export const loadAllVisitsForDateOptimized = async (
         });
       }
 
-      // Display cached data immediately
-      if (retailersData.length > 0) {
-        processAndSetRetailers(
-          visits,
-          retailersData,
-          ordersForDate,
-          beatPlans,
-          date,
-          isFutureDate,
-          setRetailers,
-          setRetailerStats,
-          setInitialRetailerOrder,
-          preserveOrder
-        );
-        hasLoadedFromCache = true;
-        console.log('✅ Retailers loaded from cache instantly');
-      }
+      // Always display cached data (even if empty)
+      processAndSetRetailers(
+        visits,
+        retailersData,
+        ordersForDate,
+        beatPlans,
+        date,
+        isFutureDate,
+        setRetailers,
+        setRetailerStats,
+        setInitialRetailerOrder,
+        preserveOrder
+      );
+      hasLoadedFromCache = retailersData.length > 0;
+      console.log('✅ Retailers loaded from cache instantly');
     } catch (cacheError) {
       console.log('Cache read error (non-critical):', cacheError);
+      // Set empty state if cache fails
+      setRetailers([]);
+      setRetailerStats(new Map());
+      setInitialRetailerOrder([]);
     }
 
-    // STEP 2: Background sync from network if online
+    // STEP 2: Background network sync (non-blocking, with timeout for slow networks)
     if (navigator.onLine) {
-      try {
-        const [visitsResult, plannedRetailersResult] = await Promise.all([
-          supabase.from('visits').select('*').eq('user_id', user.id).eq('planned_date', date),
-          plannedBeatIds.length > 0
-            ? supabase.from('retailers').select('id').eq('user_id', user.id).in('beat_id', plannedBeatIds)
-            : Promise.resolve({ data: [], error: null }),
-        ]);
-
-        if (visitsResult.error) throw visitsResult.error;
-        visits = visitsResult.data || [];
-        const plannedRetailersData = plannedRetailersResult.data || [];
-
-        // Cache visits
-        for (const visit of visits) {
-          await offlineStorage.save(STORES.VISITS, visit);
-        }
-
-        // Get all retailer IDs
-        const visitRetailerIds = visits.map(v => v.retailer_id);
-        const allRetailerIds = Array.from(
-          new Set([...visitRetailerIds, ...plannedRetailersData.map(r => r.id)])
-        );
-
-        if (allRetailerIds.length > 0) {
-          const dateStart = new Date(date);
-          dateStart.setHours(0, 0, 0, 0);
-          const dateEnd = new Date(date);
-          dateEnd.setHours(23, 59, 59, 999);
-
-          const [retailersResult, ordersResult] = await Promise.all([
-            supabase.from('retailers').select('*').eq('user_id', user.id).in('id', allRetailerIds),
-            !isFutureDate
-              ? supabase
-                  .from('orders')
-                  .select('id, retailer_id, total_amount, pending_amount, created_at')
-                  .eq('user_id', user.id)
-                  .eq('status', 'confirmed')
-                  .in('retailer_id', allRetailerIds)
-                  .gte('created_at', dateStart.toISOString())
-                  .lte('created_at', dateEnd.toISOString())
-              : Promise.resolve({ data: [], error: null }),
-          ]);
-
-          if (retailersResult.error) throw retailersResult.error;
-          retailersData = retailersResult.data || [];
-          ordersForDate = ordersResult.data || [];
-
-          // Cache retailers and orders
-          for (const retailer of retailersData) {
-            await offlineStorage.save(STORES.RETAILERS, retailer);
+      const syncFromNetwork = async () => {
+        try {
+          // Race against timeout
+          const result = await Promise.race([
+            Promise.all([
+              supabase.from('visits').select('*').eq('user_id', user.id).eq('planned_date', date),
+              plannedBeatIds.length > 0
+                ? supabase.from('retailers').select('id').eq('user_id', user.id).in('beat_id', plannedBeatIds)
+                : Promise.resolve({ data: [], error: null }),
+            ]),
+            createTimeout(3000).then(() => null)
+          ]).catch(() => null);
+          
+          if (!result) {
+            console.log('Network sync skipped (timeout)');
+            return;
           }
-          for (const order of ordersForDate) {
-            await offlineStorage.save(STORES.ORDERS, order);
+          
+          const [visitsResult, plannedRetailersResult] = result as any[];
+          if (visitsResult?.error) return;
+          
+          const networkVisits = visitsResult?.data || [];
+          const plannedRetailersData = plannedRetailersResult?.data || [];
+
+          // Cache visits
+          for (const visit of networkVisits) {
+            await offlineStorage.save(STORES.VISITS, visit);
           }
 
-          // Update UI with fresh data
-          processAndSetRetailers(
-            visits,
-            retailersData,
-            ordersForDate,
-            beatPlans,
-            date,
-            isFutureDate,
-            setRetailers,
-            setRetailerStats,
-            setInitialRetailerOrder,
-            preserveOrder
+          // Get all retailer IDs
+          const visitRetailerIds = networkVisits.map((v: any) => v.retailer_id);
+          const allRetailerIds = Array.from(
+            new Set([...visitRetailerIds, ...plannedRetailersData.map((r: any) => r.id)])
           );
-          console.log('🔄 Retailers updated from network');
-        } else {
-          setRetailers([]);
-          setRetailerStats(new Map());
-          setInitialRetailerOrder([]);
+
+          if (allRetailerIds.length > 0) {
+            const dateStart = new Date(date);
+            dateStart.setHours(0, 0, 0, 0);
+            const dateEnd = new Date(date);
+            dateEnd.setHours(23, 59, 59, 999);
+
+            const secondResult = await Promise.race([
+              Promise.all([
+                supabase.from('retailers').select('*').eq('user_id', user.id).in('id', allRetailerIds),
+                !isFutureDate
+                  ? supabase
+                      .from('orders')
+                      .select('id, retailer_id, total_amount, pending_amount, created_at')
+                      .eq('user_id', user.id)
+                      .eq('status', 'confirmed')
+                      .in('retailer_id', allRetailerIds)
+                      .gte('created_at', dateStart.toISOString())
+                      .lte('created_at', dateEnd.toISOString())
+                  : Promise.resolve({ data: [], error: null }),
+              ]),
+              createTimeout(3000).then(() => null)
+            ]).catch(() => null);
+
+            if (!secondResult) {
+              console.log('Network sync skipped (timeout on retailers)');
+              return;
+            }
+
+            const [retailersResult, ordersResult] = secondResult as any[];
+            if (retailersResult?.error) return;
+            
+            const networkRetailers = retailersResult?.data || [];
+            const networkOrders = ordersResult?.data || [];
+
+            // Cache retailers and orders
+            for (const retailer of networkRetailers) {
+              await offlineStorage.save(STORES.RETAILERS, retailer);
+            }
+            for (const order of networkOrders) {
+              await offlineStorage.save(STORES.ORDERS, order);
+            }
+
+            // Update UI with fresh data
+            processAndSetRetailers(
+              networkVisits,
+              networkRetailers,
+              networkOrders,
+              beatPlans,
+              date,
+              isFutureDate,
+              setRetailers,
+              setRetailerStats,
+              setInitialRetailerOrder,
+              preserveOrder
+            );
+            console.log('🔄 Retailers updated from network');
+          }
+        } catch (networkError) {
+          console.log('Background network sync failed:', networkError);
         }
-      } catch (networkError) {
-        console.log('Network sync failed, using cached data:', networkError);
-        if (!hasLoadedFromCache && !shouldSuppressError(networkError)) {
-          toast.error('Failed to load visits');
-        }
+      };
+      
+      // Run in background without blocking
+      if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(() => syncFromNetwork());
+      } else {
+        setTimeout(() => syncFromNetwork(), 100);
       }
     }
   } catch (error) {
