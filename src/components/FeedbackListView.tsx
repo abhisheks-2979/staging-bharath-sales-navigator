@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, MessageSquare, Paintbrush, Users, Target, Star, Calendar, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, MessageSquare, Paintbrush, Users, Target, Calendar, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -196,34 +197,37 @@ export const FeedbackListView = ({
     
     setDeleting(true);
     try {
-      let error: any = null;
-      
-      switch (feedbackType) {
-        case "retailer": {
-          const result = await supabase.from('retailer_feedback').delete().eq('id', deleteId);
-          error = result.error;
-          break;
-        }
-        case "branding": {
-          const result = await supabase.from('branding_requests').delete().eq('id', deleteId);
-          error = result.error;
-          break;
-        }
-        case "competition": {
-          const result = await supabase.from('competition_data').delete().eq('id', deleteId);
-          error = result.error;
-          break;
-        }
-        case "joint-sales": {
-          const result = await supabase.from('joint_sales_feedback').delete().eq('id', deleteId);
-          error = result.error;
-          break;
-        }
+      const itemToDelete = items.find(item => item.id === deleteId);
+      if (!itemToDelete) throw new Error("Item not found");
+
+      const tableMap: Record<FeedbackType, string> = {
+        "retailer": "retailer_feedback",
+        "branding": "branding_requests",
+        "competition": "competition_data",
+        "joint-sales": "joint_sales_feedback",
+      };
+
+      const tableName = tableMap[feedbackType];
+      const moduleName = config.title;
+
+      // Move to recycle bin first
+      const movedToRecycleBin = await moveToRecycleBin({
+        tableName,
+        recordId: deleteId,
+        recordData: itemToDelete.details,
+        moduleName,
+        recordName: itemToDelete.summary,
+      });
+
+      if (!movedToRecycleBin) {
+        throw new Error("Failed to move to recycle bin");
       }
 
+      // Then delete from original table
+      const { error } = await supabase.from(tableName as any).delete().eq('id', deleteId);
       if (error) throw error;
 
-      toast({ title: "Deleted", description: "Feedback deleted successfully" });
+      toast({ title: "Deleted", description: "Moved to recycle bin. You can restore it if needed." });
       setItems(prev => prev.filter(item => item.id !== deleteId));
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -377,7 +381,7 @@ export const FeedbackListView = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Feedback?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the feedback.
+              This feedback will be moved to recycle bin. You can restore it later if needed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
