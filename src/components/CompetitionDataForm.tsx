@@ -532,8 +532,9 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
                         <Label className="text-xs">Stock Qty</Label>
                         <Input
                           type="number"
-                          value={row.stockQuantity}
+                          value={row.stockQuantity === 0 ? '' : row.stockQuantity}
                           onChange={(e) => updateRow(row.id, 'stockQuantity', parseFloat(e.target.value) || 0)}
+                          onFocus={(e) => e.target.select()}
                           className="h-10 mt-1"
                           placeholder="0"
                         />
@@ -542,8 +543,9 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
                         <Label className="text-xs">Price (₹)</Label>
                         <Input
                           type="number"
-                          value={row.sellingPrice}
+                          value={row.sellingPrice === 0 ? '' : row.sellingPrice}
                           onChange={(e) => updateRow(row.id, 'sellingPrice', parseFloat(e.target.value) || 0)}
+                          onFocus={(e) => e.target.select()}
                           className="h-10 mt-1"
                           placeholder="0"
                         />
