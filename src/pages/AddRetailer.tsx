@@ -166,15 +166,24 @@ export const AddRetailer = () => {
     
     console.log('[AddRetailer] Loading beats. User ID:', user.id, 'Connectivity status:', connectivityStatus);
     
-    if (connectivityStatus === 'online') {
-      // ONLINE: Load from Supabase (existing behavior)
+    // Try online fetch first (for 'online' or 'unknown' states), fall back to cache
+    const tryOnlineFetch = connectivityStatus !== 'offline';
+    
+    if (tryOnlineFetch) {
       try {
-        const { data, error } = await supabase
+        // Add a timeout for slow networks - 8 seconds
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Request timeout')), 8000)
+        );
+        
+        const fetchPromise = supabase
           .from('beats')
           .select('beat_id, beat_name, created_by, is_active, id')
           .eq('created_by', user.id)
           .eq('is_active', true)
           .order('beat_name');
+        
+        const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
         
         if (error) throw error;
         
@@ -196,54 +205,45 @@ export const AddRetailer = () => {
         
         setBeats(data || []);
         console.log('[AddRetailer Online] Loaded beats from Supabase:', data?.length || 0);
+        return; // Success - exit function
       } catch (error) {
-        console.error('[AddRetailer Online] Failed to load beats:', error);
-        
-        // Fallback to cache on error
-        try {
-          await offlineStorage.init();
-          const cachedBeats = await offlineStorage.getAll(STORES.BEATS);
-          const userBeats = cachedBeats.filter((beat: any) => 
-            beat.created_by === user.id && beat.is_active
-          );
-          setBeats(userBeats.map((beat: any) => ({
-            beat_id: beat.beat_id,
-            beat_name: beat.beat_name
-          })));
-          console.log('[AddRetailer] Loaded beats from cache (fallback):', userBeats.length);
-        } catch (cacheError) {
-          console.error('[AddRetailer] Cache fallback failed:', cacheError);
-          setBeats([]);
-        }
+        console.error('[AddRetailer Online] Failed to load beats (timeout or error):', error);
+        // Fall through to cache fallback
       }
-    } else {
-      // OFFLINE or UNKNOWN: Load from IndexedDB cache
-      try {
-        console.log('[AddRetailer Offline] Initializing offline storage...');
-        await offlineStorage.init();
-        
-        console.log('[AddRetailer Offline] Getting all cached beats...');
-        const cachedBeats = await offlineStorage.getAll(STORES.BEATS);
-        console.log('[AddRetailer Offline] Total cached beats:', cachedBeats.length, cachedBeats);
-        
-        console.log('[AddRetailer Offline] Filtering beats for user:', user.id);
-        const userBeats = cachedBeats.filter((beat: any) => {
-          const matches = beat.created_by === user.id && beat.is_active;
-          console.log('[AddRetailer Offline] Beat:', beat.beat_name, 'created_by:', beat.created_by, 'is_active:', beat.is_active, 'matches:', matches);
-          return matches;
+    }
+    
+    // OFFLINE or FALLBACK: Load from IndexedDB cache
+    try {
+      console.log('[AddRetailer] Loading beats from cache...');
+      await offlineStorage.init();
+      
+      const cachedBeats = await offlineStorage.getAll(STORES.BEATS);
+      console.log('[AddRetailer] Total cached beats:', cachedBeats.length);
+      
+      const userBeats = cachedBeats.filter((beat: any) => {
+        const matches = beat.created_by === user.id && beat.is_active;
+        return matches;
+      });
+      
+      const mappedBeats = userBeats.map((beat: any) => ({
+        beat_id: beat.beat_id,
+        beat_name: beat.beat_name
+      }));
+      
+      setBeats(mappedBeats);
+      console.log('[AddRetailer] Loaded beats from cache:', mappedBeats.length);
+      
+      // If cache is empty and we're not definitely offline, show a toast
+      if (mappedBeats.length === 0 && connectivityStatus !== 'offline') {
+        toast({
+          title: "Loading beats...",
+          description: "Slow network detected. Please wait or refresh.",
+          duration: 3000
         });
-        
-        const mappedBeats = userBeats.map((beat: any) => ({
-          beat_id: beat.beat_id,
-          beat_name: beat.beat_name
-        }));
-        
-        setBeats(mappedBeats);
-        console.log('[AddRetailer Offline] Final beats to display:', mappedBeats.length, mappedBeats);
-      } catch (error) {
-        console.error('[AddRetailer Offline] Error loading beats from cache:', error);
-        setBeats([]);
       }
+    } catch (error) {
+      console.error('[AddRetailer] Error loading beats from cache:', error);
+      setBeats([]);
     }
   };
 
