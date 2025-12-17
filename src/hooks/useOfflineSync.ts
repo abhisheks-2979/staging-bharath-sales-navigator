@@ -25,13 +25,63 @@ export function useOfflineSync() {
     isSyncingRef.current = true;
 
     try {
-      const syncQueue = await offlineStorage.getSyncQueue();
-      
+      const ensureNoOrderVisitsQueued = async (existingQueue: any[]) => {
+        try {
+          // If for any reason the syncQueue was not populated (or was cleared), rebuild
+          // UPDATE_VISIT_NO_ORDER actions from offline-cached visits.
+          const today = getTodayDateString();
+          const queuedKeys = new Set(
+            (existingQueue || [])
+              .filter((q: any) => q?.action === 'UPDATE_VISIT_NO_ORDER')
+              .map((q: any) => {
+                const d = q?.data || {};
+                return `${d.retailerId}:${d.userId}:${d.plannedDate}`;
+              })
+          );
+
+          const cachedVisits = await offlineStorage.getAll<any>(STORES.VISITS);
+          const candidates = (cachedVisits || []).filter((v: any) =>
+            v?.planned_date === today &&
+            v?.status === 'unproductive' &&
+            !!v?.no_order_reason &&
+            !!v?.retailer_id &&
+            !!v?.user_id
+          );
+
+          for (const v of candidates) {
+            const key = `${v.retailer_id}:${v.user_id}:${v.planned_date}`;
+            if (queuedKeys.has(key)) continue;
+
+            await offlineStorage.addToSyncQueue('UPDATE_VISIT_NO_ORDER', {
+              visitId: v.id,
+              retailerId: v.retailer_id,
+              userId: v.user_id,
+              noOrderReason: v.no_order_reason,
+              checkOutTime: v.check_out_time,
+              plannedDate: v.planned_date,
+              timestamp: v.updated_at || v.created_at || new Date().toISOString(),
+            });
+
+            queuedKeys.add(key);
+          }
+
+          if (candidates.length > 0) {
+            console.log('🔁 Rebuilt missing no-order sync items from offline cache:', candidates.length);
+          }
+        } catch (e) {
+          console.warn('⚠️ Failed to rebuild no-order sync items (non-fatal):', e);
+        }
+      };
+
+      let syncQueue = await offlineStorage.getSyncQueue();
+      await ensureNoOrderVisitsQueued(syncQueue);
+      syncQueue = await offlineStorage.getSyncQueue();
+
       if (syncQueue.length === 0) {
         isSyncingRef.current = false;
         return;
       }
-      
+
       console.log(`🔄 Processing ${syncQueue.length} queued sync items`);
 
       let successCount = 0;
