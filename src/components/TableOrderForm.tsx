@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +77,9 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
   const navigate = useNavigate();
   const visitId = searchParams.get("visitId") || '';
   const retailerId = searchParams.get("retailerId") || '';
+
+  // PERF: disable noisy logs in hot paths
+  const DEV_LOG = false;
   
   // Create storage key for table form persistence FIRST (needed for initial state)
   const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
@@ -95,7 +98,7 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
       if (savedData) {
         const parsedData = JSON.parse(savedData);
         if (Array.isArray(parsedData) && parsedData.length > 0) {
-          console.log('[TableOrderForm] Loaded initial rows from storage:', parsedData.length);
+          DEV_LOG && console.log('[TableOrderForm] Loaded initial rows from storage:', parsedData.length);
           return parsedData;
         }
       }
@@ -120,16 +123,14 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  // Get unique categories from products
-  const getCategories = () => {
-    const categories = new Set<string>();
+  // Get unique categories from products (memoized for performance)
+  const categories = useMemo(() => {
+    const set = new Set<string>();
     products.forEach(p => {
-      if (p.category?.name) {
-        categories.add(p.category.name);
-      }
+      if (p.category?.name) set.add(p.category.name);
     });
-    return Array.from(categories).sort();
-  };
+    return Array.from(set).sort();
+  }, [products]);
 
   // Helper to get cart storage key
   const getCartStorageKey = () => {
@@ -168,7 +169,7 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
     
     onCartUpdate(cartItems);
     localStorage.setItem(getCartStorageKey(), JSON.stringify(cartItems));
-    console.log('[syncRowsToCart] Synced to cart:', cartItems.length, 'items');
+    DEV_LOG && console.log('[syncRowsToCart] Synced to cart:', cartItems.length, 'items');
   };
 
   // Re-link products from live products array when products load (only once after init)
@@ -240,55 +241,61 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
     return undefined;
   };
 
-  // Create flattened list of products and variants for combobox
+  // Create flattened list of products and variants for combobox (memoized)
   // FOLLOWS ESTABLISHED PRODUCT DISPLAY STANDARD:
   // - Base products: Always included (even if they have variants)
   // - Variants: Display ONLY variant_name (not "base_product - variant_name")
   // - Active filtering: is_active !== false (treats null/undefined as active)
-  const getProductOptions = () => {
-    const options: Array<{ value: string; label: string; product: Product; variant?: any; sku: string; price: number; type: 'product' | 'variant' }> = [];
-    
+  const productOptions = useMemo(() => {
+    const options: Array<{
+      value: string;
+      label: string;
+      product: Product;
+      variant?: any;
+      sku: string;
+      price: number;
+      type: 'product' | 'variant';
+    }> = [];
+
     // Filter only active products (driven directly by Product Master)
     let activeProducts = products.filter(p => p.is_active !== false);
-    
+
     // Filter by selected category
     if (selectedCategory !== 'all') {
       activeProducts = activeProducts.filter(p => p.category?.name === selectedCategory);
     }
-    
+
     activeProducts.forEach(product => {
       // Always add base product as a selectable option (even if it has variants)
       options.push({
         value: product.id,
         label: `${product.name} | ₹${product.rate}`,
-        product: product,
+        product,
         sku: product.sku,
         price: product.rate,
-        type: 'product'
+        type: 'product',
       });
-      
+
       // Add active variants; display only variant name (no base name prefix)
       if (product.variants && product.variants.length > 0) {
         product.variants.forEach(variant => {
           if (variant.is_active) {
-            const displayLabel = `${variant.variant_name} | ₹${variant.price}`;
-            
             options.push({
               value: `${product.id}_variant_${variant.id}`,
-              label: displayLabel,
-              product: product,
-              variant: variant,
+              label: `${variant.variant_name} | ₹${variant.price}`,
+              product,
+              variant,
               sku: variant.sku,
               price: variant.price,
-              type: 'variant'
+              type: 'variant',
             });
           }
         });
       }
     });
-    
+
     return options;
-  };
+  }, [products, selectedCategory]);
 
   // Unit conversion helpers - unified across UI and totals
   const normalizeUnit = (u?: string) => (u || "").toLowerCase().replace(/\./g, "").trim();
@@ -313,23 +320,25 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
   };
 
   const handleProductSelect = (rowId: string, value: string) => {
-    const option = getProductOptions().find(opt => opt.value === value);
+    const option = productOptions.find(opt => opt.value === value);
     if (option) {
-      setOrderRows(prev => prev.map(row => {
-        if (row.id === rowId) {
-          // Always default to KG when product is selected
-          return {
-            ...row,
-            productCode: option.sku,
-            product: option.product,
-            variant: option.variant,
-            unit: 'KG',
-            total: 0
-          };
-        }
-        return row;
-      }));
-      
+      setOrderRows(prev =>
+        prev.map(row => {
+          if (row.id === rowId) {
+            // Always default to KG when product is selected
+            return {
+              ...row,
+              productCode: option.sku,
+              product: option.product,
+              variant: option.variant,
+              unit: 'KG',
+              total: 0,
+            };
+          }
+          return row;
+        })
+      );
+
       // Close the combobox
       setOpenComboboxes(prev => ({ ...prev, [rowId]: false }));
     }
@@ -518,7 +527,7 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
               </SelectTrigger>
               <SelectContent className="bg-background z-50 max-h-[300px]">
                 <SelectItem value="all" className="text-xs md:text-sm">All Categories</SelectItem>
-                {getCategories().map(category => (
+                {categories.map(category => (
                   <SelectItem key={category} value={category} className="text-xs md:text-sm">
                     {category}
                   </SelectItem>
@@ -614,7 +623,7 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
                             <CommandList className="bg-background max-h-[250px] md:max-h-[300px]">
                               <CommandEmpty>No product found.</CommandEmpty>
                               <CommandGroup className="bg-background">
-                                {getProductOptions().map((option) => (
+                                {productOptions.map((option) => (
                                   <CommandItem
                                     key={option.value}
                                     value={option.label}

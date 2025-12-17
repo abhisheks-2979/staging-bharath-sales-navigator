@@ -111,6 +111,58 @@ export const OrderEntry = () => {
     isOnline,
     fetchProducts: fetchOfflineProducts
   } = useOfflineOrderEntry();
+
+  // PERF: keep Order Entry ultra-fast even on slow/no network
+  const DEV_LOG = false;
+
+  // Confirm connectivity quickly (do not rely only on navigator.onLine)
+  const [connectivity, setConnectivity] = useState<"checking" | "online" | "offline">(
+    navigator.onLine ? "checking" : "offline"
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const ping = async () => {
+      // If browser already knows it's offline, trust it immediately
+      if (!navigator.onLine) {
+        if (!cancelled) setConnectivity("offline");
+        return;
+      }
+
+      if (!cancelled) setConnectivity("checking");
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 800);
+        const res = await fetch("/ping.txt", {
+          method: "HEAD",
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        window.clearTimeout(timeoutId);
+        if (!cancelled) setConnectivity(res.ok ? "online" : "offline");
+      } catch {
+        if (!cancelled) setConnectivity("offline");
+      }
+    };
+
+    // Run once immediately, then respond to connectivity changes
+    ping();
+
+    const onOnline = () => ping();
+    const onOffline = () => setConnectivity("offline");
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, []);
+
+  const isActuallyOnline = connectivity === "online";
   
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -348,27 +400,24 @@ export const OrderEntry = () => {
   // Fetch retailer coordinates - CACHE FIRST, non-blocking
   useEffect(() => {
     if (!validRetailerId) return;
-    
+
     const loadRetailerCoordinates = async () => {
-      console.log('📍 Loading retailer coordinates for:', validRetailerId);
-      
-      // 1. Try cache first (instant) - from offlineStorage
+      // 1) Try cache first (instant) - from offlineStorage
       try {
         const { offlineStorage, STORES } = await import('@/lib/offlineStorage');
         const cachedRetailers = await offlineStorage.getAll<any>(STORES.RETAILERS);
         const cachedRetailer = cachedRetailers.find((r: any) => r.id === validRetailerId);
-        
+
         if (cachedRetailer?.latitude && cachedRetailer?.longitude) {
-          console.log('📍 Using cached coordinates:', { lat: cachedRetailer.latitude, lng: cachedRetailer.longitude });
           setRetailerLat(cachedRetailer.latitude);
           setRetailerLng(cachedRetailer.longitude);
         }
       } catch (cacheError) {
-        console.log('📍 Cache read failed (non-critical):', cacheError);
+        DEV_LOG && console.log('📍 Cache read failed (non-critical):', cacheError);
       }
-      
-      // 2. Background network fetch - fire and forget, don't block
-      if (navigator.onLine) {
+
+      // 2) Background network fetch - ONLY when confirmed online (never block UI)
+      if (isActuallyOnline) {
         const fetchFromNetwork = () => {
           supabase
             .from('retailers')
@@ -377,22 +426,22 @@ export const OrderEntry = () => {
             .single()
             .then(({ data, error }) => {
               if (!error && data?.latitude && data?.longitude) {
-                console.log('📍 Updated coordinates from network:', { lat: data.latitude, lng: data.longitude });
                 setRetailerLat(data.latitude);
                 setRetailerLng(data.longitude);
               }
             });
         };
-        
+
         requestIdleCallback?.(fetchFromNetwork) || setTimeout(fetchFromNetwork, 50);
       }
     };
-    
-    loadRetailerCoordinates();
-  }, [validRetailerId]);
 
-  // Debug location tracking state
+    loadRetailerCoordinates();
+  }, [validRetailerId, isActuallyOnline]);
+
+  // Debug location tracking state (disabled for performance)
   useEffect(() => {
+    if (!DEV_LOG) return;
     console.log('📍 Location tracking state:', {
       retailerLat,
       retailerLng,
@@ -410,20 +459,15 @@ export const OrderEntry = () => {
   // Load cart and sync quantities - this runs every time we come back to OrderEntry
   useEffect(() => {
     try {
-      if (activeStorageKey) {
-        const rawUser = localStorage.getItem(activeStorageKey);
-        console.log('Loading cart from localStorage:', {
-          activeStorageKey,
-          rawUser
-        });
-        if (rawUser) {
-          const cartData = JSON.parse(rawUser) as CartItem[];
-          console.log('Parsed cart data:', cartData);
-          setCart(cartData);
-          // Sync quantities from cart to order entry immediately - CRITICAL for persistence
-          syncQuantitiesFromCart(cartData);
-          return;
-        }
+      if (!activeStorageKey) return;
+
+      const raw = localStorage.getItem(activeStorageKey);
+      if (raw) {
+        const cartData = JSON.parse(raw) as CartItem[];
+        setCart(cartData);
+        // Sync quantities from cart to order entry immediately - CRITICAL for persistence
+        syncQuantitiesFromCart(cartData);
+        return;
       }
     } catch (error) {
       console.error('Error loading cart:', error);
@@ -523,37 +567,21 @@ export const OrderEntry = () => {
         }
       }
     });
-    console.log('Applying synced data to OrderEntry state:', {
-      newQuantities,
-      newStocks,
-      newVariants
-    });
+    // Apply synced data to OrderEntry state (no logging for performance)
+    setQuantities(prev => ({
+      ...prev,
+      ...newQuantities,
+    }));
 
-    // Use functional updates to ensure we get the latest state
-    setQuantities(prev => {
-      const updated = {
-        ...prev,
-        ...newQuantities
-      };
-      console.log('Updated quantities state:', updated);
-      return updated;
-    });
-    setClosingStocks(prev => {
-      const updated = {
-        ...prev,
-        ...newStocks
-      };
-      console.log('Updated stocks state:', updated);
-      return updated;
-    });
-    setSelectedVariants(prev => {
-      const updated = {
-        ...prev,
-        ...newVariants
-      };
-      console.log('Updated variants state:', updated);
-      return updated;
-    });
+    setClosingStocks(prev => ({
+      ...prev,
+      ...newStocks,
+    }));
+
+    setSelectedVariants(prev => ({
+      ...prev,
+      ...newVariants,
+    }));
 
     // Also update the addedItems set (by base product id) so the green state persists
     const addedBaseIds = new Set<string>();
@@ -562,14 +590,8 @@ export const OrderEntry = () => {
       if ((item.quantity || 0) > 0) addedBaseIds.add(baseId);
     });
     setAddedItems(prev => new Set([...prev, ...Array.from(addedBaseIds)]));
-    console.log('Updated addedItems (base product ids):', addedBaseIds);
   };
   useEffect(() => {
-    console.log('Saving cart to localStorage:', {
-      activeStorageKey,
-      cartLength: cart.length,
-      cart
-    });
     localStorage.setItem(activeStorageKey, JSON.stringify(cart));
 
     // Also save quantities, variants, and stocks separately for persistence
@@ -584,26 +606,19 @@ export const OrderEntry = () => {
   // Load saved form data when storage key changes or products are loaded
   useEffect(() => {
     if (!activeStorageKey) return;
+
     const quantityKey = activeStorageKey.replace('order_cart:', 'order_quantities:');
     const variantKey = activeStorageKey.replace('order_cart:', 'order_variants:');
     const stockKey = activeStorageKey.replace('order_cart:', 'order_stocks:');
-    console.log('Loading saved form data...', {
-      activeStorageKey,
-      quantityKey,
-      variantKey,
-      stockKey,
-      productsLoaded: products.length > 0
-    });
 
     // Load quantities
     const savedQuantities = localStorage.getItem(quantityKey);
     if (savedQuantities) {
       try {
         const parsedQuantities = JSON.parse(savedQuantities);
-        console.log('Loading saved quantities:', parsedQuantities);
         setQuantities(prev => ({
           ...prev,
-          ...parsedQuantities
+          ...parsedQuantities,
         }));
       } catch (error) {
         console.error('Error loading saved quantities:', error);
@@ -615,10 +630,9 @@ export const OrderEntry = () => {
     if (savedVariants) {
       try {
         const parsedVariants = JSON.parse(savedVariants);
-        console.log('Loading saved variants:', parsedVariants);
         setSelectedVariants(prev => ({
           ...prev,
-          ...parsedVariants
+          ...parsedVariants,
         }));
       } catch (error) {
         console.error('Error loading saved variants:', error);
@@ -630,10 +644,9 @@ export const OrderEntry = () => {
     if (savedStocks) {
       try {
         const parsedStocks = JSON.parse(savedStocks);
-        console.log('Loading saved stocks:', parsedStocks);
         setClosingStocks(prev => ({
           ...prev,
-          ...parsedStocks
+          ...parsedStocks,
         }));
       } catch (error) {
         console.error('Error loading saved stocks:', error);
@@ -645,7 +658,6 @@ export const OrderEntry = () => {
     if (cartData) {
       try {
         const parsedCart = JSON.parse(cartData) as CartItem[];
-        console.log('Also syncing from cart data for consistency:', parsedCart);
         syncQuantitiesFromCart(parsedCart);
       } catch (error) {
         console.error('Error syncing from cart:', error);
@@ -782,7 +794,7 @@ export const OrderEntry = () => {
     const matchesSearch = searchTerm.trim() === "" || product.name.toLowerCase().includes(searchTerm.toLowerCase()) || product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()) || product.variants && product.variants.some(v => v.variant_name.toLowerCase().includes(searchTerm.toLowerCase()) || v.sku.toLowerCase().includes(searchTerm.toLowerCase()));
     return matchesCategory && matchesSearch;
   });
-  console.log('🔍 Filtered products for category', selectedCategory, ':', filteredProducts.length, filteredProducts);
+  // PERF: avoid logging large product arrays during render
   const handleQuantityChange = (productId: string, quantity: number) => {
     console.log('Quantity changed:', {
       productId,
@@ -1599,13 +1611,13 @@ export const OrderEntry = () => {
                 </CardTitle>
                 <p className="text-[10px] sm:text-xs text-primary-foreground/80 leading-tight truncate">{retailerName}</p>
                 <div className="flex items-center gap-1 mt-0.5">
-                  {isOnline ? (
+                  {isActuallyOnline ? (
                     <Wifi className="h-2.5 w-2.5 text-primary-foreground/60" />
                   ) : (
                     <WifiOff className="h-2.5 w-2.5 text-orange-400" />
                   )}
                   <span className="text-[9px] text-primary-foreground/60">
-                    {isOnline ? 'Online' : 'Offline'}
+                    {isActuallyOnline ? 'Online' : 'Offline'}
                   </span>
                 </div>
                 
