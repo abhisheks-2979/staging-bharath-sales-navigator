@@ -624,74 +624,62 @@ export const TodaySummary = () => {
       // Count UNIQUE RETAILERS per status category, ensuring no double-counting
       // Priority: productive (visit OR order) > unproductive > store_closed > planned
       // A retailer can only be in ONE category based on their best/final status
-      const productiveRetailerKeys = new Set<string>();
-      const unproductiveRetailerKeys = new Set<string>();
-      const closedRetailerKeys = new Set<string>();
+      // CRITICAL FIX: Use retailer_id only (not retailer_id_date) since queries already filter by date
+      const productiveRetailerIds = new Set<string>();
+      const unproductiveRetailerIds = new Set<string>();
+      const closedRetailerIds = new Set<string>();
       
-      // CRITICAL FIX: Get retailers with confirmed orders (these are ALWAYS productive)
-      const retailersWithOrders = new Set<string>();
+      // CRITICAL: Get retailers with confirmed orders (these are ALWAYS productive)
       todayOrders?.forEach(order => {
         if (order.retailer_id) {
-          retailersWithOrders.add(order.retailer_id);
+          productiveRetailerIds.add(order.retailer_id);
         }
       });
       
-      // First pass: collect productive retailers from VISITS (highest priority)
+      // Also add retailers from productive visits
       allProductiveVisits.forEach(v => {
-        const key = `${v.retailer_id}_${v.planned_date}`;
-        productiveRetailerKeys.add(key);
+        if (v.retailer_id) {
+          productiveRetailerIds.add(v.retailer_id);
+        }
       });
       
-      // CRITICAL: Also add retailers with confirmed orders as productive
-      // Even if they don't have a productive visit status, order = productive
-      const targetDateStr = format(dateRange.from, 'yyyy-MM-dd');
-      retailersWithOrders.forEach(retailerId => {
-        const key = `${retailerId}_${targetDateStr}`;
-        productiveRetailerKeys.add(key);
-      });
-      
-      // Second pass: collect unproductive retailers (excluding productive ones)
+      // Collect unproductive retailers (excluding productive ones)
       allUnproductiveVisits.forEach(v => {
-        const key = `${v.retailer_id}_${v.planned_date}`;
-        if (!productiveRetailerKeys.has(key)) {
-          unproductiveRetailerKeys.add(key);
+        if (v.retailer_id && !productiveRetailerIds.has(v.retailer_id)) {
+          unproductiveRetailerIds.add(v.retailer_id);
         }
       });
       
-      // Third pass: collect store_closed retailers (excluding productive and unproductive)
+      // Collect store_closed retailers (excluding productive and unproductive)
       allClosedVisits.forEach(v => {
-        const key = `${v.retailer_id}_${v.planned_date}`;
-        if (!productiveRetailerKeys.has(key) && !unproductiveRetailerKeys.has(key)) {
-          closedRetailerKeys.add(key);
+        if (v.retailer_id && !productiveRetailerIds.has(v.retailer_id) && !unproductiveRetailerIds.has(v.retailer_id)) {
+          closedRetailerIds.add(v.retailer_id);
         }
       });
       
-      // Get actual visit objects for display purposes (deduplicated)
-      const seenProductiveKeys = new Set<string>();
+      // Get actual visit objects for display purposes (deduplicated by retailer_id)
+      const seenProductiveIds = new Set<string>();
       const productiveVisits = allProductiveVisits.filter(v => {
-        const key = `${v.retailer_id}_${v.planned_date}`;
-        if (!seenProductiveKeys.has(key)) {
-          seenProductiveKeys.add(key);
+        if (!seenProductiveIds.has(v.retailer_id)) {
+          seenProductiveIds.add(v.retailer_id);
           return true;
         }
         return false;
       });
       
-      const seenUnproductiveKeys = new Set<string>();
+      const seenUnproductiveIds = new Set<string>();
       const unproductiveVisits = allUnproductiveVisits.filter(v => {
-        const key = `${v.retailer_id}_${v.planned_date}`;
-        if (unproductiveRetailerKeys.has(key) && !seenUnproductiveKeys.has(key)) {
-          seenUnproductiveKeys.add(key);
+        if (unproductiveRetailerIds.has(v.retailer_id) && !seenUnproductiveIds.has(v.retailer_id)) {
+          seenUnproductiveIds.add(v.retailer_id);
           return true;
         }
         return false;
       });
       
-      const seenClosedKeys = new Set<string>();
+      const seenClosedIds = new Set<string>();
       const closedVisits = allClosedVisits.filter(v => {
-        const key = `${v.retailer_id}_${v.planned_date}`;
-        if (closedRetailerKeys.has(key) && !seenClosedKeys.has(key)) {
-          seenClosedKeys.add(key);
+        if (closedRetailerIds.has(v.retailer_id) && !seenClosedIds.has(v.retailer_id)) {
+          seenClosedIds.add(v.retailer_id);
           return true;
         }
         return false;
@@ -711,10 +699,10 @@ export const TodaySummary = () => {
       const totalPlannedFromBeatPlans = beatPlanRetailersByDate.length;
       
       // CRITICAL: Productive count = unique retailers with productive visit OR confirmed order
-      const productiveCount = productiveRetailerKeys.size;
+      const productiveCount = productiveRetailerIds.size;
       
-      // Unproductive = visits with status 'unproductive' OR 'store_closed' that match beat plan retailers
-      const unproductiveCount = unproductiveVisits.length + closedVisits.length;
+      // Unproductive = unique unproductive + store_closed retailers
+      const unproductiveCount = unproductiveRetailerIds.size + closedRetailerIds.size;
       
       // Pending = Planned - Productive - Unproductive
       // This ensures: Planned = Productive + Unproductive + Pending
