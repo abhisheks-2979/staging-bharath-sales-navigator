@@ -1355,7 +1355,13 @@ export const MyVisits = () => {
         {/* Points Details Modal - Task-wise breakdown */}
         <PointsDetailsModal 
           open={isPointsDialogOpen} 
-          onOpenChange={setIsPointsDialogOpen} 
+          onOpenChange={(open) => {
+            setIsPointsDialogOpen(open);
+            // Refresh points data when modal closes to sync dashboard
+            if (!open) {
+              invalidateData?.();
+            }
+          }} 
           userId={user?.id || ''} 
           timeFilter="today"
         />

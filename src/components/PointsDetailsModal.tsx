@@ -247,21 +247,9 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-2 sm:p-6">
         <DialogHeader className="pb-2">
-          <DialogTitle className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <TrendingUp className="h-4 w-4 shrink-0" />
-              <span className="text-sm sm:text-lg truncate">Points Breakdown</span>
-            </div>
-            <Button 
-              onClick={handleExportExcel} 
-              size="sm"
-              variant="outline"
-              disabled={filteredPoints.length === 0}
-              className="h-7 px-2 text-xs shrink-0"
-            >
-              <FileSpreadsheet className="h-3 w-3 sm:mr-1" />
-              <span className="hidden sm:inline">Export</span>
-            </Button>
+          <DialogTitle className="flex items-center gap-1.5 min-w-0">
+            <TrendingUp className="h-4 w-4 shrink-0" />
+            <span className="text-sm sm:text-lg truncate">Points Breakdown</span>
           </DialogTitle>
         </DialogHeader>
 
@@ -273,22 +261,34 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
           <>
             {/* Time Period and Date Range Selection */}
             <div className="space-y-2 mb-3 p-2 bg-muted/50 rounded-lg">
-              <div className="w-full">
-                <Label htmlFor="timeFilter" className="text-[10px] mb-1 block">Time Period</Label>
-                <Select value={timeFilter} onValueChange={(value: any) => setTimeFilter(value)}>
-                  <SelectTrigger id="timeFilter" className="w-full h-8 text-xs">
-                    <SelectValue placeholder="Select period" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="yesterday">Yesterday</SelectItem>
-                    <SelectItem value="week">This Week</SelectItem>
-                    <SelectItem value="month">This Month</SelectItem>
-                    <SelectItem value="quarter">This Quarter</SelectItem>
-                    <SelectItem value="year">This Year</SelectItem>
-                    <SelectItem value="custom">Custom Range</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <Label htmlFor="timeFilter" className="text-[10px] mb-1 block">Time Period</Label>
+                  <Select value={timeFilter} onValueChange={(value: any) => setTimeFilter(value)}>
+                    <SelectTrigger id="timeFilter" className="w-full h-8 text-xs">
+                      <SelectValue placeholder="Select period" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="today">Today</SelectItem>
+                      <SelectItem value="yesterday">Yesterday</SelectItem>
+                      <SelectItem value="week">This Week</SelectItem>
+                      <SelectItem value="month">This Month</SelectItem>
+                      <SelectItem value="quarter">This Quarter</SelectItem>
+                      <SelectItem value="year">This Year</SelectItem>
+                      <SelectItem value="custom">Custom Range</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button 
+                  onClick={handleExportExcel} 
+                  size="sm"
+                  variant="outline"
+                  disabled={filteredPoints.length === 0}
+                  className="h-8 px-2 text-xs shrink-0"
+                >
+                  <FileSpreadsheet className="h-3 w-3 mr-1" />
+                  Export
+                </Button>
               </div>
 
               {timeFilter === "custom" && (
