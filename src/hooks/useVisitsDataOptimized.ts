@@ -260,6 +260,22 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         totalOrderValue: ordersData.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0) 
       };
 
+      // Only update caches/state if something actually changed.
+      // This prevents "loading"/flicker on slow networks when the data is identical.
+      const existing = dateDataCacheRef.current.get(syncDate);
+      const hasChanges =
+        !existing ||
+        !arraysEqual(existing.beatPlans || [], beatPlansData) ||
+        !arraysEqual(existing.visits || [], visitsData) ||
+        !arraysEqual(existing.retailers || [], retailersData) ||
+        !arraysEqual(existing.orders || [], ordersData) ||
+        !progressStatsEqual(existing.progressStats || { planned: 0, productive: 0, unproductive: 0, totalOrders: 0, totalOrderValue: 0 }, newStats);
+
+      if (!hasChanges) {
+        console.log('✅ [BG-SYNC] No changes detected, skipping update for:', syncDate);
+        return;
+      }
+
       // Update in-memory cache
       dateDataCacheRef.current.set(syncDate, {
         beatPlans: beatPlansData,
@@ -269,6 +285,17 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         progressStats: newStats,
         timestamp: Date.now()
       });
+
+      // Update persistent snapshot too (so app restart / offline shows latest)
+      const beatNames = beatPlansData.map((p: any) => p.beat_name).join(', ') || 'No beats planned';
+      saveMyVisitsSnapshot(syncUserId, syncDate, {
+        beatPlans: beatPlansData,
+        visits: visitsData,
+        retailers: retailersData,
+        orders: ordersData,
+        progressStats: newStats,
+        currentBeatName: beatNames
+      }).catch(() => undefined);
 
       // Update offline storage in background
       Promise.all([
