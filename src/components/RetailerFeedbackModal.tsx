@@ -162,6 +162,16 @@ export const RetailerFeedbackModal = ({
 
       if (error) throw error;
 
+      // Award gamification points for retailer feedback (only for new feedback, not updates)
+      if (!existing) {
+        try {
+          const { awardPointsForRetailerFeedback } = await import('@/utils/gamificationPointsAwarder');
+          await awardPointsForRetailerFeedback(user.id, retailerId);
+        } catch (e) {
+          console.error('Error awarding feedback points:', e);
+        }
+      }
+
       toast({
         title: "Feedback Recorded",
         description: `Retailer feedback for ${retailerName} saved with score: ${currentScore}/10`,
