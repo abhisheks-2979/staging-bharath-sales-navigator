@@ -15,6 +15,8 @@ interface RetailerFeedbackModalProps {
   visitId: string;
   retailerId: string;
   retailerName: string;
+  editId?: string | null;
+  editData?: any;
 }
 
 // Calculate score for retailer feedback (5 star fields × 5 max = 25 max points, displayed out of 10)
@@ -39,7 +41,9 @@ export const RetailerFeedbackModal = ({
   onBack,
   visitId, 
   retailerId, 
-  retailerName 
+  retailerName,
+  editId,
+  editData
 }: RetailerFeedbackModalProps) => {
   const [feedback, setFeedback] = useState({
     product_packaging: 0,
@@ -60,14 +64,48 @@ export const RetailerFeedbackModal = ({
     consumer_satisfaction: feedback.consumer_satisfaction
   });
 
-  // Load existing feedback
+  // Load existing feedback - from editData or from today's record
   useEffect(() => {
     const loadExistingFeedback = async () => {
       if (!isOpen || !retailerId) return;
       
+      // If editData is provided, use it directly
+      if (editData) {
+        setFeedback({
+          product_packaging: editData.product_packaging || 0,
+          product_sku_range: editData.product_sku_range || 0,
+          product_quality: editData.product_quality || 0,
+          product_placement: editData.product_placement || 0,
+          consumer_satisfaction: editData.consumer_satisfaction || 0,
+          summary_notes: editData.summary_notes || ""
+        });
+        return;
+      }
+      
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
+
+        // If editId is provided, load that specific record
+        if (editId) {
+          const { data, error } = await supabase
+            .from('retailer_feedback')
+            .select('*')
+            .eq('id', editId)
+            .single();
+            
+          if (!error && data) {
+            setFeedback({
+              product_packaging: data.product_packaging || 0,
+              product_sku_range: data.product_sku_range || 0,
+              product_quality: data.product_quality || 0,
+              product_placement: data.product_placement || 0,
+              consumer_satisfaction: (data as any).consumer_satisfaction || 0,
+              summary_notes: data.summary_notes || ""
+            });
+          }
+          return;
+        }
 
         const today = new Date().toISOString().split('T')[0];
         const { data, error } = await supabase
@@ -94,7 +132,7 @@ export const RetailerFeedbackModal = ({
     };
 
     loadExistingFeedback();
-  }, [isOpen, retailerId]);
+  }, [isOpen, retailerId, editId, editData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,33 +175,41 @@ export const RetailerFeedbackModal = ({
         updated_at: new Date().toISOString()
       };
 
-      // Check if record exists for today
-      const { data: existing } = await supabase
-        .from('retailer_feedback')
-        .select('id')
-        .eq('retailer_id', retailerId)
-        .eq('feedback_date', feedbackData.feedback_date)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      let error;
-      if (existing) {
+      // If editing a specific record, update it
+      let isNewFeedback = false;
+      if (editId) {
         const result = await supabase
           .from('retailer_feedback')
           .update(feedbackData)
-          .eq('id', existing.id);
-        error = result.error;
+          .eq('id', editId);
+        if (result.error) throw result.error;
       } else {
-        const result = await supabase
+        // Check if record exists for today
+        const { data: existing } = await supabase
           .from('retailer_feedback')
-          .insert(feedbackData);
-        error = result.error;
+          .select('id')
+          .eq('retailer_id', retailerId)
+          .eq('feedback_date', feedbackData.feedback_date)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (existing) {
+          const result = await supabase
+            .from('retailer_feedback')
+            .update(feedbackData)
+            .eq('id', existing.id);
+          if (result.error) throw result.error;
+        } else {
+          isNewFeedback = true;
+          const result = await supabase
+            .from('retailer_feedback')
+            .insert(feedbackData);
+          if (result.error) throw result.error;
+        }
       }
 
-      if (error) throw error;
-
       // Award gamification points for retailer feedback (only for new feedback, not updates)
-      if (!existing) {
+      if (isNewFeedback) {
         try {
           const { awardPointsForRetailerFeedback } = await import('@/utils/gamificationPointsAwarder');
           await awardPointsForRetailerFeedback(user.id, retailerId);

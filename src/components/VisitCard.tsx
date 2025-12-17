@@ -111,6 +111,8 @@ export const VisitCard = ({
   const [hasCompetitionData, setHasCompetitionData] = useState(false);
   const [feedbackViewMode, setFeedbackViewMode] = useState<'menu' | 'list'>('menu');
   const [feedbackListType, setFeedbackListType] = useState<'retailer' | 'branding' | 'competition' | 'joint-sales' | null>(null);
+  const [feedbackEditId, setFeedbackEditId] = useState<string | null>(null);
+  const [feedbackEditData, setFeedbackEditData] = useState<any>(null);
   const { user } = useAuth();
   const [hasOrderToday, setHasOrderToday] = useState(!!visit.hasOrder);
   const [actualOrderValue, setActualOrderValue] = useState<number>(0);
@@ -2527,11 +2529,63 @@ export const VisitCard = ({
         <NoOrderModal isOpen={showNoOrderModal} onClose={() => setShowNoOrderModal(false)} onReasonSelect={handleNoOrderReasonSelect} currentReason={noOrderReason} />
 
          {/* Unified Feedback Modal with Tabs */}
-        {showFeedbackModal && feedbackActiveTab === "retailer-feedback" && <RetailerFeedbackModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); setHasRetailerFeedback(true); }} onBack={() => setFeedbackActiveTab("menu")} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} />}
+        {showFeedbackModal && feedbackActiveTab === "retailer-feedback" && (
+          <RetailerFeedbackModal 
+            isOpen={true} 
+            onClose={() => { 
+              setShowFeedbackModal(false); 
+              setFeedbackActiveTab("menu"); 
+              setHasRetailerFeedback(true);
+              setFeedbackEditId(null);
+              setFeedbackEditData(null);
+            }} 
+            onBack={() => setFeedbackActiveTab("menu")} 
+            visitId={currentVisitId || visit.id} 
+            retailerId={(visit.retailerId || visit.id) as string} 
+            retailerName={visit.retailerName}
+            editId={feedbackEditId}
+            editData={feedbackEditData}
+          />
+        )}
 
-        {showFeedbackModal && feedbackActiveTab === "branding" && <BrandingRequestModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); setHasBrandingRequest(true); }} onBack={() => setFeedbackActiveTab("menu")} defaultVisitId={currentVisitId} defaultRetailerId={(visit.retailerId || visit.id) as string} defaultPincode={null} />}
+        {showFeedbackModal && feedbackActiveTab === "branding" && (
+          <BrandingRequestModal 
+            isOpen={true} 
+            onClose={() => { 
+              setShowFeedbackModal(false); 
+              setFeedbackActiveTab("menu"); 
+              setHasBrandingRequest(true);
+              setFeedbackEditId(null);
+              setFeedbackEditData(null);
+            }} 
+            onBack={() => setFeedbackActiveTab("menu")} 
+            defaultVisitId={currentVisitId} 
+            defaultRetailerId={(visit.retailerId || visit.id) as string} 
+            defaultPincode={null}
+            editId={feedbackEditId}
+            editData={feedbackEditData}
+          />
+        )}
 
-        {showFeedbackModal && feedbackActiveTab === "joint-sales-feedback" && <JointSalesFeedbackModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); }} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} beatPlanId={beatPlanId} managerId={jointSalesMemberId} onFeedbackSubmitted={() => setHasJointSalesFeedback(true)} />}
+        {showFeedbackModal && feedbackActiveTab === "joint-sales-feedback" && (
+          <JointSalesFeedbackModal 
+            isOpen={true} 
+            onClose={() => { 
+              setShowFeedbackModal(false); 
+              setFeedbackActiveTab("menu");
+              setFeedbackEditId(null);
+              setFeedbackEditData(null);
+            }} 
+            visitId={currentVisitId || visit.id} 
+            retailerId={(visit.retailerId || visit.id) as string} 
+            retailerName={visit.retailerName} 
+            beatPlanId={beatPlanId} 
+            managerId={jointSalesMemberId} 
+            onFeedbackSubmitted={() => setHasJointSalesFeedback(true)}
+            editId={feedbackEditId}
+            editData={feedbackEditData}
+          />
+        )}
 
         {showFeedbackModal && feedbackActiveTab === "competition" && (
           <Dialog open={true} onOpenChange={(open) => {
@@ -2762,18 +2816,35 @@ export const VisitCard = ({
         {feedbackListType && (
           <FeedbackListView
             isOpen={!!feedbackListType}
-            onClose={() => setFeedbackListType(null)}
+            onClose={() => {
+              setFeedbackListType(null);
+              setFeedbackEditId(null);
+              setFeedbackEditData(null);
+            }}
             feedbackType={feedbackListType}
             retailerId={(visit.retailerId || visit.id) as string}
             retailerName={visit.retailerName}
             visitId={currentVisitId}
             selectedDate={selectedDate}
             onAddNew={() => {
+              setFeedbackEditId(null);
+              setFeedbackEditData(null);
               setFeedbackListType(null);
               if (feedbackListType === 'retailer') setFeedbackActiveTab('retailer-feedback');
               else if (feedbackListType === 'branding') setFeedbackActiveTab('branding');
               else if (feedbackListType === 'joint-sales') setFeedbackActiveTab('joint-sales-feedback');
               else if (feedbackListType === 'competition') setFeedbackActiveTab('competition');
+              setShowFeedbackModal(true);
+            }}
+            onEdit={(id, data) => {
+              const currentType = feedbackListType;
+              setFeedbackEditId(id);
+              setFeedbackEditData(data);
+              setFeedbackListType(null);
+              if (currentType === 'retailer') setFeedbackActiveTab('retailer-feedback');
+              else if (currentType === 'branding') setFeedbackActiveTab('branding');
+              else if (currentType === 'joint-sales') setFeedbackActiveTab('joint-sales-feedback');
+              else if (currentType === 'competition') setFeedbackActiveTab('competition');
               setShowFeedbackModal(true);
             }}
           />
