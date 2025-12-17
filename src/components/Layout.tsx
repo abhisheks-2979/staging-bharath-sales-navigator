@@ -12,6 +12,7 @@ export const Layout = memo(({ children }: LayoutProps) => {
   const { cacheAllMasterData, isOnline } = useMasterDataCache();
   const { processSyncQueue } = useOfflineSync();
   const hasCachedRef = useRef(false);
+  const wasOfflineRef = useRef(false);
 
   // Auto-cache master data when online - only once per session
   useEffect(() => {
@@ -28,6 +29,21 @@ export const Layout = memo(({ children }: LayoutProps) => {
       }, 100);
     }
   }, [isOnline, cacheAllMasterData, processSyncQueue]);
+
+  // Trigger sync whenever connectivity is restored (offline -> online transition)
+  useEffect(() => {
+    if (!isOnline) {
+      wasOfflineRef.current = true;
+    } else if (wasOfflineRef.current) {
+      // We just came back online after being offline
+      wasOfflineRef.current = false;
+      console.log('🔄 Layout: Connectivity restored, triggering sync...');
+      // Small delay to ensure network is stable
+      setTimeout(() => {
+        processSyncQueue();
+      }, 1000);
+    }
+  }, [isOnline, processSyncQueue]);
 
   return (
     <div className="min-h-screen bg-gradient-subtle w-full flex flex-col">
