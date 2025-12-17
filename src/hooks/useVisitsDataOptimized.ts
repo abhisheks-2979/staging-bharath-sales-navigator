@@ -1324,6 +1324,38 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           return prev;
         });
         
+        // CRITICAL FIX: Also add a temporary order to the orders array if orderValue exists
+        // This ensures hasOrder prop is true for VisitCard when skipInitialCheck is used
+        const orderValue = event.detail?.orderValue;
+        if (orderValue && orderValue > 0) {
+          console.log('📊 [IMMEDIATE] Adding temporary order for display:', { retailerId, orderValue });
+          setOrders(prev => {
+            // Check if order already exists for this retailer today
+            const todayDate = new Date().toISOString().split('T')[0];
+            const existingOrder = prev.find((o: any) => 
+              o.retailer_id === retailerId && o.order_date === todayDate
+            );
+            if (existingOrder) {
+              // Update existing order value
+              return prev.map((o: any) => 
+                o.retailer_id === retailerId && o.order_date === todayDate
+                  ? { ...o, total_amount: orderValue }
+                  : o
+              );
+            }
+            // Add temporary order entry for immediate display
+            return [...prev, {
+              id: `temp-order-${retailerId}-${Date.now()}`,
+              retailer_id: retailerId,
+              visit_id: visitId,
+              user_id: userId,
+              order_date: todayDate,
+              total_amount: orderValue,
+              status: 'confirmed'
+            }];
+          });
+        }
+        
         // Trigger immediate progress recalculation
         setDataVersion(prev => prev + 1);
       }
