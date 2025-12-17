@@ -386,6 +386,74 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       }
     };
 
+    // OFFLINE VISITS MERGE: Merge visits from offline storage to get updated statuses (e.g., no-order marked offline)
+    const mergeOfflineVisitsWithCached = async (existingVisits: any[]) => {
+      try {
+        const cachedVisits = await offlineStorage.getAll<any>(STORES.VISITS);
+        
+        // Filter visits for current user and date
+        const relevantCachedVisits = (cachedVisits || []).filter((v: any) => 
+          v.user_id === userId && v.planned_date === selectedDate
+        );
+        
+        if (relevantCachedVisits.length === 0) return existingVisits;
+        
+        // Create a map of retailer_id -> latest cached visit (prefer most recently updated)
+        const cachedVisitsByRetailer = new Map<string, any>();
+        relevantCachedVisits.forEach((v: any) => {
+          const existingCached = cachedVisitsByRetailer.get(v.retailer_id);
+          if (!existingCached || new Date(v.updated_at || v.created_at) > new Date(existingCached.updated_at || existingCached.created_at)) {
+            cachedVisitsByRetailer.set(v.retailer_id, v);
+          }
+        });
+        
+        // Merge: update existing visits with offline cached status, add new ones
+        const existingByRetailer = new Map<string, any>();
+        (existingVisits || []).forEach(v => existingByRetailer.set(v.retailer_id, v));
+        
+        const mergedVisits: any[] = [];
+        const processedRetailers = new Set<string>();
+        
+        // First, update existing visits with newer offline status
+        (existingVisits || []).forEach(existingVisit => {
+          const cachedVisit = cachedVisitsByRetailer.get(existingVisit.retailer_id);
+          if (cachedVisit) {
+            // If cached visit has a more recent update OR has a final status (unproductive/productive), use it
+            const cachedTime = new Date(cachedVisit.updated_at || cachedVisit.created_at).getTime();
+            const existingTime = new Date(existingVisit.updated_at || existingVisit.created_at).getTime();
+            const cachedHasFinalStatus = cachedVisit.status === 'unproductive' || cachedVisit.status === 'productive';
+            
+            if (cachedHasFinalStatus || cachedTime > existingTime) {
+              console.log('📝 [OFFLINE-MERGE] Updating visit status from cache:', existingVisit.retailer_id, existingVisit.status, '->', cachedVisit.status);
+              mergedVisits.push({
+                ...existingVisit,
+                ...cachedVisit,
+                id: existingVisit.id.startsWith('offline_') ? cachedVisit.id : existingVisit.id // Prefer non-offline ID
+              });
+            } else {
+              mergedVisits.push(existingVisit);
+            }
+          } else {
+            mergedVisits.push(existingVisit);
+          }
+          processedRetailers.add(existingVisit.retailer_id);
+        });
+        
+        // Add visits that exist only in cache (new offline visits)
+        cachedVisitsByRetailer.forEach((cachedVisit, retailerId) => {
+          if (!processedRetailers.has(retailerId)) {
+            console.log('📝 [OFFLINE-MERGE] Adding new cached visit:', retailerId, cachedVisit.status);
+            mergedVisits.push(cachedVisit);
+          }
+        });
+        
+        return mergedVisits;
+      } catch (e) {
+        console.log('📝 [OFFLINE-MERGE] Failed to merge visits (non-critical):', e);
+        return existingVisits;
+      }
+    };
+
     // FASTEST PATH: Check in-memory cache first for instant date switching
     const cachedDateData = dateDataCacheRef.current.get(selectedDate);
     const hasCachedRetailers = cachedDateData && cachedDateData.retailers && cachedDateData.retailers.length > 0;
@@ -423,11 +491,69 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
         // Fix: when going offline, in-memory cache can miss newly cached retailers from Add Retailer.
         const mergedRetailers = await mergePlannedBeatRetailersFromOfflineCache(cachedDateData.retailers);
-        if (mergedRetailers.length !== cachedDateData.retailers.length) {
-          setRetailers(mergedRetailers);
+        
+        // CRITICAL FIX: Also merge offline visits to get updated statuses (e.g., no-order marked offline)
+        const mergedVisits = await mergeOfflineVisitsWithCached(cachedDateData.visits);
+        
+        // Check if anything changed
+        const retailersChanged = mergedRetailers.length !== cachedDateData.retailers.length;
+        const visitsChanged = mergedVisits.some((v: any, i: number) => {
+          const original = cachedDateData.visits[i];
+          return !original || v.status !== original.status || v.id !== original.id;
+        }) || mergedVisits.length !== cachedDateData.visits.length;
+        
+        if (retailersChanged || visitsChanged) {
+          if (retailersChanged) setRetailers(mergedRetailers);
+          if (visitsChanged) {
+            console.log('📝 [OFFLINE] Visits updated from offline cache');
+            setVisits(mergedVisits);
+            
+            // Recalculate progress stats with merged visits
+            const retailersWithOrders = new Set((cachedDateData.orders || []).map((o: any) => o.retailer_id));
+            let planned = 0, productive = 0, unproductive = 0;
+            const countedRetailers = new Set<string>();
+            
+            const latestVisitsByRetailer = new Map<string, any>();
+            mergedVisits.forEach((visit: any) => {
+              const existingVisit = latestVisitsByRetailer.get(visit.retailer_id);
+              if (!existingVisit || new Date(visit.created_at || visit.updated_at) > new Date(existingVisit.created_at || existingVisit.updated_at)) {
+                latestVisitsByRetailer.set(visit.retailer_id, visit);
+              }
+            });
+            
+            latestVisitsByRetailer.forEach((visit: any) => {
+              const hasOrder = retailersWithOrders.has(visit.retailer_id);
+              countedRetailers.add(visit.retailer_id);
+              if (hasOrder) productive++;
+              else if (visit.status === 'unproductive') unproductive++;
+              else if (visit.status === 'productive') productive++;
+              else planned++;
+            });
+            
+            retailersWithOrders.forEach((rid: string) => {
+              if (!countedRetailers.has(rid)) {
+                productive++;
+                countedRetailers.add(rid);
+              }
+            });
+            
+            mergedRetailers.forEach((r: any) => {
+              if (!countedRetailers.has(r.id)) planned++;
+            });
+            
+            const newStats = { 
+              ...cachedDateData.progressStats,
+              planned, 
+              productive, 
+              unproductive
+            };
+            setProgressStats(newStats);
+          }
+          
           dateDataCacheRef.current.set(selectedDate, {
             ...cachedDateData,
             retailers: mergedRetailers,
+            visits: mergedVisits,
             timestamp: Date.now()
           });
         }
@@ -478,11 +604,67 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
             // Fix: snapshot can be stale vs newly cached retailers added just before going offline.
             const mergedRetailers = await mergePlannedBeatRetailersFromOfflineCache(snapshot.retailers);
-            if (mergedRetailers.length !== snapshot.retailers.length) {
-              setRetailers(mergedRetailers);
+            
+            // CRITICAL FIX: Also merge offline visits to get updated statuses (e.g., no-order marked offline)
+            const mergedVisits = await mergeOfflineVisitsWithCached(snapshot.visits);
+            
+            const retailersChanged = mergedRetailers.length !== snapshot.retailers.length;
+            const visitsChanged = mergedVisits.some((v: any, i: number) => {
+              const original = snapshot.visits[i];
+              return !original || v.status !== original.status || v.id !== original.id;
+            }) || mergedVisits.length !== snapshot.visits.length;
+            
+            if (retailersChanged || visitsChanged) {
+              if (retailersChanged) setRetailers(mergedRetailers);
+              if (visitsChanged) {
+                console.log('📝 [OFFLINE] Visits updated from offline cache (snapshot)');
+                setVisits(mergedVisits);
+                
+                // Recalculate progress stats with merged visits
+                const retailersWithOrders = new Set((snapshot.orders || []).map((o: any) => o.retailer_id));
+                let planned = 0, productive = 0, unproductive = 0;
+                const countedRetailers = new Set<string>();
+                
+                const latestVisitsByRetailer = new Map<string, any>();
+                mergedVisits.forEach((visit: any) => {
+                  const existingVisit = latestVisitsByRetailer.get(visit.retailer_id);
+                  if (!existingVisit || new Date(visit.created_at || visit.updated_at) > new Date(existingVisit.created_at || existingVisit.updated_at)) {
+                    latestVisitsByRetailer.set(visit.retailer_id, visit);
+                  }
+                });
+                
+                latestVisitsByRetailer.forEach((visit: any) => {
+                  const hasOrder = retailersWithOrders.has(visit.retailer_id);
+                  countedRetailers.add(visit.retailer_id);
+                  if (hasOrder) productive++;
+                  else if (visit.status === 'unproductive') unproductive++;
+                  else if (visit.status === 'productive') productive++;
+                  else planned++;
+                });
+                
+                retailersWithOrders.forEach((rid: string) => {
+                  if (!countedRetailers.has(rid)) {
+                    productive++;
+                    countedRetailers.add(rid);
+                  }
+                });
+                
+                mergedRetailers.forEach((r: any) => {
+                  if (!countedRetailers.has(r.id)) planned++;
+                });
+                
+                const newStats = { 
+                  ...snapshot.progressStats,
+                  planned, 
+                  productive, 
+                  unproductive
+                };
+                setProgressStats(newStats);
+              }
+              
               dateDataCacheRef.current.set(selectedDate, {
                 beatPlans: snapshot.beatPlans,
-                visits: snapshot.visits,
+                visits: mergedVisits,
                 retailers: mergedRetailers,
                 orders: snapshot.orders,
                 progressStats: snapshot.progressStats,
