@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, MessageSquare, Paintbrush, Users, Target, Calendar, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, MessageSquare, Paintbrush, Users, Target, Calendar, Loader2, Eye, Star, X } from "lucide-react";
 import { format } from "date-fns";
 import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 import {
@@ -83,6 +83,7 @@ export const FeedbackListView = ({
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [viewItem, setViewItem] = useState<FeedbackItem | null>(null);
 
   const config = feedbackConfig[feedbackType];
   const Icon = config.icon;
@@ -293,6 +294,254 @@ export const FeedbackListView = ({
     }
   };
 
+  const renderStars = (value: number) => (
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star
+          key={star}
+          size={14}
+          className={star <= value ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/30"}
+        />
+      ))}
+    </div>
+  );
+
+  const renderFullDetails = (item: FeedbackItem) => {
+    const details = item.details;
+    
+    switch (feedbackType) {
+      case "retailer":
+        return (
+          <div className="space-y-4">
+            {details.score && (
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <span className="text-sm font-medium">Overall Score</span>
+                <Badge className={`${details.score >= 7 ? 'bg-green-500' : details.score >= 5 ? 'bg-yellow-500' : 'bg-red-500'}`}>
+                  {details.score}/10
+                </Badge>
+              </div>
+            )}
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold flex items-center gap-2">
+                <Star className="h-4 w-4" /> Performance Ratings
+              </h4>
+              <div className="grid gap-2 text-sm">
+                {details.product_availability !== undefined && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Product Availability</span>
+                    {renderStars(details.product_availability)}
+                  </div>
+                )}
+                {details.shelf_visibility !== undefined && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Shelf Visibility</span>
+                    {renderStars(details.shelf_visibility)}
+                  </div>
+                )}
+                {details.retailer_engagement !== undefined && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Retailer Engagement</span>
+                    {renderStars(details.retailer_engagement)}
+                  </div>
+                )}
+                {details.order_potential !== undefined && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Order Potential</span>
+                    {renderStars(details.order_potential)}
+                  </div>
+                )}
+                {details.payment_behavior !== undefined && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Payment Behavior</span>
+                    {renderStars(details.payment_behavior)}
+                  </div>
+                )}
+              </div>
+            </div>
+            {details.summary_notes && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold">Summary Notes</h4>
+                <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">{details.summary_notes}</p>
+              </div>
+            )}
+          </div>
+        );
+      case "branding":
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Status</span>
+              <Badge variant="outline">{details.status}</Badge>
+            </div>
+            {details.title && (
+              <div>
+                <span className="text-sm font-medium">Title</span>
+                <p className="text-sm text-muted-foreground mt-1">{details.title}</p>
+              </div>
+            )}
+            {details.requested_assets && (
+              <div>
+                <span className="text-sm font-medium">Requested Assets</span>
+                <p className="text-sm text-muted-foreground mt-1">{details.requested_assets}</p>
+              </div>
+            )}
+            {details.size && (
+              <div>
+                <span className="text-sm font-medium">Size</span>
+                <p className="text-sm text-muted-foreground mt-1">{details.size}</p>
+              </div>
+            )}
+            {details.budget && (
+              <div>
+                <span className="text-sm font-medium">Budget</span>
+                <p className="text-sm text-muted-foreground mt-1">₹{details.budget}</p>
+              </div>
+            )}
+            {details.description && (
+              <div>
+                <span className="text-sm font-medium">Description</span>
+                <p className="text-sm text-muted-foreground mt-1 bg-muted/50 p-3 rounded-lg">{details.description}</p>
+              </div>
+            )}
+            {details.measurement_photo_urls?.length > 0 && (
+              <div>
+                <span className="text-sm font-medium">Photos</span>
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  {details.measurement_photo_urls.map((url: string, i: number) => (
+                    <img key={i} src={url} alt={`Photo ${i+1}`} className="w-20 h-20 object-cover rounded-lg border" />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      case "competition":
+        return (
+          <div className="space-y-4">
+            {details.competition_master?.competitor_name && (
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <span className="text-sm font-medium">Competitor</span>
+                <span className="font-semibold">{details.competition_master.competitor_name}</span>
+              </div>
+            )}
+            {details.competition_skus?.sku_name && (
+              <div>
+                <span className="text-sm font-medium">SKU</span>
+                <p className="text-sm text-muted-foreground mt-1">{details.competition_skus.sku_name}</p>
+              </div>
+            )}
+            {details.selling_price && (
+              <div>
+                <span className="text-sm font-medium">Selling Price</span>
+                <p className="text-sm text-muted-foreground mt-1">₹{details.selling_price}</p>
+              </div>
+            )}
+            {details.stock_quantity && (
+              <div>
+                <span className="text-sm font-medium">Stock Quantity</span>
+                <p className="text-sm text-muted-foreground mt-1">{details.stock_quantity} {details.unit || 'units'}</p>
+              </div>
+            )}
+            {details.impact_level && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Impact Level</span>
+                <Badge variant="outline" className={
+                  details.impact_level === 'high' ? 'border-red-500 text-red-500' :
+                  details.impact_level === 'medium' ? 'border-yellow-500 text-yellow-500' :
+                  'border-green-500 text-green-500'
+                }>{details.impact_level}</Badge>
+              </div>
+            )}
+            {details.insight && (
+              <div>
+                <span className="text-sm font-medium">Insight</span>
+                <p className="text-sm text-muted-foreground mt-1 bg-muted/50 p-3 rounded-lg">{details.insight}</p>
+              </div>
+            )}
+            {details.photo_urls?.length > 0 && (
+              <div>
+                <span className="text-sm font-medium">Photos</span>
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  {details.photo_urls.map((url: string, i: number) => (
+                    <img key={i} src={url} alt={`Photo ${i+1}`} className="w-20 h-20 object-cover rounded-lg border" />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      case "joint-sales":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold flex items-center gap-2">
+                <Star className="h-4 w-4" /> Performance Ratings
+              </h4>
+              <div className="grid gap-2 text-sm">
+                {details.product_packaging_feedback && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Product Packaging</span>
+                    {renderStars(parseInt(details.product_packaging_feedback) || 0)}
+                  </div>
+                )}
+                {details.product_sku_range_feedback && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">SKU Range</span>
+                    {renderStars(parseInt(details.product_sku_range_feedback) || 0)}
+                  </div>
+                )}
+                {details.product_quality_feedback && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Product Quality</span>
+                    {renderStars(parseInt(details.product_quality_feedback) || 0)}
+                  </div>
+                )}
+                {details.service_feedback && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Service</span>
+                    {renderStars(parseInt(details.service_feedback) || 0)}
+                  </div>
+                )}
+                {details.consumer_feedback && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Consumer Satisfaction</span>
+                    {renderStars(parseInt(details.consumer_feedback) || 0)}
+                  </div>
+                )}
+              </div>
+            </div>
+            {(details.order_increase_amount > 0 || details.monthly_potential_6months > 0) && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold">Business Impact</h4>
+                <div className="grid gap-2 text-sm">
+                  {details.order_increase_amount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Order Increase</span>
+                      <span className="font-medium text-green-600">₹{details.order_increase_amount.toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                  {details.monthly_potential_6months > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">6-Month Monthly Potential</span>
+                      <span className="font-medium text-blue-600">₹{details.monthly_potential_6months.toLocaleString('en-IN')}/mo</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {details.joint_sales_impact && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold">Summary Notes</h4>
+                <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">{details.joint_sales_impact}</p>
+              </div>
+            )}
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -323,7 +572,11 @@ export const FeedbackListView = ({
               <ScrollArea className="h-[400px] pr-3">
                 <div className="space-y-3">
                   {items.map((item) => (
-                    <Card key={item.id} className={`${config.bgColor} border-0`}>
+                    <Card 
+                      key={item.id} 
+                      className={`${config.bgColor} border-0 cursor-pointer hover:opacity-90 transition-opacity`}
+                      onClick={() => setViewItem(item)}
+                    >
                       <CardContent className="p-3">
                         <div className="flex justify-between items-start gap-2">
                           <div className="flex-1 min-w-0">
@@ -332,11 +585,19 @@ export const FeedbackListView = ({
                               <Calendar className="h-3 w-3" />
                               {item.created_at ? format(new Date(item.created_at), 'dd MMM yyyy, h:mm a') : 'N/A'}
                             </p>
-                            <div className="mt-2">
-                              {renderDetails(item)}
-                            </div>
+                            <p className="text-[10px] text-primary mt-1 flex items-center gap-1">
+                              <Eye className="h-3 w-3" /> Tap to view details
+                            </p>
                           </div>
-                          <div className="flex gap-1">
+                          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => setViewItem(item)}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
                             {onEdit && (
                               <Button
                                 variant="ghost"
@@ -392,6 +653,69 @@ export const FeedbackListView = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* View Detail Modal */}
+      <Dialog open={!!viewItem} onOpenChange={() => setViewItem(null)}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Icon className={`h-5 w-5 ${config.color}`} />
+              {config.title} Details
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">{retailerName}</p>
+            {viewItem && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                {viewItem.created_at ? format(new Date(viewItem.created_at), 'dd MMM yyyy, h:mm a') : 'N/A'}
+              </p>
+            )}
+          </DialogHeader>
+
+          {viewItem && (
+            <div className="py-2">
+              {renderFullDetails(viewItem)}
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-3 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={() => {
+                if (viewItem) {
+                  setDeleteId(viewItem.id);
+                  setViewItem(null);
+                }
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-1 text-destructive" />
+              Delete
+            </Button>
+            {onEdit && viewItem && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => {
+                  onEdit(viewItem.id, viewItem.details);
+                  setViewItem(null);
+                }}
+              >
+                <Edit className="h-4 w-4 mr-1" />
+                Edit
+              </Button>
+            )}
+            <Button
+              size="sm"
+              className="flex-1"
+              onClick={() => setViewItem(null)}
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
