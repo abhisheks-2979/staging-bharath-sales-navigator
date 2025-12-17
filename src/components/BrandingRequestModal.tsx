@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Upload, Star, Plus, Edit2, Trash2, ChevronDown, ChevronUp, FileText, Paintbrush } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { awardPointsForBrandingRequest } from "@/utils/gamificationPointsAwarder";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Card, CardContent } from "@/components/ui/card";
@@ -282,6 +283,9 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
 
       const { error: itemsError } = await supabase.from('branding_request_items').insert(itemsPayload);
       if (itemsError) throw itemsError;
+
+      // Award gamification points for branding request
+      await awardPointsForBrandingRequest(uid, retailerId);
 
       toast({ title: 'Branding request submitted', description: 'Your request has been created.' });
       onCreated?.(data!.id);
