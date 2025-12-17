@@ -761,90 +761,44 @@ export const VisitCard = ({
       checkStatus(true); // Force refresh only for this retailer
     });
     
-    // CRITICAL FIX: ALWAYS check cache first, even when skipInitialCheck is true
-    // This ensures orders placed before navigation are immediately displayed
-    // because Cart.tsx sets visitStatusCache BEFORE dispatching event and navigating
-    const initFromCache = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const currentUserId = session?.user?.id || userId;
-      const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
-      
-      if (!currentUserId) return false;
-      
-      // Check cache first - this has the freshest data from just-placed orders
-      const cachedStatus = await visitStatusCache.get(myRetailerId, currentUserId, targetDate);
-      
-      if (cachedStatus && cachedStatus.status === 'productive' && cachedStatus.orderValue && cachedStatus.orderValue > 0) {
-        console.log('⚡ [VisitCard] CACHE HIT on mount - using cached productive status:', cachedStatus.orderValue);
-        setCurrentStatus('productive');
-        setActualOrderValue(cachedStatus.orderValue);
+    // PERFORMANCE OPTIMIZATION: Skip initial checkStatus if data is pre-loaded by parent
+    // The parent component (useVisitsDataOptimized) already loads status, orders, etc.
+    // Only run checkStatus when explicitly triggered (e.g., after order placement)
+    if (!skipInitialCheck) {
+      // ALWAYS run checkStatus to load order data, status, and other visit details
+      // The checkStatus function has internal optimizations to skip redundant network calls
+      // But we need it to load order values, pending amounts, etc.
+      console.log('🔍 [VisitCard] Running initial checkStatus for:', myRetailerId);
+      checkStatus(false);
+    } else {
+      console.log('⚡ [VisitCard] Skipping initial checkStatus (data pre-loaded):', myRetailerId);
+      // Initialize from visit props since they're pre-loaded
+      if (visit.hasOrder) {
         setHasOrderToday(true);
+        setActualOrderValue(visit.orderValue || 0);
+        setCurrentStatus('productive');
         setStatusLoadedFromDB(true);
         setPhase('completed');
-        setIsCheckedOut(true);
-        if (cachedStatus.visitId) setCurrentVisitId(cachedStatus.visitId);
-        return true; // Cache had the data we needed
       }
-      
-      if (cachedStatus && cachedStatus.status === 'unproductive' && cachedStatus.noOrderReason) {
-        console.log('⚡ [VisitCard] CACHE HIT on mount - using cached unproductive status');
-        setCurrentStatus('unproductive');
+      if (visit.noOrderReason) {
         setIsNoOrderMarked(true);
-        setNoOrderReason(cachedStatus.noOrderReason);
+        setNoOrderReason(visit.noOrderReason);
+        setCurrentStatus('unproductive');
         setStatusLoadedFromDB(true);
         setPhase('completed');
-        setIsCheckedOut(true);
-        return true;
       }
-      
-      return false; // Cache didn't have final status
-    };
-    
-    // Start with cache check, then fall back to props or checkStatus
-    initFromCache().then(foundInCache => {
-      if (foundInCache) {
-        console.log('⚡ [VisitCard] Initialized from cache, skipping props/checkStatus');
-        return;
-      }
-      
-      // Fallback: use props or run checkStatus
-      if (skipInitialCheck) {
-        console.log('⚡ [VisitCard] No cache, using props (data pre-loaded):', myRetailerId);
-        if (visit.hasOrder) {
-          setHasOrderToday(true);
-          setActualOrderValue(visit.orderValue || 0);
-          setCurrentStatus('productive');
-          setStatusLoadedFromDB(true);
-          setPhase('completed');
-        }
-        if (visit.noOrderReason) {
-          setIsNoOrderMarked(true);
-          setNoOrderReason(visit.noOrderReason);
-          setCurrentStatus('unproductive');
-          setStatusLoadedFromDB(true);
-          setPhase('completed');
-        }
-      } else {
-        console.log('🔍 [VisitCard] No cache, running initial checkStatus for:', myRetailerId);
-        checkStatus(false);
-      }
-    });
+    }
     
     return () => {
       unregister();
     };
-  }, [myRetailerId, skipInitialCheck, userId, selectedDate]); // Added userId and selectedDate for cache check
+  }, [myRetailerId, skipInitialCheck]); // Removed checkStatus and visit.status from deps to prevent re-running
 
-  // OPTIMIZED: Fetch pending amount for retailer - deferred to not block initial render
-  // Using a ref to prevent duplicate fetches
-  const pendingAmountFetchedRef = useRef(false);
-  
+  // ALWAYS fetch pending amount for retailer - independent of visit status caching
+  // This ensures pending payment tag is always displayed regardless of skipInitialCheck or cache state
   useEffect(() => {
-    if (pendingAmountFetchedRef.current) return;
-    
     const fetchPendingAmount = async () => {
       const visitRetailerId = visit.retailerId || visit.id;
-      pendingAmountFetchedRef.current = true;
       
       try {
         const { data: retailerPendingData, error: pendingError } = await supabase
@@ -884,26 +838,11 @@ export const VisitCard = ({
       }
     };
     
-    // OPTIMIZATION: Defer pending amount fetch to let critical data load first
-    const timeoutId = setTimeout(() => {
-      if (typeof requestIdleCallback !== 'undefined') {
-        requestIdleCallback(() => fetchPendingAmount());
-      } else {
-        fetchPendingAmount();
-      }
-    }, 300); // 300ms delay - slightly before feedback check
-    
-    return () => clearTimeout(timeoutId);
-  }, [myRetailerId, visit.id, visit.retailerId, pendingAmount, pendingSinceDate]);
+    fetchPendingAmount();
+  }, [myRetailerId]); // Only depend on retailerId, run once per retailer
 
-  // OPTIMIZED: Check for existing feedback data - run in parallel and only when needed
-  // This lazy loads feedback indicators to reduce network calls on page load
-  const feedbackCheckedRef = useRef(false);
-  
+  // Check for existing feedback data to show tick marks
   useEffect(() => {
-    // Only check once per card - feedback indicators don't change frequently
-    if (feedbackCheckedRef.current) return;
-    
     const checkFeedbackExists = async () => {
       const visitRetailerId = visit.retailerId || visit.id;
       const targetDate = selectedDate || new Date().toISOString().split('T')[0];
@@ -912,64 +851,54 @@ export const VisitCard = ({
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) return;
         
-        feedbackCheckedRef.current = true;
+        // Check for retailer feedback
+        const { data: retailerFeedback } = await supabase
+          .from('retailer_feedback')
+          .select('id')
+          .eq('retailer_id', visitRetailerId)
+          .eq('feedback_date', targetDate)
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        setHasRetailerFeedback(!!retailerFeedback);
         
-        // OPTIMIZATION: Run all 4 checks in parallel instead of sequential
-        const [retailerFeedbackResult, brandingResult, competitionResult, jointFeedbackResult] = await Promise.all([
-          supabase
-            .from('retailer_feedback')
-            .select('id')
-            .eq('retailer_id', visitRetailerId)
-            .eq('feedback_date', targetDate)
-            .eq('user_id', session.user.id)
-            .maybeSingle(),
-          supabase
-            .from('branding_requests')
-            .select('id')
-            .eq('retailer_id', visitRetailerId)
-            .gte('created_at', `${targetDate}T00:00:00.000Z`)
-            .lte('created_at', `${targetDate}T23:59:59.999Z`)
-            .eq('user_id', session.user.id)
-            .maybeSingle(),
-          supabase
-            .from('competition_data')
-            .select('id')
-            .eq('retailer_id', visitRetailerId)
-            .gte('created_at', `${targetDate}T00:00:00.000Z`)
-            .lte('created_at', `${targetDate}T23:59:59.999Z`)
-            .eq('user_id', session.user.id)
-            .maybeSingle(),
-          supabase
-            .from('joint_sales_feedback')
-            .select('id')
-            .eq('retailer_id', visitRetailerId)
-            .eq('feedback_date', targetDate)
-            .eq('fse_user_id', session.user.id)
-            .maybeSingle()
-        ]);
+        // Check for branding requests
+        const { data: brandingRequest } = await supabase
+          .from('branding_requests')
+          .select('id')
+          .eq('retailer_id', visitRetailerId)
+          .gte('created_at', `${targetDate}T00:00:00.000Z`)
+          .lte('created_at', `${targetDate}T23:59:59.999Z`)
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        setHasBrandingRequest(!!brandingRequest);
         
-        // Update all states together
-        setHasRetailerFeedback(!!retailerFeedbackResult.data);
-        setHasBrandingRequest(!!brandingResult.data);
-        setHasCompetitionData(!!competitionResult.data);
-        setHasJointSalesFeedback(!!jointFeedbackResult.data);
+        // Check for competition data
+        const { data: competitionData } = await supabase
+          .from('competition_data')
+          .select('id')
+          .eq('retailer_id', visitRetailerId)
+          .gte('created_at', `${targetDate}T00:00:00.000Z`)
+          .lte('created_at', `${targetDate}T23:59:59.999Z`)
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        setHasCompetitionData(!!competitionData);
+        
+        // Check for joint sales feedback
+        const { data: jointFeedback } = await supabase
+          .from('joint_sales_feedback')
+          .select('id')
+          .eq('retailer_id', visitRetailerId)
+          .eq('feedback_date', targetDate)
+          .eq('fse_user_id', session.user.id)
+          .maybeSingle();
+        setHasJointSalesFeedback(!!jointFeedback);
       } catch (err) {
         console.error('Error checking feedback existence:', err);
       }
     };
     
-    // OPTIMIZATION: Defer feedback check to not block initial render
-    // Use requestIdleCallback for low-priority background fetch
-    const timeoutId = setTimeout(() => {
-      if (typeof requestIdleCallback !== 'undefined') {
-        requestIdleCallback(() => checkFeedbackExists());
-      } else {
-        checkFeedbackExists();
-      }
-    }, 500); // 500ms delay to let critical data load first
-    
-    return () => clearTimeout(timeoutId);
-  }, [myRetailerId, selectedDate, visit.id, visit.retailerId]);
+    checkFeedbackExists();
+  }, [myRetailerId, selectedDate]);
 
   // Listen for custom events to refresh status - trigger full data reload
   useEffect(() => {
@@ -2160,11 +2089,11 @@ export const VisitCard = ({
                 }
 
                 try {
-                  // Use getSession() - instant from cache, no network call
-                  const { data: { session } } = await supabase.auth.getSession();
-                  const currentUser = session?.user;
+                  const {
+                    data: { user },
+                  } = await supabase.auth.getUser();
 
-                  if (!currentUser) {
+                  if (!user) {
                     toast({
                       title: "Login required",
                       description: "Please sign in to place orders.",
@@ -2187,20 +2116,23 @@ export const VisitCard = ({
                   // In the background (non-blocking), ensure visit exists and cache visitId for future
                   (async () => {
                     try {
-                      // Use cached session user - no network call
-                      if (!currentUser) {
+                      const {
+                        data: { user },
+                      } = await supabase.auth.getUser();
+
+                      if (!user) {
                         return;
                       }
 
                       const today = new Date().toISOString().split("T")[0];
-                      const cachedVisitKey = `visit_${currentUser.id}_${retailerId}_${today}`;
+                      const cachedVisitKey = `visit_${user.id}_${retailerId}_${today}`;
 
                       // If already cached, no need to hit Supabase again
                       if (localStorage.getItem(cachedVisitKey)) {
                         return;
                       }
 
-                      const visitId = await ensureVisit(currentUser.id, retailerId, today);
+                      const visitId = await ensureVisit(user.id, retailerId, today);
                       localStorage.setItem(cachedVisitKey, visitId);
                       setCurrentVisitId(visitId);
 
