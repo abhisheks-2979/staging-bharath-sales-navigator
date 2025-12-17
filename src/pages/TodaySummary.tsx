@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Layout } from "@/components/Layout";
 import { Download, Share, FileText, Clock, MapPin, CalendarIcon, ExternalLink, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ export const TodaySummary = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
+  const initialLoadDone = useRef(false);
   const { user, userRole } = useAuth();
   const isAdmin = userRole === 'admin';
   
@@ -187,6 +188,8 @@ export const TodaySummary = () => {
   }, [isAdmin]);
   
   useEffect(() => {
+    // Reset initial load flag when filter changes to show loading state
+    initialLoadDone.current = false;
     fetchTodaysData();
   }, [dateRangeKey, filterType, selectedUsersKey]);
 
@@ -198,7 +201,7 @@ export const TodaySummary = () => {
       interval = setInterval(() => {
         if (navigator.onLine) {
           console.log('⏰ [SUMMARY] 30s auto-refresh for today');
-          fetchTodaysData();
+          fetchTodaysData(true); // Background refresh
         }
       }, 30000);
     }
@@ -207,13 +210,13 @@ export const TodaySummary = () => {
     const handleSyncComplete = () => {
       console.log('🔄 [SUMMARY] Sync complete, refreshing...');
       setTimeout(() => {
-        fetchTodaysData();
+        fetchTodaysData(true); // Background refresh
       }, 500);
     };
     
     const handleVisitDataChanged = () => {
       console.log('📢 [SUMMARY] visitDataChanged, refreshing...');
-      fetchTodaysData();
+      fetchTodaysData(true); // Background refresh
     };
     
     window.addEventListener('syncComplete', handleSyncComplete);
@@ -310,9 +313,12 @@ export const TodaySummary = () => {
     }
   };
 
-  const fetchTodaysData = async () => {
+  const fetchTodaysData = async (isBackgroundRefresh = false) => {
     try {
-      setLoading(true);
+      // Only show loading spinner on initial load, not background refreshes
+      if (!isBackgroundRefresh && !initialLoadDone.current) {
+        setLoading(true);
+      }
       const { data: { user: authUser } } = await supabase.auth.getUser();
       
       if (!authUser) return;
@@ -1214,6 +1220,7 @@ export const TodaySummary = () => {
       });
     } finally {
       setLoading(false);
+      initialLoadDone.current = true;
     }
   };
 
