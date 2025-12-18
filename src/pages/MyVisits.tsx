@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users, Clock, Truck, ArrowUpDown } from "lucide-react";
+import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users, Clock, Truck, ArrowUpDown, RefreshCw } from "lucide-react";
 import { PointsDetailsModal } from "@/components/PointsDetailsModal";
 import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addWeeks, subWeeks, differenceInDays } from "date-fns";
 import { SearchInput } from "@/components/SearchInput";
@@ -31,6 +31,7 @@ import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { shouldSuppressError } from "@/utils/offlineErrorHandler";
 import { useVisitsDataOptimized } from "@/hooks/useVisitsDataOptimized";
 import { schedulePrefetch } from "@/utils/backgroundProductPrefetch";
+import { Preferences } from "@capacitor/preferences";
 
 interface Visit {
   id: string;
@@ -1157,12 +1158,52 @@ export const MyVisits = () => {
           <CardContent className="p-2 sm:p-3">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-0.5 sm:gap-1">
               <h3 className="font-bold text-xs sm:text-base text-primary leading-tight">{t('visits.todaysProgress')}</h3>
-              <div className="text-[9px] sm:text-xs text-muted-foreground leading-tight">
-                {(selectedDate ? new Date(selectedDate) : new Date()).toLocaleDateString('en-IN', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'short'
-              })}
+              <div className="flex items-center gap-2">
+                <div className="text-[9px] sm:text-xs text-muted-foreground leading-tight">
+                  {(selectedDate ? new Date(selectedDate) : new Date()).toLocaleDateString('en-IN', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'short'
+                })}
+                </div>
+                {/* Clear Cache Button for debugging */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                  onClick={async () => {
+                    if (!user?.id) return;
+                    try {
+                      // Clear all local caches
+                      await offlineStorage.clear(STORES.VISITS);
+                      await offlineStorage.clear(STORES.ORDERS);
+                      await offlineStorage.clear(STORES.BEAT_PLANS);
+                      
+                      // Clear snapshot for current date
+                      const snapshotKey = `myvisits_snapshot_${user.id}_${selectedDate}`;
+                      await Preferences.remove({ key: snapshotKey });
+                      
+                      // Clear visit status cache
+                      await Preferences.remove({ key: 'visit_status_cache' });
+                      
+                      toast.success('Cache cleared - refreshing data...');
+                      
+                      // Trigger data refresh
+                      invalidateData?.();
+                      
+                      // Force full page reload for complete refresh
+                      setTimeout(() => {
+                        window.location.reload();
+                      }, 500);
+                    } catch (err) {
+                      console.error('Cache clear error:', err);
+                      toast.error('Failed to clear cache');
+                    }
+                  }}
+                  title="Clear local cache and refresh data"
+                >
+                  <RefreshCw size={12} />
+                </Button>
               </div>
             </div>
             
