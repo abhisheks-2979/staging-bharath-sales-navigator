@@ -25,6 +25,15 @@ import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { shouldSuppressError } from '@/utils/offlineErrorHandler';
 import { useVanSales } from '@/hooks/useVanSales';
 
+// Processing steps for attendance
+type ProcessingStep = 'location' | 'photo' | 'face' | 'saving' | 'complete';
+
+interface ProcessingState {
+  isProcessing: boolean;
+  currentStep: ProcessingStep | null;
+  stepMessage: string;
+}
+
 const Attendance = () => {
   const { toast } = useToast();
   const { userProfile } = useAuth();
@@ -51,6 +60,11 @@ const Attendance = () => {
   const [stopReason, setStopReason] = useState('');
   const [attendanceType, setAttendanceType] = useState<'check-in' | 'check-out' | null>(null);
   const [faceVerificationAttempts, setFaceVerificationAttempts] = useState(0);
+  const [processingState, setProcessingState] = useState<ProcessingState>({
+    isProcessing: false,
+    currentStep: null,
+    stepMessage: ''
+  });
   const { compareImages, getMatchStatusIcon, getMatchStatusText } = useFaceMatching();
   const { isVanSalesEnabled } = useVanSales();
 
@@ -289,6 +303,13 @@ const Attendance = () => {
   const handleCameraCapture = async (photoBlob: Blob) => {
     if (!attendanceType) return;
 
+    // Start processing state
+    setProcessingState({
+      isProcessing: true,
+      currentStep: 'location',
+      stepMessage: 'Getting your location...'
+    });
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
@@ -301,6 +322,7 @@ const Attendance = () => {
         .single();
 
       if (!profile?.profile_picture_url) {
+        setProcessingState({ isProcessing: false, currentStep: null, stepMessage: '' });
         toast({
           title: "Profile Picture Required",
           description: "Please upload your profile picture first in your profile settings.",
@@ -334,6 +356,13 @@ const Attendance = () => {
         );
       });
 
+      // Update to photo upload step
+      setProcessingState({
+        isProcessing: true,
+        currentStep: 'photo',
+        stepMessage: 'Uploading photo...'
+      });
+
       const today = new Date().toISOString().split('T')[0];
       const timestamp = new Date().toISOString();
 
@@ -356,6 +385,13 @@ const Attendance = () => {
       const { data: urlData } = supabase.storage
         .from('attendance-photos')
         .getPublicUrl(photoPath);
+
+      // Update to face verification step
+      setProcessingState({
+        isProcessing: true,
+        currentStep: 'face',
+        stepMessage: 'Verifying face match...'
+      });
 
       // Perform SERVER-SIDE face matching for security
       const { data: faceMatchResult, error: faceMatchError } = await supabase.functions.invoke(
@@ -393,6 +429,7 @@ const Attendance = () => {
       } else if (confidence < 50) {
         const newAttemptCount = faceVerificationAttempts + 1;
         setFaceVerificationAttempts(newAttemptCount);
+        setProcessingState({ isProcessing: false, currentStep: null, stepMessage: '' });
         
         if (newAttemptCount < 2) {
           // First attempt failed - ask to retry
@@ -429,6 +466,13 @@ const Attendance = () => {
           variant: 'default',
         });
       }
+
+      // Update to saving step
+      setProcessingState({
+        isProcessing: true,
+        currentStep: 'saving',
+        stepMessage: attendanceType === 'check-in' ? 'Recording attendance & starting day...' : 'Recording check-out & ending day...'
+      });
 
       if (attendanceType === 'check-in') {
         console.log('Starting check-in process...');
@@ -504,6 +548,13 @@ const Attendance = () => {
           }
         }
 
+        // Update to complete step
+        setProcessingState({
+          isProcessing: true,
+          currentStep: 'complete',
+          stepMessage: 'Day started successfully!'
+        });
+
         // Close camera modal
         setShowCamera(false);
         setAttendanceType(null);
@@ -512,6 +563,9 @@ const Attendance = () => {
         // Refresh attendance data
         await fetchAttendanceData();
         await fetchTodaysVisits();
+
+        // Reset processing state
+        setProcessingState({ isProcessing: false, currentStep: null, stepMessage: '' });
 
         // Start GPS tracking immediately after check-in
         toast({
@@ -565,6 +619,13 @@ const Attendance = () => {
           console.log('Remaining planned visits cancelled');
         }
 
+        // Update to complete step
+        setProcessingState({
+          isProcessing: true,
+          currentStep: 'complete',
+          stepMessage: 'Day ended successfully!'
+        });
+
         // Close camera modal
         setShowCamera(false);
         setAttendanceType(null);
@@ -573,6 +634,9 @@ const Attendance = () => {
         // Refresh attendance data
         await fetchAttendanceData();
         await fetchTodaysVisits();
+
+        // Reset processing state
+        setProcessingState({ isProcessing: false, currentStep: null, stepMessage: '' });
 
         // Stop GPS tracking after successful check-out
         console.log('Stopping GPS tracking...');
@@ -586,6 +650,7 @@ const Attendance = () => {
 
     } catch (error) {
       console.error('Error marking attendance:', error);
+      setProcessingState({ isProcessing: false, currentStep: null, stepMessage: '' });
       toast({
         title: "Error",
         description: `Failed to mark ${attendanceType}. Please try again.`,
@@ -816,6 +881,67 @@ const Attendance = () => {
                 )}
               </Button>
             </div>
+
+            {/* Processing Progress Overlay */}
+            {processingState.isProcessing && (
+              <Card className="border-primary/50 bg-primary/5">
+                <CardContent className="p-4">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-center gap-3">
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
+                      <span className="font-medium text-primary">{processingState.stepMessage}</span>
+                    </div>
+                    
+                    {/* Progress Steps */}
+                    <div className="flex justify-center gap-2">
+                      {(['location', 'photo', 'face', 'saving', 'complete'] as ProcessingStep[]).map((step, index) => {
+                        const steps: ProcessingStep[] = ['location', 'photo', 'face', 'saving', 'complete'];
+                        const currentIndex = processingState.currentStep ? steps.indexOf(processingState.currentStep) : -1;
+                        const stepIndex = steps.indexOf(step);
+                        const isCompleted = stepIndex < currentIndex;
+                        const isCurrent = stepIndex === currentIndex;
+                        
+                        return (
+                          <div key={step} className="flex items-center">
+                            <div 
+                              className={cn(
+                                "w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all",
+                                isCompleted && "bg-green-500 text-white",
+                                isCurrent && "bg-primary text-primary-foreground animate-pulse",
+                                !isCompleted && !isCurrent && "bg-muted text-muted-foreground"
+                              )}
+                            >
+                              {isCompleted ? (
+                                <CheckCircle className="h-4 w-4" />
+                              ) : (
+                                index + 1
+                              )}
+                            </div>
+                            {index < 4 && (
+                              <div 
+                                className={cn(
+                                  "w-6 h-0.5 mx-1",
+                                  isCompleted ? "bg-green-500" : "bg-muted"
+                                )}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* Step Labels */}
+                    <div className="flex justify-between text-xs text-muted-foreground px-1">
+                      <span className="w-12 text-center">Location</span>
+                      <span className="w-12 text-center">Photo</span>
+                      <span className="w-12 text-center">Face</span>
+                      <span className="w-12 text-center">Save</span>
+                      <span className="w-12 text-center">Done</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* GPS Tracking Info */}
             {todaysAttendance && !todaysAttendance.check_out_time && (
