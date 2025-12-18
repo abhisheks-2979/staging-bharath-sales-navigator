@@ -232,6 +232,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         }
 
         // Calculate beat progress using unified logic (same as My Visits)
+        // CRITICAL: Deduplicate visits by retailer and treat no-order as unproductive even if duplicates exist.
         const visitsAny = (visits || []) as any[];
 
         // Build order maps to detect productive visits via orders
@@ -265,15 +266,23 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         let productive = 0;
         let unproductive = 0;
 
-        const visitRetailerIdsSet = new Set(visitsAny.map((v: any) => v.retailer_id));
-
+        const visitsByRetailer = new Map<string, any[]>();
         visitsAny.forEach((v: any) => {
-          const hasOrder = v.retailer_id ? ordersMap.has(v.retailer_id) : false;
-          if (v.status === 'unproductive') {
-            unproductive++;
-          } else if (v.status === 'productive' || hasOrder) {
+          if (!v?.retailer_id) return;
+          const list = visitsByRetailer.get(v.retailer_id) || [];
+          list.push(v);
+          visitsByRetailer.set(v.retailer_id, list);
+        });
+
+        const visitRetailerIdsSet = new Set(visitsByRetailer.keys());
+
+        visitsByRetailer.forEach((group, retailerId) => {
+          const hasOrder = ordersMap.has(retailerId);
+          if (hasOrder || group.some(v => v.status === 'productive')) {
             productive++;
-          } else if (v.status === 'planned') {
+          } else if (group.some(v => v.status === 'unproductive' || !!v.no_order_reason)) {
+            unproductive++;
+          } else {
             notYetVisited++;
           }
         });
@@ -428,12 +437,11 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
       beatName = beatNames.length > 0 ? beatNames.join(', ') : null;
     }
     
-    // Unified beat progress logic for cache path
+    // Unified beat progress logic for cache path (dedupe by retailer)
     let notYetVisited = 0;
     let productive = 0;
     let unproductive = 0;
-    const visitRetailerIdsSet = new Set(todayVisits.map((v: any) => v.retailer_id));
-    
+
     const plannedRetailerIds: string[] = [];
     for (const bp of beatPlansArray) {
       const beatData = (bp as any).beat_data as any;
@@ -443,13 +451,23 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
     }
 
     const totalPlannedRetailers = plannedRetailerIds.length;
-    
-    todayVisits.forEach((v: any) => {
-      if (v.status === 'unproductive') {
-        unproductive++;
-      } else if (v.status === 'productive') {
+
+    const visitsByRetailer = new Map<string, any[]>();
+    (todayVisits || []).forEach((v: any) => {
+      if (!v?.retailer_id) return;
+      const list = visitsByRetailer.get(v.retailer_id) || [];
+      list.push(v);
+      visitsByRetailer.set(v.retailer_id, list);
+    });
+
+    const visitRetailerIdsSet = new Set(visitsByRetailer.keys());
+
+    visitsByRetailer.forEach((group) => {
+      if (group.some(v => v.status === 'productive')) {
         productive++;
-      } else if (v.status === 'planned') {
+      } else if (group.some(v => v.status === 'unproductive' || !!v.no_order_reason)) {
+        unproductive++;
+      } else {
         notYetVisited++;
       }
     });
