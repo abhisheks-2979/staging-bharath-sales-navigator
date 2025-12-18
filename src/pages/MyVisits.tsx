@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -175,6 +176,7 @@ export const MyVisits = () => {
   const [pointsEarnedToday, setPointsEarnedToday] = useState(0);
   const [pointsDetailsList, setPointsDetailsList] = useState<Array<{ retailerName: string; points: number; visitId: string | null }>>([]);
   const [isPointsDialogOpen, setIsPointsDialogOpen] = useState(false);
+  const [showClearCacheDialog, setShowClearCacheDialog] = useState(false);
   const {
     user
   } = useAuth();
@@ -1169,7 +1171,7 @@ export const MyVisits = () => {
                   month: 'short'
                 })}
                 </div>
-                {/* Clear Cache Button for debugging */}
+                {/* Clear Cache Button */}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1178,47 +1180,13 @@ export const MyVisits = () => {
                     !isOnline && "opacity-50 cursor-not-allowed"
                   )}
                   disabled={!isOnline}
-                  onClick={async () => {
+                  onClick={() => {
                     if (!user?.id) return;
-                    
-                    // Show warning confirmation for network concerns
                     if (!navigator.onLine || networkStatus === 'offline') {
                       toast.error('Cannot clear cache while offline');
                       return;
                     }
-                    
-                    const confirmed = window.confirm(
-                      'This will clear all local cached data and reload the page. ' +
-                      'Make sure you have a stable internet connection. Continue?'
-                    );
-                    if (!confirmed) return;
-                    
-                    try {
-                      // Clear all local caches
-                      await offlineStorage.clear(STORES.VISITS);
-                      await offlineStorage.clear(STORES.ORDERS);
-                      await offlineStorage.clear(STORES.BEAT_PLANS);
-                      
-                      // Clear snapshot for current date
-                      const snapshotKey = `myvisits_snapshot_${user.id}_${selectedDate}`;
-                      await Preferences.remove({ key: snapshotKey });
-                      
-                      // Clear visit status cache
-                      await Preferences.remove({ key: 'visit_status_cache' });
-                      
-                      toast.success('Cache cleared - refreshing data...');
-                      
-                      // Trigger data refresh
-                      invalidateData?.();
-                      
-                      // Force full page reload for complete refresh
-                      setTimeout(() => {
-                        window.location.reload();
-                      }, 500);
-                    } catch (err) {
-                      console.error('Cache clear error:', err);
-                      toast.error('Failed to clear cache');
-                    }
+                    setShowClearCacheDialog(true);
                   }}
                   title={!isOnline ? "Cannot clear cache while offline" : "Clear local cache and refresh data"}
                 >
@@ -1445,6 +1413,48 @@ export const MyVisits = () => {
 
         {/* Van Stock Management Dialog */}
         <VanStockManagement open={isVanStockOpen} onOpenChange={setIsVanStockOpen} selectedDate={selectedDate} />
+
+        {/* Clear Cache Confirmation Dialog */}
+        <AlertDialog open={showClearCacheDialog} onOpenChange={setShowClearCacheDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Clear Local Cache?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will clear all locally cached data and reload the page. Make sure you have a stable internet connection before proceeding.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={async () => {
+                  if (!user?.id) return;
+                  try {
+                    await offlineStorage.clear(STORES.VISITS);
+                    await offlineStorage.clear(STORES.ORDERS);
+                    await offlineStorage.clear(STORES.BEAT_PLANS);
+                    
+                    const snapshotKey = `myvisits_snapshot_${user.id}_${selectedDate}`;
+                    await Preferences.remove({ key: snapshotKey });
+                    await Preferences.remove({ key: 'visit_status_cache' });
+                    
+                    toast.success('Cache cleared - refreshing...');
+                    invalidateData?.();
+                    
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 500);
+                  } catch (err) {
+                    console.error('Cache clear error:', err);
+                    toast.error('Failed to clear cache');
+                  }
+                }}
+              >
+                Clear Cache
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </Layout>;
 };
