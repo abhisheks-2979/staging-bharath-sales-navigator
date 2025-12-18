@@ -180,13 +180,15 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   }, []);
 
   // Load from offline storage - ALWAYS INSTANT
+  // FIX: Less restrictive filtering - include ALL user's retailers that match beats
   const loadFromOfflineStorage = useCallback(async (uid: string, date: string) => {
     try {
-      const [cachedBeatPlans, cachedVisits, cachedRetailers, cachedOrders] = await Promise.all([
+      const [cachedBeatPlans, cachedVisits, cachedRetailers, cachedOrders, cachedBeats] = await Promise.all([
         offlineStorage.getAll<any>(STORES.BEAT_PLANS),
         offlineStorage.getAll<any>(STORES.VISITS),
         offlineStorage.getAll<any>(STORES.RETAILERS),
-        offlineStorage.getAll<any>(STORES.ORDERS)
+        offlineStorage.getAll<any>(STORES.ORDERS),
+        offlineStorage.getAll<any>(STORES.BEATS)
       ]);
 
       const filteredBeatPlans = cachedBeatPlans.filter(bp => 
@@ -196,8 +198,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         v.user_id === uid && v.planned_date === date
       );
       
-      const beatIds = filteredBeatPlans.map(bp => bp.beat_id);
+      // Today's beat IDs from beat plans
+      const todayBeatIds = filteredBeatPlans.map(bp => bp.beat_id);
       const visitRetailerIds = new Set(filteredVisits.map(v => v.retailer_id));
+      
+      // FIX: Get ALL user's beat IDs (not just today's) to find newly added retailers
+      const allUserBeatIds = cachedBeats
+        .filter((b: any) => b.created_by === uid || b.user_id === uid)
+        .map((b: any) => b.beat_id);
       
       // Get explicit retailer IDs from beat_data
       const explicitRetailerIds: string[] = [];
@@ -208,11 +216,18 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         }
       }
       
+      // FIX: Less restrictive filter - include retailers from:
+      // 1. Today's beat plans (todayBeatIds)
+      // 2. ANY user beat (for newly added offline retailers)
+      // 3. Visits for today
+      // 4. Explicit retailer IDs in beat_data
       const filteredRetailers = cachedRetailers.filter(r => 
         r.user_id === uid && (
-          beatIds.includes(r.beat_id) || 
-          visitRetailerIds.has(r.id) ||
-          explicitRetailerIds.includes(r.id)
+          todayBeatIds.includes(r.beat_id) ||      // Today's beat plans
+          allUserBeatIds.includes(r.beat_id) ||    // ANY user beat
+          visitRetailerIds.has(r.id) ||            // Has visit today
+          explicitRetailerIds.includes(r.id) ||    // Explicit in beat_data
+          r.id?.startsWith('offline_')             // Offline-created retailer
         )
       );
       
@@ -221,6 +236,15 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         o.user_id === uid && o.order_date === date && 
         o.status === 'confirmed' && retailerIds.has(o.retailer_id)
       );
+
+      console.log('[OfflineStorage] Loaded:', {
+        beatPlans: filteredBeatPlans.length,
+        visits: filteredVisits.length,
+        retailers: filteredRetailers.length,
+        orders: filteredOrders.length,
+        todayBeatIds: todayBeatIds.length,
+        allUserBeatIds: allUserBeatIds.length
+      });
 
       return {
         beatPlans: filteredBeatPlans,
@@ -501,14 +525,33 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         snapshot.orders?.length > 0
       );
       if (hasValidSnapshotData) {
+        // FIX: Also check offline storage for NEW retailers that might not be in snapshot
+        const offlineData = await loadFromOfflineStorage(userId, selectedDate);
+        
+        // Merge: Add any offline retailers not in snapshot
+        let mergedRetailers = [...(snapshot.retailers || [])];
+        if (offlineData?.retailers?.length) {
+          const snapshotRetailerIds = new Set(mergedRetailers.map(r => r.id));
+          const newRetailers = offlineData.retailers.filter(r => !snapshotRetailerIds.has(r.id));
+          if (newRetailers.length > 0) {
+            mergedRetailers = [...mergedRetailers, ...newRetailers];
+            console.log('[LoadData] Merged', newRetailers.length, 'new retailers from offline storage');
+          }
+        }
+        
         setBeatPlans(snapshot.beatPlans || []);
         setVisits(snapshot.visits || []);
-        setRetailers(snapshot.retailers || []);
+        setRetailers(mergedRetailers);
         setOrders(snapshot.orders || []);
         setIsLoading(false);
         setHasLoadedOnce(true);
         
-        cacheRef.current.set(selectedDate, snapshot);
+        // Update cache with merged data
+        cacheRef.current.set(selectedDate, { 
+          ...snapshot, 
+          retailers: mergedRetailers,
+          timestamp: Date.now() 
+        });
         
         // Background smart sync
         if (navigator.onLine && isToday(selectedDate) && shouldSyncNow(selectedDate)) {

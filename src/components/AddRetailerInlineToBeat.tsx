@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
+import { addRetailerToSnapshot, updateBeatPlanInSnapshot } from "@/lib/myVisitsSnapshot";
 
 interface AddRetailerInlineToBeatProps {
   open: boolean;
@@ -462,11 +463,11 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
   };
 
   // Helper to update today's beat plan with new retailer ID
-  const updateTodaysBeatPlanRetailerIds = async (retailerId: string, beatIdToUpdate: string, isOfflineMode: boolean) => {
+  const updateTodaysBeatPlanRetailerIds = async (retailerId: string, beatIdToUpdate: string, isOfflineMode: boolean, beatNameForCreate?: string) => {
     const today = new Date().toISOString().split('T')[0];
     
     if (isOfflineMode) {
-      // OFFLINE: Update cached beat plan
+      // OFFLINE: Update cached beat plan or CREATE if missing
       try {
         const cachedBeatPlans = await offlineStorage.getAll<any>(STORES.BEAT_PLANS);
         const todaysBeatPlan = cachedBeatPlans.find((bp: any) => 
@@ -490,8 +491,33 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
             };
             
             await offlineStorage.save(STORES.BEAT_PLANS, updatedBeatPlan);
+            
+            // FIX: Also update snapshot so it persists across app restarts
+            await updateBeatPlanInSnapshot(user!.id, today, updatedBeatPlan);
+            
             console.log('[Offline] Updated today\'s beat plan with new retailer:', retailerId);
           }
+        } else if (beatIdToUpdate && beatIdToUpdate !== 'temporary') {
+          // FIX: CREATE beat plan if it doesn't exist for today
+          console.log('[Offline] No beat plan exists for today, creating one...');
+          const newBeatPlan = {
+            id: `offline_bp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            user_id: user!.id,
+            beat_id: beatIdToUpdate,
+            beat_name: beatNameForCreate || selectedBeatName,
+            plan_date: today,
+            beat_data: { retailer_ids: [retailerId] },
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          
+          await offlineStorage.save(STORES.BEAT_PLANS, newBeatPlan);
+          await offlineStorage.addToSyncQueue('CREATE_BEAT_PLAN', newBeatPlan);
+          
+          // FIX: Also update snapshot so it persists across app restarts
+          await updateBeatPlanInSnapshot(user!.id, today, newBeatPlan);
+          
+          console.log('[Offline] Created new beat plan for today:', newBeatPlan.beat_name);
         }
       } catch (err) {
         console.error('[Offline] Error updating beat plan:', err);
@@ -606,7 +632,12 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
       });
 
       // CRITICAL: Update today's beat plan retailer_ids so new retailer shows in My Visits (offline)
-      await updateTodaysBeatPlanRetailerIds(tempId, payload.beat_id, true);
+      await updateTodaysBeatPlanRetailerIds(tempId, payload.beat_id, true, payload.beat_name);
+
+      // FIX: DIRECTLY update snapshot - don't rely on event handlers (they may not be mounted)
+      const today = new Date().toISOString().split('T')[0];
+      await addRetailerToSnapshot(user.id, today, offlineRetailer);
+      console.log('[Offline] Directly added retailer to snapshot');
 
       setIsSaving(false);
       
