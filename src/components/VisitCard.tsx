@@ -1756,7 +1756,11 @@ export const VisitCard = ({
     // 4. Run ALL network operations in background (non-blocking)
     // =========================================================================
     
-    const today = selectedDate || new Date().toISOString().split('T')[0];
+    const today = selectedDate || (() => {
+      // Use local timezone date (avoids UTC date mismatch around midnight)
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    })();
     const retailerId = (visit.retailerId || visit.id) as string;
     const checkOutTime = new Date().toISOString();
     
@@ -1792,24 +1796,22 @@ export const VisitCard = ({
       // Generate a temporary visit ID for cache operations
       const tempVisitId = currentVisitId || `offline_${cachedUserId}_${retailerId}_${today}_${Date.now()}`;
       
-      // Update visit status cache (local, instant)
-      visitStatusCache.set(tempVisitId, retailerId, cachedUserId, today, 'unproductive', undefined, reason);
-      
-      // Update snapshot cache for Today's Progress (local, instant)
-      updateVisitStatusInSnapshot(cachedUserId, today, retailerId, 'unproductive', reason);
-      
-      // Save to offline storage (local, instant)
-      offlineStorage.save(STORES.VISITS, {
-        id: tempVisitId,
-        retailer_id: retailerId,
-        user_id: cachedUserId,
-        planned_date: today,
-        status: 'unproductive',
-        no_order_reason: reason,
-        check_out_time: checkOutTime,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
+      // Update local caches/storage (and await) so other screens refresh reliably
+      await Promise.allSettled([
+        visitStatusCache.set(tempVisitId, retailerId, cachedUserId, today, 'unproductive', undefined, reason),
+        updateVisitStatusInSnapshot(cachedUserId, today, retailerId, 'unproductive', reason),
+        offlineStorage.save(STORES.VISITS, {
+          id: tempVisitId,
+          retailer_id: retailerId,
+          user_id: cachedUserId,
+          planned_date: today,
+          status: 'unproductive',
+          no_order_reason: reason,
+          check_out_time: checkOutTime,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+      ]);
     }
     
     // =====================================================
@@ -1824,6 +1826,8 @@ export const VisitCard = ({
         noOrderReason: reason
       }
     }));
+    // Also refresh Home/Today progress cards (they listen to visitDataChanged)
+    window.dispatchEvent(new Event('visitDataChanged'));
     
     // =====================================================
     // STEP 4: BACKGROUND NETWORK OPERATIONS (non-blocking)
