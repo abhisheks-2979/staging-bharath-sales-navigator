@@ -149,9 +149,20 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     }
   }, []);
 
-  // Background network sync
-  const syncFromNetwork = useCallback(async (uid: string, date: string) => {
-    if (!navigator.onLine || !mountedRef.current) return;
+  // Background network sync - NEVER blocks UI, has timeout
+  const syncFromNetwork = useCallback(async (uid: string, date: string, updateLoadingState = false) => {
+    if (!navigator.onLine || !mountedRef.current) {
+      if (updateLoadingState) {
+        setIsLoading(false);
+        setHasLoadedOnce(true);
+      }
+      return;
+    }
+    
+    // 8-second timeout to prevent slow network blocking
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Network timeout')), 8000)
+    );
     
     try {
       const dateStart = new Date(date);
@@ -159,7 +170,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       const dateEnd = new Date(date);
       dateEnd.setHours(23, 59, 59, 999);
 
-      const [bpRes, vRes, oRes, pRes] = await Promise.all([
+      const fetchPromise = Promise.all([
         supabase.from('beat_plans').select('*').eq('user_id', uid).eq('plan_date', date),
         supabase.from('visits').select('*').eq('user_id', uid).eq('planned_date', date),
         supabase.from('orders').select('*').eq('user_id', uid).eq('order_date', date).eq('status', 'confirmed'),
@@ -170,7 +181,15 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           .lte('earned_at', dateEnd.toISOString())
       ]);
 
-      if (bpRes.error || vRes.error || oRes.error) return;
+      const [bpRes, vRes, oRes, pRes] = await Promise.race([fetchPromise, timeoutPromise]) as any;
+
+      if (bpRes.error || vRes.error || oRes.error) {
+        if (updateLoadingState) {
+          setIsLoading(false);
+          setHasLoadedOnce(true);
+        }
+        return;
+      }
       if (!mountedRef.current) return;
 
       const beatPlansData = bpRes.data || [];
@@ -272,23 +291,24 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       ]).catch(() => {});
 
     } catch (e) {
-      console.log('Network sync error:', e);
+      console.log('Network sync timeout or error:', e);
+    } finally {
+      if (updateLoadingState) {
+        setIsLoading(false);
+        setHasLoadedOnce(true);
+      }
     }
   }, []);
 
-  // Main load function - cache first, instant display
+  // Main load function - ALWAYS cache first, network NEVER blocks
   const loadData = useCallback(async () => {
     if (!userId || !selectedDate) return;
     if (isFetchingRef.current && lastDateRef.current === selectedDate) return;
     
     isFetchingRef.current = true;
     lastDateRef.current = selectedDate;
-    
-    // CRITICAL: Keep loading true until we have data or confirm empty
-    // Don't set isLoading=false until we have a definitive answer
-    let foundData = false;
 
-    // 1. Try in-memory cache (instant)
+    // 1. Try in-memory cache FIRST (instant)
     const cached = cacheRef.current.get(selectedDate);
     if (cached) {
       setBeatPlans(cached.beatPlans || []);
@@ -301,38 +321,33 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           byRetailer: new Map(cached.points.byRetailer) 
         });
       }
-      foundData = cached.retailers?.length > 0 || cached.beatPlans?.length > 0;
-      if (foundData) {
-        setIsLoading(false);
-        setHasLoadedOnce(true);
-      }
+      setIsLoading(false);
+      setHasLoadedOnce(true);
       
-      // Background sync for today only
+      // Background sync only - never blocks
       if (navigator.onLine && isToday(selectedDate)) {
-        setTimeout(() => syncFromNetwork(userId, selectedDate), 100);
+        setTimeout(() => syncFromNetwork(userId, selectedDate, false), 100);
       }
-      if (foundData) {
-        isFetchingRef.current = false;
-        return;
-      }
+      isFetchingRef.current = false;
+      return;
     }
 
     // 2. Try persistent snapshot (fast)
     try {
       const snapshot = await loadMyVisitsSnapshot(userId, selectedDate);
-      if (snapshot && (snapshot.retailers?.length > 0 || snapshot.beatPlans?.length > 0)) {
+      if (snapshot) {
         setBeatPlans(snapshot.beatPlans || []);
         setVisits(snapshot.visits || []);
         setRetailers(snapshot.retailers || []);
         setOrders(snapshot.orders || []);
         setIsLoading(false);
         setHasLoadedOnce(true);
-        foundData = true;
         
         cacheRef.current.set(selectedDate, snapshot);
         
+        // Background sync only - never blocks
         if (navigator.onLine && isToday(selectedDate)) {
-          setTimeout(() => syncFromNetwork(userId, selectedDate), 100);
+          setTimeout(() => syncFromNetwork(userId, selectedDate, false), 100);
         }
         isFetchingRef.current = false;
         return;
@@ -350,24 +365,28 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       setOrders(offlineData.orders);
       setIsLoading(false);
       setHasLoadedOnce(true);
-      foundData = true;
       
       cacheRef.current.set(selectedDate, offlineData);
+      
+      // Background sync only - never blocks
+      if (navigator.onLine) {
+        setTimeout(() => syncFromNetwork(userId, selectedDate, false), 100);
+      }
+      isFetchingRef.current = false;
+      return;
     }
 
-    // 4. Network sync - REQUIRED if no cached data found
+    // 4. No cache found - start network sync in background, don't wait
+    // Show loading state but let network complete asynchronously
     if (navigator.onLine) {
-      // If no cached data, do sync immediately (not background) to get data
-      if (!foundData) {
-        await syncFromNetwork(userId, selectedDate);
-      } else {
-        setTimeout(() => syncFromNetwork(userId, selectedDate), 50);
-      }
+      // Fire network sync but don't await - let it update loading state when done
+      syncFromNetwork(userId, selectedDate, true);
+    } else {
+      // No cache, no network - show empty state
+      setIsLoading(false);
+      setHasLoadedOnce(true);
     }
     
-    // Only mark loading complete after all sources checked
-    setIsLoading(false);
-    setHasLoadedOnce(true);
     isFetchingRef.current = false;
   }, [userId, selectedDate, isToday, loadFromOfflineStorage, syncFromNetwork]);
 
