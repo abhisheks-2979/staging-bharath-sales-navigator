@@ -409,8 +409,14 @@ export function useOfflineSync() {
             
             console.log('✅ Order synced, dispatching visitStatusChanged event:', { visitId, retailerId });
             
+            // Include order in dispatch for immediate orders state update
             window.dispatchEvent(new CustomEvent('visitStatusChanged', {
-              detail: { visitId, status: 'productive', retailerId }
+              detail: { 
+                visitId, 
+                status: 'productive', 
+                retailerId,
+                order: data.order 
+              }
             }));
             
             // ALSO dispatch visitDataChanged to trigger full page reload with increased delay
@@ -490,8 +496,14 @@ export function useOfflineSync() {
               retailerId: data.retailer_id 
             });
             
+            // Include order in dispatch for immediate orders state update
             window.dispatchEvent(new CustomEvent('visitStatusChanged', {
-              detail: { visitId: data.visit_id, status: 'productive', retailerId: data.retailer_id }
+              detail: { 
+                visitId: data.visit_id, 
+                status: 'productive', 
+                retailerId: data.retailer_id,
+                order: data 
+              }
             }));
             
             // ALSO dispatch visitDataChanged to trigger full page reload with increased delay

@@ -691,7 +691,11 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       const { visitId, status, retailerId, order, noOrderReason } = event.detail || {};
       if (!visitId && !retailerId) return;
       
-      console.log('[LocalEvent] Status change:', { visitId, status, retailerId, noOrderReason });
+      // STALE CLOSURE FIX: Use refs for current values
+      const currentUserId = userIdRef.current;
+      const currentDate = selectedDateRef.current;
+      
+      console.log('[LocalEvent] Status change:', { visitId, status, retailerId, noOrderReason, currentDate });
       
       // Update visits state directly - NO NETWORK CALL
       setVisits(prev => {
@@ -712,27 +716,32 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             }
             return v;
           });
+          console.log('[LocalEvent] Updated existing visit:', { visitId, status, noOrderReason });
         } else if (retailerId && status) {
           const newVisit = {
             id: visitId || `temp_${retailerId}_${Date.now()}`,
             retailer_id: retailerId,
-            user_id: userId,
-            planned_date: selectedDate,
+            user_id: currentUserId,
+            planned_date: currentDate,
             status,
             no_order_reason: noOrderReason,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           };
           updated = [...prev, newVisit];
+          console.log('[LocalEvent] Created new visit:', newVisit);
         } else {
           updated = prev;
         }
         
-        // Update cache
-        const cached = cacheRef.current.get(selectedDate);
-        if (cached) {
-          cacheRef.current.set(selectedDate, { ...cached, visits: updated });
-        }
+        // Update cache using ref value
+        const cached = cacheRef.current.get(currentDate) || {
+          beatPlans: [],
+          visits: [],
+          retailers: [],
+          orders: []
+        };
+        cacheRef.current.set(currentDate, { ...cached, visits: updated });
         
         // Persist to offline storage (background)
         updated.forEach(v => {
@@ -746,6 +755,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
       // If order data included, update orders too
       if (order) {
+        const currentDate = selectedDateRef.current;
         setOrders(prev => {
           const existing = prev.find(o => o.id === order.id);
           let updated;
@@ -755,15 +765,19 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             updated = [...prev, { ...order, updated_at: new Date().toISOString() }];
           }
           
-          // Update cache
-          const cached = cacheRef.current.get(selectedDate);
-          if (cached) {
-            cacheRef.current.set(selectedDate, { ...cached, orders: updated });
-          }
+          // Update cache using ref value
+          const cached = cacheRef.current.get(currentDate) || {
+            beatPlans: [],
+            visits: [],
+            retailers: [],
+            orders: []
+          };
+          cacheRef.current.set(currentDate, { ...cached, orders: updated });
           
           // Persist
           offlineStorage.save(STORES.ORDERS, order).catch(() => {});
           
+          console.log('[LocalEvent] Order updated/added:', order.id);
           return updated;
         });
       }
@@ -816,16 +830,20 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
     // Sync complete - only trigger delta sync if needed
     const handleSyncComplete = () => {
-      if (isToday(selectedDate) && navigator.onLine && shouldSyncNow(selectedDate)) {
+      const currentDate = selectedDateRef.current;
+      const currentUserId = userIdRef.current;
+      if (currentUserId && isToday(currentDate) && navigator.onLine && shouldSyncNow(currentDate)) {
         // Delayed to avoid rapid-fire
-        setTimeout(() => smartDeltaSync(userId!, selectedDate), 1000);
+        setTimeout(() => smartDeltaSync(currentUserId, currentDate), 1000);
       }
     };
 
     // Visibility change - sync when app comes to foreground
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible' && navigator.onLine && isToday(selectedDate) && shouldSyncNow(selectedDate)) {
-        setTimeout(() => smartDeltaSync(userId!, selectedDate), 500);
+      const currentDate = selectedDateRef.current;
+      const currentUserId = userIdRef.current;
+      if (document.visibilityState === 'visible' && navigator.onLine && currentUserId && isToday(currentDate) && shouldSyncNow(currentDate)) {
+        setTimeout(() => smartDeltaSync(currentUserId, currentDate), 500);
       }
     };
 

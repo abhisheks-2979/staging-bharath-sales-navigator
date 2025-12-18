@@ -39,13 +39,14 @@ export async function submitOrderWithOfflineSupport(
       orderValue
     );
     
-    // Dispatch event immediately for instant UI update
+    // Dispatch event immediately for instant UI update - include order for orders state update
     window.dispatchEvent(new CustomEvent('visitStatusChanged', {
       detail: {
         visitId: orderData.visit_id,
         status: 'productive',
         retailerId: orderData.retailer_id,
-        orderValue
+        orderValue,
+        order: { ...orderData, items: orderItems, total_amount: orderValue }
       }
     }));
   }
@@ -217,13 +218,14 @@ export async function submitOrderWithOfflineSupport(
       orderValue
     );
     
-    // Dispatch visitStatusChanged event for immediate UI update
+    // Dispatch visitStatusChanged event for immediate UI update - include order for orders state update
     window.dispatchEvent(new CustomEvent('visitStatusChanged', {
       detail: {
         visitId: orderData.visit_id || orderId,
         status: 'productive',
         retailerId: orderData.retailer_id,
-        orderValue
+        orderValue,
+        order: { ...offlineOrder, items: offlineItems, total_amount: orderValue }
       }
     }));
   }
