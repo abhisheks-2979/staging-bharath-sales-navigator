@@ -666,7 +666,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   useEffect(() => {
     mountedRef.current = true;
     loadData();
-    return () => { mountedRef.current = false; };
+
+    // IMPORTANT: In React 18 StrictMode (dev), effects mount/unmount twice.
+    // Reset in-flight flags on cleanup so the second mount can fetch data.
+    return () => {
+      mountedRef.current = false;
+      isFetchingRef.current = false;
+      smartSyncLockRef.current = false;
+    };
   }, [loadData]);
 
   // LOCAL-FIRST EVENT HANDLING: Update state directly without network
