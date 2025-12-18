@@ -171,16 +171,27 @@ export const VisitCard = ({
     loading: locationFeatureLoading
   } = useLocationFeature();
 
-  // Get user ID for visit tracking
-  const [userId, setUserId] = useState<string>('');
+  // Get user ID for visit tracking - INSTANT from localStorage, async fallback
+  const [userId, setUserId] = useState<string>(() => {
+    // Try localStorage first for instant availability (set by useAuth on login)
+    return localStorage.getItem('cached_user_id') || user?.id || '';
+  });
+  
   useEffect(() => {
+    // If we already have userId from localStorage, skip async fetch
+    if (userId) return;
+    
     const getUserId = async () => {
       // Use getSession() for offline support (reads from localStorage cache)
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) setUserId(session.user.id);
+      if (session?.user) {
+        setUserId(session.user.id);
+        // Ensure it's cached for next time
+        localStorage.setItem('cached_user_id', session.user.id);
+      }
     };
     getUserId();
-  }, []);
+  }, [userId]);
 
   // Visit tracking hook
   const {
@@ -1760,7 +1771,7 @@ export const VisitCard = ({
     // STEP 2: INSTANT LOCAL CACHE UPDATES (fast, local-only)
     // =====================================================
     // Get user ID from localStorage cache (instant, no network)
-    const cachedUserId = localStorage.getItem('cached_user_id') || userId;
+    const cachedUserId = userId || localStorage.getItem('cached_user_id') || user?.id;
     
     if (cachedUserId) {
       // Generate a temporary visit ID for cache operations
