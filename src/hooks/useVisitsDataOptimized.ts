@@ -93,8 +93,31 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   const cacheRef = useRef<Map<string, any>>(new Map());
   const isFetchingRef = useRef(false);
   const mountedRef = useRef(true);
-  const lastSyncTimeRef = useRef<Map<string, number>>(new Map()); // Track sync times in memory
-  const lastUIUpdateRef = useRef<number>(0); // Debounce UI updates
+  const lastSyncTimeRef = useRef<Map<string, number>>(new Map());
+  const lastUIUpdateRef = useRef<number>(0);
+  
+  // CRITICAL: Refs to break circular dependency in deltaSyncFromNetwork
+  const beatPlansRef = useRef(beatPlans);
+  const visitsRef = useRef(visits);
+  const retailersRef = useRef(retailers);
+  const ordersRef = useRef(orders);
+  
+  // Keep refs in sync with state (no dependency on state values in callbacks)
+  useEffect(() => {
+    beatPlansRef.current = beatPlans;
+  }, [beatPlans]);
+  
+  useEffect(() => {
+    visitsRef.current = visits;
+  }, [visits]);
+  
+  useEffect(() => {
+    retailersRef.current = retailers;
+  }, [retailers]);
+  
+  useEffect(() => {
+    ordersRef.current = orders;
+  }, [orders]);
 
   // Memoized progress stats
   const progressStats = useMemo(() => 
@@ -261,10 +284,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       if (hasChanges || !lastSyncTimestamp) {
         console.log(`[DeltaSync] Found changes: ${newBeatPlans.length} beat plans, ${newVisits.length} visits, ${newOrders.length} orders`);
         
-        // Get current local data
-        const currentBeatPlans = [...beatPlans];
-        const currentVisits = [...visits];
-        const currentOrders = [...orders];
+        // Get current local data from REFS (not state) to avoid circular dependency
+        const currentBeatPlans = [...beatPlansRef.current];
+        const currentVisits = [...visitsRef.current];
+        const currentOrders = [...ordersRef.current];
 
         // Merge new data (upsert)
         const mergeById = <T extends { id: string }>(existing: T[], newItems: T[]): T[] => {
@@ -413,7 +436,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     } catch (e) {
       console.log('[DeltaSync] Error or timeout:', e);
     }
-  }, [beatPlans, visits, retailers, orders, shouldSyncNow]);
+  }, [shouldSyncNow]); // FIXED: Removed state dependencies - using refs instead to break circular dependency
 
   // Main load function - ALWAYS LOCAL FIRST, NEVER WAITS FOR NETWORK
   const loadData = useCallback(async () => {

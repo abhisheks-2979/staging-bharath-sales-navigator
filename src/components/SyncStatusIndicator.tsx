@@ -109,10 +109,7 @@ export const SyncStatusIndicator = memo(() => {
             console.log(`✅ SyncStatusIndicator: All items synced successfully (silent)`);
             setLastSyncStatus('success');
             setSyncQueueCount(0);
-            
-            // Dispatch event to force data refresh across all components
-            window.dispatchEvent(new CustomEvent('syncComplete'));
-            console.log('📢 Dispatched syncComplete event to refresh data');
+            // NOTE: syncComplete event is dispatched by useOfflineSync.ts - don't dispatch here to prevent duplicates
             
             // Clear success status after 3 seconds
             setTimeout(() => setLastSyncStatus(null), 3000);
