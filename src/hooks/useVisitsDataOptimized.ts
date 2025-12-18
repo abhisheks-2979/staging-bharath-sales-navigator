@@ -271,7 +271,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     return true; // Changes applied
   }, []);
 
-  // SMART DELTA SYNC: Only fetch and update changed records
+  // SMART DELTA SYNC: Fetch ALL visits/orders (no delta filter), fetch retailers by beat_id
   const smartDeltaSync = useCallback(async (uid: string, date: string) => {
     // Prevent concurrent syncs
     if (smartSyncLockRef.current || !navigator.onLine || !mountedRef.current) {
@@ -284,34 +284,20 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     }
 
     smartSyncLockRef.current = true;
-    console.log('[SmartSync] Starting smart delta sync for', date);
+    console.log('[SmartSync] Starting full sync for', date);
 
     try {
-      // Get last sync timestamp for delta query
-      const lastSyncTimestamp = await offlineStorage.getLastSyncTimestamp('visits', uid, date);
-      
       // 8-second timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-      const dateStart = new Date(date);
-      dateStart.setHours(0, 0, 0, 0);
-      const dateEnd = new Date(date);
-      dateEnd.setHours(23, 59, 59, 999);
-
-      // Build delta queries - only fetch records updated since last sync
-      let beatPlansQuery = supabase.from('beat_plans').select('*').eq('user_id', uid).eq('plan_date', date);
-      let visitsQuery = supabase.from('visits').select('*').eq('user_id', uid).eq('planned_date', date);
-      let ordersQuery = supabase.from('orders').select('*').eq('user_id', uid).eq('order_date', date).eq('status', 'confirmed');
-
-      // Apply delta filter ONLY if we have existing data
-      if (lastSyncTimestamp) {
-        beatPlansQuery = beatPlansQuery.gt('updated_at', lastSyncTimestamp);
-        visitsQuery = visitsQuery.gt('updated_at', lastSyncTimestamp);
-        ordersQuery = ordersQuery.gt('updated_at', lastSyncTimestamp);
-      }
-
-      const [bpRes, vRes, oRes] = await Promise.all([beatPlansQuery, visitsQuery, ordersQuery]);
+      // FIX #1: ALWAYS fetch ALL visits and orders for the date (no delta filter)
+      // This ensures unproductive visits are never missed due to stale delta timestamps
+      const [bpRes, vRes, oRes] = await Promise.all([
+        supabase.from('beat_plans').select('*').eq('user_id', uid).eq('plan_date', date),
+        supabase.from('visits').select('*').eq('user_id', uid).eq('planned_date', date),
+        supabase.from('orders').select('*').eq('user_id', uid).eq('order_date', date).eq('status', 'confirmed')
+      ]);
       clearTimeout(timeoutId);
 
       if (!mountedRef.current || lastDateRef.current !== date) {
@@ -323,82 +309,100 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       const newVisits = vRes.data || [];
       const newOrders = oRes.data || [];
 
-      // If no delta changes and we have previous sync, skip
-      if (lastSyncTimestamp && newBeatPlans.length === 0 && newVisits.length === 0 && newOrders.length === 0) {
-        console.log('[SmartSync] No changes since last sync');
-        lastSyncTimeRef.current.set(date, Date.now());
-        smartSyncLockRef.current = false;
-        return;
-      }
+      console.log(`[SmartSync] Fetched: ${newBeatPlans.length} beat plans, ${newVisits.length} visits, ${newOrders.length} orders`);
 
-      console.log(`[SmartSync] Delta changes: ${newBeatPlans.length} beat plans, ${newVisits.length} visits, ${newOrders.length} orders`);
-
-      // Get current state from cache (not re-reading state which causes issues)
+      // Get current state from cache
       const currentCache = cacheRef.current.get(date) || { beatPlans: [], visits: [], retailers: [], orders: [] };
 
       // GRANULAR COMPARISON
       let uiUpdated = false;
 
       // Update beat plans granularly
-      if (newBeatPlans.length > 0) {
-        const bpChanges = getChangedItems(currentCache.beatPlans, newBeatPlans);
-        if (bpChanges.changed.length > 0 || bpChanges.added.length > 0) {
-          uiUpdated = applyGranularUpdate(setBeatPlans, bpChanges) || uiUpdated;
-          // Merge into cache
-          const bpMap = new Map(currentCache.beatPlans.map(bp => [bp.id, bp]));
-          newBeatPlans.forEach(bp => bpMap.set(bp.id, bp));
-          currentCache.beatPlans = Array.from(bpMap.values());
-        }
+      const bpChanges = getChangedItems(currentCache.beatPlans, newBeatPlans);
+      if (bpChanges.changed.length > 0 || bpChanges.added.length > 0 || bpChanges.removed.length > 0) {
+        uiUpdated = applyGranularUpdate(setBeatPlans, bpChanges) || uiUpdated;
+        currentCache.beatPlans = newBeatPlans;
       }
 
-      // Update visits granularly
-      if (newVisits.length > 0) {
-        const vChanges = getChangedItems(currentCache.visits, newVisits);
-        if (vChanges.changed.length > 0 || vChanges.added.length > 0) {
-          uiUpdated = applyGranularUpdate(setVisits, vChanges) || uiUpdated;
-          // Merge into cache
-          const vMap = new Map(currentCache.visits.map(v => [v.id, v]));
-          newVisits.forEach(v => vMap.set(v.id, v));
-          currentCache.visits = Array.from(vMap.values());
-        }
+      // Update visits granularly - ALWAYS compare full list
+      const vChanges = getChangedItems(currentCache.visits, newVisits);
+      if (vChanges.changed.length > 0 || vChanges.added.length > 0 || vChanges.removed.length > 0) {
+        uiUpdated = applyGranularUpdate(setVisits, vChanges) || uiUpdated;
+        currentCache.visits = newVisits;
       }
 
-      // Update orders granularly
-      if (newOrders.length > 0) {
-        const oChanges = getChangedItems(currentCache.orders, newOrders);
-        if (oChanges.changed.length > 0 || oChanges.added.length > 0) {
-          uiUpdated = applyGranularUpdate(setOrders, oChanges) || uiUpdated;
-          // Merge into cache
-          const oMap = new Map(currentCache.orders.map(o => [o.id, o]));
-          newOrders.forEach(o => oMap.set(o.id, o));
-          currentCache.orders = Array.from(oMap.values());
-        }
+      // Update orders granularly - ALWAYS compare full list
+      const oChanges = getChangedItems(currentCache.orders, newOrders);
+      if (oChanges.changed.length > 0 || oChanges.added.length > 0 || oChanges.removed.length > 0) {
+        uiUpdated = applyGranularUpdate(setOrders, oChanges) || uiUpdated;
+        currentCache.orders = newOrders;
       }
 
-      // Only fetch retailers if we have new visits/orders with unknown retailers
-      if (newVisits.length > 0 || newOrders.length > 0) {
-        const existingRetailerIds = new Set(currentCache.retailers.map(r => r.id));
-        const newRetailerIds = new Set([
-          ...newVisits.map(v => v.retailer_id),
-          ...newOrders.map(o => o.retailer_id)
-        ].filter(id => id && !existingRetailerIds.has(id)));
+      // FIX #2: ALWAYS fetch ALL retailers by beat_id (not just from visits/orders)
+      // This ensures new retailers added to beats are always included
+      const beatIds = newBeatPlans.map(bp => bp.beat_id);
+      const visitRetailerIds = newVisits.map(v => v.retailer_id);
+      const orderRetailerIds = newOrders.map(o => o.retailer_id);
+      
+      // Get explicit retailer IDs from beat_data
+      const explicitRetailerIds: string[] = [];
+      for (const bp of newBeatPlans) {
+        const beatData = bp.beat_data as any;
+        if (beatData?.retailer_ids?.length > 0) {
+          explicitRetailerIds.push(...beatData.retailer_ids);
+        }
+      }
+      
+      // Combine all sources for retailer IDs
+      const allRetailerIds = [...new Set([...visitRetailerIds, ...orderRetailerIds, ...explicitRetailerIds])];
 
-        if (newRetailerIds.size > 0) {
-          const { data: newRetailers } = await supabase
-            .from('retailers')
-            .select('*')
-            .eq('user_id', uid)
-            .in('id', Array.from(newRetailerIds));
-
-          if (newRetailers && newRetailers.length > 0) {
-            const rChanges = { changed: [], added: newRetailers, removed: [] };
-            uiUpdated = applyGranularUpdate(setRetailers, rChanges as any) || uiUpdated;
-            currentCache.retailers = [...currentCache.retailers, ...newRetailers];
+      // Fetch retailers by beat_id AND by explicit IDs
+      const retailerMap = new Map<string, any>();
+      
+      // Keep existing retailers in cache
+      for (const r of currentCache.retailers) {
+        retailerMap.set(r.id, r);
+      }
+      
+      if (beatIds.length > 0) {
+        const { data: beatRetailers } = await supabase
+          .from('retailers')
+          .select('*')
+          .eq('user_id', uid)
+          .in('beat_id', beatIds);
+        if (beatRetailers) {
+          for (const r of beatRetailers) {
+            retailerMap.set(r.id, r);
+          }
+        }
+      }
+      
+      if (allRetailerIds.length > 0) {
+        const { data: explicitRetailers } = await supabase
+          .from('retailers')
+          .select('*')
+          .eq('user_id', uid)
+          .in('id', allRetailerIds);
+        if (explicitRetailers) {
+          for (const r of explicitRetailers) {
+            retailerMap.set(r.id, r);
           }
         }
       }
 
-      // Update cache
+      if (retailerMap.size > 0) {
+        const allRetailers = Array.from(retailerMap.values());
+        
+        const rChanges = getChangedItems(currentCache.retailers, allRetailers);
+        if (rChanges.changed.length > 0 || rChanges.added.length > 0 || rChanges.removed.length > 0) {
+          uiUpdated = applyGranularUpdate(setRetailers, rChanges) || uiUpdated;
+          currentCache.retailers = allRetailers;
+          console.log(`[SmartSync] Retailers updated: ${rChanges.added.length} added, ${rChanges.changed.length} changed`);
+        }
+      }
+
+      // Update cache with timestamp
+      currentCache.timestamp = Date.now();
       cacheRef.current.set(date, currentCache);
 
       // Save to offline storage (background, non-blocking)
@@ -444,6 +448,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     isFetchingRef.current = true;
     lastDateRef.current = selectedDate;
 
+    // FIX #3: Cache staleness check - for today, if cache is old, force full sync
+    const MAX_CACHE_AGE_MS = 30 * 60 * 1000; // 30 minutes
+    const isTodayDate = isToday(selectedDate);
+
     // 1. Try in-memory cache FIRST (instant)
     const cached = cacheRef.current.get(selectedDate);
     // Check for ANY valid data (beat plans, retailers, visits, or orders)
@@ -453,6 +461,11 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       cached.visits?.length > 0 || 
       cached.orders?.length > 0
     );
+    
+    // Check if cache is stale (for today only)
+    const cacheAge = cached?.timestamp ? Date.now() - cached.timestamp : Infinity;
+    const isCacheStale = isTodayDate && cacheAge > MAX_CACHE_AGE_MS;
+    
     if (hasValidCachedData) {
       setBeatPlans(cached.beatPlans || []);
       setVisits(cached.visits || []);
@@ -467,9 +480,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       setIsLoading(false);
       setHasLoadedOnce(true);
       
-      // Background smart sync - never blocks
-      if (navigator.onLine && isToday(selectedDate) && shouldSyncNow(selectedDate)) {
-        requestIdleCallback?.(() => smartDeltaSync(userId, selectedDate)) || 
+      // Background smart sync - force if cache is stale
+      if (navigator.onLine && (isCacheStale || (isTodayDate && shouldSyncNow(selectedDate)))) {
+        console.log('[LoadData] Triggering sync - cache stale:', isCacheStale);
+        requestIdleCallback?.(() => smartDeltaSync(userId, selectedDate)) ||
           setTimeout(() => smartDeltaSync(userId, selectedDate), 100);
       }
       isFetchingRef.current = false;
@@ -611,12 +625,13 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       setRetailers(retailersData);
       setOrders(ordersData);
 
-      // Update cache
+      // Update cache with timestamp for staleness check
       const cacheData = {
         beatPlans: beatPlansData,
         visits: visitsData,
         retailers: retailersData,
-        orders: ordersData
+        orders: ordersData,
+        timestamp: Date.now()
       };
       cacheRef.current.set(date, cacheData);
 
@@ -741,7 +756,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           retailers: [],
           orders: []
         };
-        cacheRef.current.set(currentDate, { ...cached, visits: updated });
+        const updatedCache = { ...cached, visits: updated, timestamp: Date.now() };
+        cacheRef.current.set(currentDate, updatedCache);
         
         // Persist to offline storage (background)
         updated.forEach(v => {
@@ -750,12 +766,25 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           }
         });
         
+        // FIX #4: Save snapshot for persistence across app restarts
+        if (currentUserId) {
+          saveMyVisitsSnapshot(currentUserId, currentDate, {
+            beatPlans: updatedCache.beatPlans,
+            visits: updated,
+            retailers: updatedCache.retailers,
+            orders: updatedCache.orders,
+            progressStats: calculateStats(updated, updatedCache.orders, updatedCache.retailers),
+            currentBeatName: updatedCache.beatPlans?.map((p: any) => p.beat_name).join(', ') || ''
+          }).catch(() => {});
+        }
+        
         return updated;
       });
 
       // If order data included, update orders too
       if (order) {
         const currentDate = selectedDateRef.current;
+        const currentUserId = userIdRef.current;
         setOrders(prev => {
           const existing = prev.find(o => o.id === order.id);
           let updated;
@@ -772,10 +801,23 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             retailers: [],
             orders: []
           };
-          cacheRef.current.set(currentDate, { ...cached, orders: updated });
+          const updatedCache = { ...cached, orders: updated, timestamp: Date.now() };
+          cacheRef.current.set(currentDate, updatedCache);
           
           // Persist
           offlineStorage.save(STORES.ORDERS, order).catch(() => {});
+          
+          // FIX #4: Save snapshot for persistence
+          if (currentUserId) {
+            saveMyVisitsSnapshot(currentUserId, currentDate, {
+              beatPlans: updatedCache.beatPlans,
+              visits: updatedCache.visits,
+              retailers: updatedCache.retailers,
+              orders: updated,
+              progressStats: calculateStats(updatedCache.visits, updated, updatedCache.retailers),
+              currentBeatName: updatedCache.beatPlans?.map((p: any) => p.beat_name).join(', ') || ''
+            }).catch(() => {});
+          }
           
           console.log('[LocalEvent] Order updated/added:', order.id);
           return updated;
@@ -816,14 +858,25 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           retailers: [],
           orders: []
         };
-        cacheRef.current.set(currentDate, { ...cached, retailers: updated });
+        const updatedCache = { ...cached, retailers: updated, timestamp: Date.now() };
+        cacheRef.current.set(currentDate, updatedCache);
         
         // FIXED: Persist retailer to offline storage for app restarts
         offlineStorage.save(STORES.RETAILERS, retailer).catch(e => {
           console.error('[LocalEvent] Failed to save retailer to offline storage:', e);
         });
         
-        console.log('[LocalEvent] Retailer added to state and cache. Total retailers:', updated.length);
+        // FIX #4: Save snapshot for persistence across app restarts
+        saveMyVisitsSnapshot(currentUserId, currentDate, {
+          beatPlans: updatedCache.beatPlans,
+          visits: updatedCache.visits,
+          retailers: updated,
+          orders: updatedCache.orders,
+          progressStats: calculateStats(updatedCache.visits, updatedCache.orders, updated),
+          currentBeatName: updatedCache.beatPlans?.map((p: any) => p.beat_name).join(', ') || ''
+        }).catch(() => {});
+        
+        console.log('[LocalEvent] Retailer added to state, cache, and snapshot. Total retailers:', updated.length);
         return updated;
       });
     };
