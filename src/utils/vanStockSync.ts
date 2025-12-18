@@ -1,18 +1,40 @@
 import { supabase } from '@/integrations/supabase/client';
 
 /**
- * Extract base product ID from a potentially variant product ID
- * Variant IDs are in format: "baseProductId_variant_variantId"
+ * Extract the actual product ID that matches van_stock_items.product_id
+ * Order items can be in these formats:
+ * 1. Simple product: "productId" -> use as-is
+ * 2. Variant format: "baseProductId_variant_variantId" -> use variantId (the part AFTER _variant_)
+ * 
+ * Van stock items store:
+ * - For base products: the product ID
+ * - For variants: the variant ID directly
  */
-function extractBaseProductId(productId: string): string {
+function extractMatchingProductId(productId: string): string {
   if (!productId) return productId;
   
-  // Check if it's a variant product ID
+  // Check if it's a variant product ID format
   if (productId.includes('_variant_')) {
-    return productId.split('_variant_')[0];
+    // Return the VARIANT ID (after _variant_), not the base product ID
+    return productId.split('_variant_')[1];
   }
   
   return productId;
+}
+
+/**
+ * Extract both base and variant IDs from a product ID
+ * Returns { baseId, variantId } - variantId is null if not a variant
+ */
+function extractProductIds(productId: string): { baseId: string; variantId: string | null } {
+  if (!productId) return { baseId: productId, variantId: null };
+  
+  if (productId.includes('_variant_')) {
+    const parts = productId.split('_variant_');
+    return { baseId: parts[0], variantId: parts[1] };
+  }
+  
+  return { baseId: productId, variantId: null };
 }
 
 /**
@@ -162,19 +184,24 @@ export async function syncOrdersToVanStock(stockDate: string, userId?: string): 
         return false;
       }
 
-      // Sum quantities by BASE product ID, converting everything to grams first
+      // Sum quantities by the matching product ID (variant ID if variant, else product ID)
+      // Van stock items store variant IDs directly, so we need to match on variant ID
       orderItems?.forEach(item => {
-        // Extract base product ID (handles variant IDs like "baseId_variant_variantId")
-        const baseProductId = extractBaseProductId(item.product_id);
+        // Extract the ID that will match van_stock_items.product_id
+        // For variants like "baseId_variant_variantId", use variantId
+        // For simple products, use the product_id as-is
+        const matchingProductId = extractMatchingProductId(item.product_id);
         const orderUnit = item.unit || 'piece';
         
         // Convert to grams as intermediate unit for consistency
         const qtyInGrams = convertQuantity(item.quantity, orderUnit, 'g');
-        orderQuantitiesInGrams[baseProductId] = (orderQuantitiesInGrams[baseProductId] || 0) + qtyInGrams;
+        orderQuantitiesInGrams[matchingProductId] = (orderQuantitiesInGrams[matchingProductId] || 0) + qtyInGrams;
+        
+        console.log(`📋 Order item: ${item.product_id} -> matching ID: ${matchingProductId}, qty: ${item.quantity} ${orderUnit} = ${qtyInGrams}g`);
       });
     }
 
-    console.log('📦 Order quantities by base product (in grams):', orderQuantitiesInGrams);
+    console.log('📦 Order quantities by matching product ID (in grams):', orderQuantitiesInGrams);
 
     // Process ALL van stocks for the user on this date
     let totalUpdateCount = 0;
