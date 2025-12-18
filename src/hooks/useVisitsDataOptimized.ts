@@ -815,9 +815,28 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
       // Filter orders by order_date (more reliable than created_at)
       const filteredOrders = cachedOrders.filter((o: any) => {
-        // Use order_date if available, fallback to created_at
+        // CRITICAL: Use order_date if available, fallback to created_at date comparison
         const orderDateStr = o.order_date || (o.created_at ? o.created_at.split('T')[0] : null);
-        return o.user_id === userId && o.status === 'confirmed' && orderDateStr === selectedDate;
+        const isCorrectUser = o.user_id === userId;
+        const isConfirmed = o.status === 'confirmed';
+        const isCorrectDate = orderDateStr === selectedDate;
+        
+        if (!isCorrectDate && orderDateStr && o.created_at) {
+          // Also check created_at as fallback for date matching
+          const createdDate = new Date(o.created_at);
+          const targetDate = new Date(selectedDate);
+          const isSameDay = createdDate.toDateString() === targetDate.toDateString();
+          return isCorrectUser && isConfirmed && isSameDay;
+        }
+        
+        return isCorrectUser && isConfirmed && isCorrectDate;
+      });
+      
+      console.log('📦 [CACHE] Orders filtered:', {
+        total: cachedOrders.length,
+        filtered: filteredOrders.length,
+        selectedDate,
+        totalValue: filteredOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0)
       });
       
       console.log('📦 [CACHE] Filtered orders for date:', selectedDate, 'count:', filteredOrders.length);
@@ -999,11 +1018,29 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             retailersCount: filteredRetailers.length
           });
         } else {
-          // Have beat plans but no retailers in cache - wait for network
-          // But still set beat plans so UI shows beat name
-          console.log('📦 [CACHE] Beats found but no retailers in cache, waiting for network...');
+          // No retailers in cache but have beat plans
+          // Still set available data (beats, visits, orders) even if retailers array is empty
+          console.log('📦 [CACHE] Beats found, setting available data even without retailers...');
           setBeatPlans(filteredBeatPlans);
-          // Don't set hasLoadedFromCache or isLoading(false) - let network handle it
+          setVisits(filteredVisits);
+          setOrders(filteredOrders);
+          
+          // Calculate stats even with empty retailers (orders/visits still count)
+          const totalOrders = filteredOrders.length;
+          const totalOrderValue = filteredOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
+          const productive = new Set(filteredOrders.map((o: any) => o.retailer_id)).size;
+          const unproductive = filteredVisits.filter((v: any) => v.status === 'unproductive').length;
+          
+          setProgressStats({ 
+            planned: 0, 
+            productive, 
+            unproductive, 
+            totalOrders, 
+            totalOrderValue 
+          });
+          
+          hasLoadedFromCache = true;
+          setIsLoading(false);
         }
       }
       
