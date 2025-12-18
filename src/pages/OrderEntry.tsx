@@ -163,7 +163,11 @@ export const OrderEntry = () => {
   }, []);
 
   const isActuallyOnline = connectivity === "online";
-  
+
+  const getLocalDateString = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [quantities, setQuantities] = useState<{
@@ -394,7 +398,7 @@ export const OrderEntry = () => {
     retailerLng,
     visitId: validVisitId || undefined,
     userId: userId || '',
-    selectedDate: new Date().toISOString().split('T')[0]
+    selectedDate: getLocalDateString()
   });
   
   // Fetch retailer coordinates - CACHE FIRST, non-blocking
@@ -1943,7 +1947,7 @@ export const OrderEntry = () => {
                     try {
                       const { offlineStorage, STORES } = await import('@/lib/offlineStorage');
                       
-                      const today = new Date().toISOString().split('T')[0];
+                      const today = getLocalDateString();
                       let effectiveVisitId = visitId;
                       
                       // If no visit ID, try to find one from cache
@@ -2069,7 +2073,7 @@ export const OrderEntry = () => {
                     if (!effectiveVisitId) {
                       console.log('🔴 NO ORDER: No visit ID provided, checking for existing visit today...');
                       
-                      const today = new Date().toISOString().split('T')[0];
+                      const today = getLocalDateString();
                       
                       // Check if visit exists for this retailer today
                       const { data: existingVisit } = await supabase
