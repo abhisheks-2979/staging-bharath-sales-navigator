@@ -439,57 +439,37 @@ export const TodaySummary = () => {
       const { data: beatPlans } = await beatPlansQuery;
       const beatPlan = beatPlans && beatPlans.length > 0 ? beatPlans[0] : null;
 
-      // Get all retailer IDs from beat plans - SAME LOGIC AS MY VISITS for consistency
+      // Get all retailer IDs from beat plans
+      // CRITICAL: For Performance Summary "Planned" count, we need ALL retailers from the beat
+      // This is different from My Visits which shows only explicitly selected retailers
       const beatPlanRetailerIds: string[] = [];
       const beatPlanRetailersByDate: Array<{ retailerId: string; planDate: string; beatName: string }> = [];
       
-      // STEP 1: First check beat_data.retailer_ids (same as My Visits)
-      // Only consider retailer_ids defined if the array has actual items
-      let hasBeatDataWithRetailerIdsDefined = false;
-      beatPlans?.forEach(bp => {
-        const beatData = bp.beat_data as any;
-        if (beatData && Array.isArray(beatData.retailer_ids) && beatData.retailer_ids.length > 0) {
-          hasBeatDataWithRetailerIdsDefined = true;
-          beatData.retailer_ids.forEach((retailerId: string) => {
-            if (!beatPlanRetailerIds.includes(retailerId)) {
-              beatPlanRetailerIds.push(retailerId);
-              beatPlanRetailersByDate.push({
-                retailerId: retailerId,
-                planDate: bp.plan_date,
-                beatName: bp.beat_name
-              });
-            }
-          });
-        }
-      });
+      // Always fetch ALL retailers from the beats by beat_id for accurate "Planned" count
+      const beatIds = beatPlans?.map(bp => bp.beat_id).filter(Boolean) || [];
       
-      // STEP 2: If no beat_data.retailer_ids defined, fall back to database query by beat_id
-      if (!hasBeatDataWithRetailerIdsDefined) {
-        const beatIds = beatPlans?.map(bp => bp.beat_id).filter(Boolean) || [];
+      if (beatIds.length > 0) {
+        // Fetch ALL retailers that belong to these beats
+        const { data: beatRetailers } = await supabase
+          .from('retailers')
+          .select('id, name, beat_id')
+          .eq('user_id', user.id)
+          .in('beat_id', beatIds);
         
-        if (beatIds.length > 0) {
-          // Fetch ALL retailers that belong to these beats (no status filter - consistent with My Visits)
-          const { data: beatRetailers } = await supabase
-            .from('retailers')
-            .select('id, name, beat_id')
-            .eq('user_id', user.id)
-            .in('beat_id', beatIds);
-          
-          if (beatRetailers && beatRetailers.length > 0) {
-            beatPlans?.forEach(bp => {
-              const retailersForBeat = beatRetailers.filter(r => r.beat_id === bp.beat_id);
-              retailersForBeat.forEach(r => {
-                if (!beatPlanRetailerIds.includes(r.id)) {
-                  beatPlanRetailerIds.push(r.id);
-                  beatPlanRetailersByDate.push({
-                    retailerId: r.id,
-                    planDate: bp.plan_date,
-                    beatName: bp.beat_name
-                  });
-                }
-              });
+        if (beatRetailers && beatRetailers.length > 0) {
+          beatPlans?.forEach(bp => {
+            const retailersForBeat = beatRetailers.filter(r => r.beat_id === bp.beat_id);
+            retailersForBeat.forEach(r => {
+              if (!beatPlanRetailerIds.includes(r.id)) {
+                beatPlanRetailerIds.push(r.id);
+                beatPlanRetailersByDate.push({
+                  retailerId: r.id,
+                  planDate: bp.plan_date,
+                  beatName: bp.beat_name
+                });
+              }
             });
-          }
+          });
         }
       }
       
