@@ -32,6 +32,7 @@ import { shouldSuppressError } from "@/utils/offlineErrorHandler";
 import { useVisitsDataOptimized } from "@/hooks/useVisitsDataOptimized";
 import { schedulePrefetch } from "@/utils/backgroundProductPrefetch";
 import { Preferences } from "@capacitor/preferences";
+import { useConnectivity } from "@/hooks/useConnectivity";
 
 interface Visit {
   id: string;
@@ -178,6 +179,8 @@ export const MyVisits = () => {
     user
   } = useAuth();
   const navigate = useNavigate();
+  const networkStatus = useConnectivity();
+  const isOnline = networkStatus === 'online';
 
   // NOTE: AI Recommendations hooks moved below after plannedBeats is defined
   
@@ -1170,9 +1173,26 @@ export const MyVisits = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                  className={cn(
+                    "h-6 w-6 p-0 text-muted-foreground hover:text-destructive",
+                    !isOnline && "opacity-50 cursor-not-allowed"
+                  )}
+                  disabled={!isOnline}
                   onClick={async () => {
                     if (!user?.id) return;
+                    
+                    // Show warning confirmation for network concerns
+                    if (!navigator.onLine || networkStatus === 'offline') {
+                      toast.error('Cannot clear cache while offline');
+                      return;
+                    }
+                    
+                    const confirmed = window.confirm(
+                      'This will clear all local cached data and reload the page. ' +
+                      'Make sure you have a stable internet connection. Continue?'
+                    );
+                    if (!confirmed) return;
+                    
                     try {
                       // Clear all local caches
                       await offlineStorage.clear(STORES.VISITS);
@@ -1200,7 +1220,7 @@ export const MyVisits = () => {
                       toast.error('Failed to clear cache');
                     }
                   }}
-                  title="Clear local cache and refresh data"
+                  title={!isOnline ? "Cannot clear cache while offline" : "Clear local cache and refresh data"}
                 >
                   <RefreshCw size={12} />
                 </Button>
