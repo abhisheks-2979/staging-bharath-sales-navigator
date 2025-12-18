@@ -231,6 +231,7 @@ export const MyVisits = () => {
     pointsData,
     progressStats,
     isLoading: dataLoading,
+    hasLoadedOnce,
     invalidateData,
   } = useVisitsDataOptimized({
     userId: user?.id,
@@ -1265,8 +1266,22 @@ export const MyVisits = () => {
 
         {/* Visits List */}
         <div className="space-y-2 sm:space-y-3">
-          {/* Show beat plans with 0 retailers */}
-          {plannedBeats.length > 0 && filteredVisits.length === 0 && searchTerm === '' && (
+          {/* Loading state - show while data is being fetched on slow networks */}
+          {dataLoading && !hasLoadedOnce && filteredVisits.length === 0 && (
+            <Card className="shadow-card">
+              <CardContent className="p-4 sm:p-8 text-center">
+                <div className="animate-pulse">
+                  <div className="h-8 w-8 mx-auto mb-3 bg-muted rounded-full" />
+                  <div className="h-4 w-32 mx-auto mb-2 bg-muted rounded" />
+                  <div className="h-3 w-48 mx-auto bg-muted rounded" />
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">Loading retailers...</p>
+              </CardContent>
+            </Card>
+          )}
+          
+          {/* Show beat plans with 0 retailers - ONLY after loading completes */}
+          {!dataLoading && hasLoadedOnce && plannedBeats.length > 0 && filteredVisits.length === 0 && searchTerm === '' && (
             <Card className="shadow-card border-primary/20">
               <CardContent className="p-4 text-center">
                 <Users size={32} className="mx-auto text-muted-foreground mb-3" />
@@ -1287,7 +1302,8 @@ export const MyVisits = () => {
             </Card>
           )}
           
-          {filteredVisits.length === 0 && (plannedBeats.length === 0 || searchTerm !== '') ? <Card className="shadow-card">
+          {/* No visits message - ONLY after loading completes */}
+          {!dataLoading && hasLoadedOnce && filteredVisits.length === 0 && (plannedBeats.length === 0 || searchTerm !== '') ? <Card className="shadow-card">
               <CardContent className="p-4 sm:p-8 text-center">
                 <CalendarIcon size={32} className="sm:w-12 sm:h-12 mx-auto text-muted-foreground mb-3 sm:mb-4" />
                 <h3 className="font-semibold text-muted-foreground mb-2 text-sm sm:text-base">{t('visits.noVisitsFound')}</h3>
@@ -1299,7 +1315,7 @@ export const MyVisits = () => {
                   {t('visits.createNewVisit')}
                 </Button>
               </CardContent>
-            </Card> : <VirtualizedVisitList visits={filteredVisits} onViewDetails={handleViewDetails} selectedDate={selectedDate} />}
+            </Card> : filteredVisits.length > 0 && <VirtualizedVisitList visits={filteredVisits} onViewDetails={handleViewDetails} selectedDate={selectedDate} />}
         </div>
 
         {/* Create New Visit Modal */}
