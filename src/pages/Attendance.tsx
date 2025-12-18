@@ -520,12 +520,14 @@ const Attendance = () => {
 
         // Only attempt to update visits when we successfully reached Supabase
         if (!isOfflineInsertError) {
-          // Check in to all planned visits for today
+          // Check in to all planned visits for today - CRITICAL: Only update 'planned' status visits
+          // to avoid overwriting visits already marked as 'unproductive' or 'productive'
           const { data: plannedVisits } = await supabase
             .from('visits')
             .select('id')
             .eq('user_id', user.id)
             .eq('planned_date', today)
+            .eq('status', 'planned')
             .is('check_in_time', null);
 
           console.log('Planned visits found:', plannedVisits?.length || 0);
