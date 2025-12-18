@@ -8,6 +8,7 @@ import { Preferences } from '@capacitor/preferences';
 // - VISITS: Only current date visits
 // - ORDERS: ONLY pending orders in sync queue (not all historical orders)
 // - SYNC_QUEUE: Pending actions to sync when online
+// - SYNC_METADATA: Track last synced timestamps for delta sync
 
 // Object store names
 export const STORES = {
@@ -25,8 +26,21 @@ export const STORES = {
   COMPETITION_SKUS: 'competitionSkus',
   COMPETITION_DATA: 'competitionData',
   ATTENDANCE: 'attendance',
-  RETAILER_VISIT_LOGS: 'retailerVisitLogs'
+  RETAILER_VISIT_LOGS: 'retailerVisitLogs',
+  SYNC_METADATA: 'syncMetadata'
 } as const;
+
+// Sync metadata interface
+export interface SyncMetadata {
+  id: string; // e.g., "visits_2025-12-18" or "retailers"
+  lastSyncedAt: string; // ISO timestamp
+  dataType: string;
+  userId?: string;
+  date?: string;
+}
+
+// Minimum sync interval (5 minutes)
+export const MIN_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 
 class OfflineStorage {
   private initialized = false;
@@ -193,6 +207,79 @@ class OfflineStorage {
       console.error('[OfflineStorage] Error deleting old items:', error);
       throw error;
     }
+  }
+
+  // Sync metadata operations for delta sync
+  async getSyncMetadata(dataType: string, userId?: string, date?: string): Promise<SyncMetadata | null> {
+    await this.ensureReady();
+    try {
+      const metadataKey = this.buildSyncMetadataKey(dataType, userId, date);
+      const items = await this.getStoreData<SyncMetadata>(STORES.SYNC_METADATA);
+      return items.find(item => item.id === metadataKey) || null;
+    } catch (error) {
+      console.error('[OfflineStorage] Error getting sync metadata:', error);
+      return null;
+    }
+  }
+
+  async setSyncMetadata(dataType: string, userId?: string, date?: string): Promise<void> {
+    await this.ensureReady();
+    try {
+      const metadataKey = this.buildSyncMetadataKey(dataType, userId, date);
+      const metadata: SyncMetadata = {
+        id: metadataKey,
+        lastSyncedAt: new Date().toISOString(),
+        dataType,
+        userId,
+        date
+      };
+      await this.save(STORES.SYNC_METADATA, metadata);
+    } catch (error) {
+      console.error('[OfflineStorage] Error setting sync metadata:', error);
+    }
+  }
+
+  private buildSyncMetadataKey(dataType: string, userId?: string, date?: string): string {
+    let key = dataType;
+    if (userId) key += `_${userId}`;
+    if (date) key += `_${date}`;
+    return key;
+  }
+
+  // Check if we should sync (respects minimum interval)
+  async shouldSync(dataType: string, userId?: string, date?: string): Promise<boolean> {
+    const metadata = await this.getSyncMetadata(dataType, userId, date);
+    if (!metadata) return true; // Never synced, should sync
+    
+    const lastSyncTime = new Date(metadata.lastSyncedAt).getTime();
+    const now = Date.now();
+    return (now - lastSyncTime) >= MIN_SYNC_INTERVAL_MS;
+  }
+
+  // Merge delta data with existing data (upsert pattern)
+  async mergeData<T extends { id: string }>(storeName: string, newItems: T[]): Promise<void> {
+    await this.ensureReady();
+    try {
+      const existingItems = await this.getStoreData<T>(storeName);
+      const existingMap = new Map(existingItems.map(item => [item.id, item]));
+      
+      // Upsert new items
+      for (const newItem of newItems) {
+        existingMap.set(newItem.id, newItem);
+      }
+      
+      await this.setStoreData(storeName, Array.from(existingMap.values()));
+      console.log(`[OfflineStorage] ✅ Merged ${newItems.length} items into ${storeName}`);
+    } catch (error) {
+      console.error(`[OfflineStorage] Error merging data in ${storeName}:`, error);
+      throw error;
+    }
+  }
+
+  // Get last sync timestamp as ISO string (or null if never synced)
+  async getLastSyncTimestamp(dataType: string, userId?: string, date?: string): Promise<string | null> {
+    const metadata = await this.getSyncMetadata(dataType, userId, date);
+    return metadata?.lastSyncedAt || null;
   }
 }
 
