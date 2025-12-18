@@ -1262,16 +1262,17 @@ export const VisitCard = ({
     setCurrentVisitId(tempVisitId);
     
     // STEP 3: BACKGROUND - Try network sync (non-blocking, with timeout)
+    // CRITICAL FIX: Always check DB first before creating to prevent duplicates
     if (navigator.onLine) {
       setTimeout(async () => {
         try {
-          // Try to get existing visit from network with timeout
+          // Try to get existing visit from network with timeout - CHECK FIRST, DON'T CREATE YET
           const networkPromise = supabase.from('visits')
-            .select('id, status, check_in_time, location_match_in, location_match_out, skip_check_in_reason, skip_check_in_time')
+            .select('id, status, check_in_time, check_out_time, location_match_in, location_match_out, skip_check_in_reason, skip_check_in_time, no_order_reason')
             .eq('user_id', userId)
             .eq('retailer_id', retailerId)
             .eq('planned_date', date)
-            .order('created_at', { ascending: false })
+            .order('updated_at', { ascending: false }) // Get most recent by updated_at
             .limit(1)
             .maybeSingle();
           
@@ -1284,14 +1285,26 @@ export const VisitCard = ({
           if (error) throw error;
           
           if (data) {
-            // Found existing visit - update cache with real ID
-            console.log('🌐 [ensureVisit] Background found real visit:', data.id);
+            // Found existing visit - update cache with real ID, DON'T create duplicate
+            console.log('🌐 [ensureVisit] Background found existing visit:', data.id);
             await offlineStorage.save(STORES.VISITS, data);
             // Delete the temp visit
             await offlineStorage.delete(STORES.VISITS, tempVisitId);
             setCurrentVisitId(data.id);
+            
+            // Update local state based on existing visit data
+            if (data.status === 'productive' || data.status === 'unproductive') {
+              setPhase('completed');
+              setIsCheckedOut(true);
+              setCurrentStatus(data.status);
+            }
+            if (data.check_in_time) {
+              setIsCheckedIn(true);
+              setPhase('in-progress');
+            }
           } else {
-            // No existing visit - create one in background
+            // No existing visit in DB - safe to create one
+            console.log('🌐 [ensureVisit] No visit found in DB, creating new...');
             const insertPromise = supabase.from('visits')
               .insert({ user_id: userId, retailer_id: retailerId, planned_date: date })
               .select('id')

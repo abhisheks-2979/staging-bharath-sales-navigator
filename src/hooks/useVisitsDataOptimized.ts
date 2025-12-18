@@ -86,11 +86,22 @@ const getChangedItems = <T extends { id: string; updated_at?: string }>(
 };
 
 // Calculate progress stats - PURE FUNCTION (no network calls)
-const calculateStats = (visits: any[], orders: any[], retailers: any[]): ProgressStats => {
-  const retailersWithOrders = new Set(orders.map(o => o.retailer_id));
+// FIX: Added date parameter to filter visits by selectedDate to prevent stale data counts
+const calculateStats = (visits: any[], orders: any[], retailers: any[], selectedDate?: string): ProgressStats => {
+  // CRITICAL FIX: Filter visits to ONLY the selected date to prevent stale snapshot data from contaminating counts
+  const dateFilteredVisits = selectedDate 
+    ? visits.filter(v => v.planned_date === selectedDate)
+    : visits;
+  
+  // Also filter orders by date
+  const dateFilteredOrders = selectedDate
+    ? orders.filter(o => o.order_date === selectedDate)
+    : orders;
+  
+  const retailersWithOrders = new Set(dateFilteredOrders.map(o => o.retailer_id));
   const visitsByRetailer = new Map<string, any[]>();
   
-  visits.forEach(v => {
+  dateFilteredVisits.forEach(v => {
     if (!v?.retailer_id) return;
     const list = visitsByRetailer.get(v.retailer_id) || [];
     list.push(v);
@@ -123,8 +134,8 @@ const calculateStats = (visits: any[], orders: any[], retailers: any[]): Progres
     planned,
     productive,
     unproductive,
-    totalOrders: orders.length,
-    totalOrderValue: orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
+    totalOrders: dateFilteredOrders.length,
+    totalOrderValue: dateFilteredOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
   };
 };
 
@@ -158,9 +169,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   }, [userId, selectedDate]);
 
   // Memoized progress stats - LOCAL CALCULATION ONLY
+  // FIX: Pass selectedDate to calculateStats to ensure only matching visits are counted
   const progressStats = useMemo(() => 
-    calculateStats(visits, orders, retailers),
-    [visits, orders, retailers]
+    calculateStats(visits, orders, retailers, selectedDate),
+    [visits, orders, retailers, selectedDate]
   );
 
   // Check if date is today
@@ -433,13 +445,13 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         offlineStorage.mergeData(STORES.ORDERS, currentCache.orders)
       ]).catch(e => console.error('[SmartSync] Storage error:', e));
 
-      // Save snapshot (background)
+      // Save snapshot (background) - pass date to calculateStats for proper filtering
       saveMyVisitsSnapshot(uid, date, {
         beatPlans: currentCache.beatPlans,
         visits: currentCache.visits,
         retailers: currentCache.retailers,
         orders: currentCache.orders,
-        progressStats: calculateStats(currentCache.visits, currentCache.orders, currentCache.retailers),
+        progressStats: calculateStats(currentCache.visits, currentCache.orders, currentCache.retailers, date),
         currentBeatName: currentCache.beatPlans.map((p: any) => p.beat_name).join(', ')
       }).catch(e => console.error('[SmartSync] Snapshot error:', e));
 
@@ -513,8 +525,27 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     // 2. Try persistent snapshot (fast)
     try {
       const snapshot = await loadMyVisitsSnapshot(userId, selectedDate);
+      
+      // CRITICAL FIX: Validate snapshot data matches the selectedDate
+      // This prevents stale visits from other dates contaminating the current view
+      const snapshotVisitsMatchDate = snapshot?.visits?.length 
+        ? snapshot.visits.every((v: any) => v.planned_date === selectedDate)
+        : true; // No visits = passes check
+      
+      const snapshotOrdersMatchDate = snapshot?.orders?.length
+        ? snapshot.orders.every((o: any) => o.order_date === selectedDate)
+        : true; // No orders = passes check
+        
+      const isSnapshotValid = snapshotVisitsMatchDate && snapshotOrdersMatchDate;
+      
+      if (!isSnapshotValid && snapshot) {
+        console.warn('[LoadData] ⚠️ Snapshot has mismatched dates, ignoring snapshot data');
+        console.log('[LoadData] Expected date:', selectedDate);
+        console.log('[LoadData] Sample visit dates:', snapshot.visits?.slice(0, 3).map((v: any) => v.planned_date));
+      }
+      
       // Check for ANY valid data (beat plans, retailers, visits, or orders)
-      const hasValidSnapshotData = snapshot && (
+      const hasValidSnapshotData = isSnapshotValid && snapshot && (
         snapshot.beatPlans?.length > 0 || 
         snapshot.retailers?.length > 0 || 
         snapshot.visits?.length > 0 || 
