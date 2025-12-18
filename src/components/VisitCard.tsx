@@ -334,8 +334,10 @@ export const VisitCard = ({
     }
   }, [visit.hasOrder, visit.orderValue, hasOrderToday, actualOrderValue]);
 
-  // Check if the selected date is today's date
-  const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
+  // Check if the selected date is today's date (use local timezone for accurate comparison)
+  const today = new Date();
+  const localTodayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const isTodaysVisit = selectedDate === localTodayString;
 
   // Ensure visit tracking ends when this card unmounts or user navigates away
   useEffect(() => {
