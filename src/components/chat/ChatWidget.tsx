@@ -3,6 +3,7 @@ import { MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ChatDialog } from './ChatDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Drawer,
   DrawerContent,
@@ -19,6 +20,12 @@ import {
 export const ChatWidget = memo(() => {
   const [isOpen, setIsOpen] = useState(false);
   const isMobile = useIsMobile();
+  const { user } = useAuth();
+  
+  // Don't render chat widget if user is not logged in
+  if (!user) {
+    return null;
+  }
   
   const handleOpen = useCallback(() => setIsOpen(true), []);
   const handleClose = useCallback(() => setIsOpen(false), []);
