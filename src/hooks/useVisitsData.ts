@@ -1,162 +1,307 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { offlineStorage, STORES } from '@/lib/offlineStorage';
+import { loadMyVisitsSnapshot, saveMyVisitsSnapshot } from '@/lib/myVisitsSnapshot';
 
 interface UseVisitsDataProps {
   userId: string | undefined;
   selectedDate: string;
 }
 
-export const useVisitsData = ({ userId, selectedDate }: UseVisitsDataProps) => {
-  const queryClient = useQueryClient();
+interface ProgressStats {
+  planned: number;
+  productive: number;
+  unproductive: number;
+  totalOrders: number;
+  totalOrderValue: number;
+}
 
-  // Fetch beat plans with caching
-  const {
-    data: beatPlans,
-    isLoading: beatPlansLoading,
-    error: beatPlansError
-  } = useQuery({
-    queryKey: ['beat-plans', userId, selectedDate],
-    queryFn: async () => {
-      if (!userId) return [];
-      
-      const { data, error } = await supabase
-        .from('beat_plans')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('plan_date', selectedDate);
-      
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!userId && !!selectedDate,
-    staleTime: 5 * 60 * 1000, // Data stays fresh for 5 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+// Calculate progress stats from data
+const calculateStats = (visits: any[], orders: any[], retailers: any[]): ProgressStats => {
+  const retailersWithOrders = new Set(orders.map(o => o.retailer_id));
+  const visitsByRetailer = new Map<string, any[]>();
+  
+  visits.forEach(v => {
+    if (!v?.retailer_id) return;
+    const list = visitsByRetailer.get(v.retailer_id) || [];
+    list.push(v);
+    visitsByRetailer.set(v.retailer_id, list);
   });
 
-  // Fetch visits with caching
-  const {
-    data: visits,
-    isLoading: visitsLoading,
-    error: visitsError
-  } = useQuery({
-    queryKey: ['visits', userId, selectedDate],
-    queryFn: async () => {
-      if (!userId) return [];
-      
-      const { data, error } = await supabase
-        .from('visits')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('planned_date', selectedDate);
-      
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!userId && !!selectedDate,
-    staleTime: 3 * 60 * 1000, // 3 minutes
-    gcTime: 10 * 60 * 1000,
+  let planned = 0, productive = 0, unproductive = 0;
+  const countedRetailers = new Set<string>();
+
+  visitsByRetailer.forEach((group, retailerId) => {
+    countedRetailers.add(retailerId);
+    if (retailersWithOrders.has(retailerId)) productive++;
+    else if (group.some(v => v.status === 'productive')) productive++;
+    else if (group.some(v => v.status === 'unproductive' || !!v.no_order_reason)) unproductive++;
+    else planned++;
   });
 
-  // Fetch retailers with caching (depends on beatPlans and visits)
-  const {
-    data: retailers,
-    isLoading: retailersLoading,
-    error: retailersError
-  } = useQuery({
-    queryKey: ['retailers', userId, selectedDate, beatPlans, visits],
-    queryFn: async () => {
-      if (!userId || !beatPlans || !visits) return [];
-      
-      const visitRetailerIds = visits.map(v => v.retailer_id);
-      const allRetailerIds = new Set([...visitRetailerIds]);
-      
-      // Get planned beat IDs
-      const plannedBeatIds = beatPlans.map(plan => plan.beat_id);
-      
-      // If there are planned beats, include retailers from those beats
-      if (plannedBeatIds.length > 0) {
-        const { data: plannedRetailers } = await supabase
-          .from('retailers')
-          .select('id')
-          .eq('user_id', userId)
-          .in('beat_id', plannedBeatIds);
-        
-        if (plannedRetailers) {
-          plannedRetailers.forEach(r => allRetailerIds.add(r.id));
-        }
-      }
-      
-      if (allRetailerIds.size === 0) return [];
-      
-      const { data, error } = await supabase
-        .from('retailers')
-        .select('*')
-        .eq('user_id', userId)
-        .in('id', Array.from(allRetailerIds));
-      
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!userId && !!beatPlans && !!visits,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 15 * 60 * 1000,
+  retailersWithOrders.forEach(rid => {
+    if (!countedRetailers.has(rid)) {
+      productive++;
+      countedRetailers.add(rid);
+    }
   });
 
-  // Fetch orders with caching (only for non-future dates)
-  const selectedDateObj = new Date(selectedDate);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  selectedDateObj.setHours(0, 0, 0, 0);
-  const isFutureDate = selectedDateObj > today;
-
-  const {
-    data: orders,
-    isLoading: ordersLoading
-  } = useQuery({
-    queryKey: ['orders', userId, selectedDate, retailers],
-    queryFn: async () => {
-      if (!userId || !retailers || retailers.length === 0 || isFutureDate) return [];
-      
-      const dateStart = new Date(selectedDate);
-      dateStart.setHours(0, 0, 0, 0);
-      const dateEnd = new Date(selectedDate);
-      dateEnd.setHours(23, 59, 59, 999);
-      
-      const retailerIds = retailers.map(r => r.id);
-      
-      const { data, error } = await supabase
-        .from('orders')
-        .select('id, retailer_id, total_amount, created_at')
-        .eq('user_id', userId)
-        .eq('status', 'confirmed')
-        .in('retailer_id', retailerIds)
-        .gte('created_at', dateStart.toISOString())
-        .lte('created_at', dateEnd.toISOString());
-      
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!userId && !!retailers && retailers.length > 0 && !isFutureDate,
-    staleTime: 2 * 60 * 1000, // 2 minutes for orders
-    gcTime: 10 * 60 * 1000,
+  retailers.forEach(r => {
+    if (!countedRetailers.has(r.id)) planned++;
   });
-
-  // Invalidate queries when needed
-  const invalidateVisitsData = () => {
-    queryClient.invalidateQueries({ queryKey: ['visits', userId, selectedDate] });
-    queryClient.invalidateQueries({ queryKey: ['orders', userId, selectedDate] });
-  };
-
-  const isLoading = beatPlansLoading || visitsLoading || retailersLoading || ordersLoading;
-  const error = beatPlansError || visitsError || retailersError;
 
   return {
-    beatPlans: beatPlans || [],
-    visits: visits || [],
-    retailers: retailers || [],
-    orders: orders || [],
+    planned,
+    productive,
+    unproductive,
+    totalOrders: orders.length,
+    totalOrderValue: orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
+  };
+};
+
+export const useVisitsData = ({ userId, selectedDate }: UseVisitsDataProps) => {
+  const [beatPlans, setBeatPlans] = useState<any[]>([]);
+  const [visits, setVisits] = useState<any[]>([]);
+  const [retailers, setRetailers] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<any>(null);
+  
+  const lastDateRef = useRef<string>('');
+  const cacheRef = useRef<Map<string, any>>(new Map());
+  const isFetchingRef = useRef(false);
+
+  // Memoized progress stats
+  const progressStats = useMemo(() => 
+    calculateStats(visits, orders, retailers),
+    [visits, orders, retailers]
+  );
+
+  // Load data from cache instantly, then sync in background
+  const loadData = useCallback(async () => {
+    if (!userId || !selectedDate) return;
+    if (isFetchingRef.current && lastDateRef.current === selectedDate) return;
+    
+    isFetchingRef.current = true;
+    lastDateRef.current = selectedDate;
+
+    // 1. Try in-memory cache first (instant)
+    const cached = cacheRef.current.get(selectedDate);
+    if (cached) {
+      setBeatPlans(cached.beatPlans);
+      setVisits(cached.visits);
+      setRetailers(cached.retailers);
+      setOrders(cached.orders);
+      setIsLoading(false);
+      
+      // Background sync for today only
+      if (navigator.onLine && isToday(selectedDate)) {
+        setTimeout(() => syncFromNetwork(userId, selectedDate), 50);
+      }
+      isFetchingRef.current = false;
+      return;
+    }
+
+    // 2. Try persistent snapshot (fast)
+    try {
+      const snapshot = await loadMyVisitsSnapshot(userId, selectedDate);
+      if (snapshot && snapshot.retailers?.length > 0) {
+        setBeatPlans(snapshot.beatPlans || []);
+        setVisits(snapshot.visits || []);
+        setRetailers(snapshot.retailers || []);
+        setOrders(snapshot.orders || []);
+        setIsLoading(false);
+        
+        cacheRef.current.set(selectedDate, snapshot);
+        
+        // Background sync for today
+        if (navigator.onLine && isToday(selectedDate)) {
+          setTimeout(() => syncFromNetwork(userId, selectedDate), 50);
+        }
+        isFetchingRef.current = false;
+        return;
+      }
+    } catch (e) {
+      // Continue to offline storage
+    }
+
+    // 3. Try offline storage
+    try {
+      const [cachedBeatPlans, cachedVisits, cachedRetailers, cachedOrders] = await Promise.all([
+        offlineStorage.getAll<any>(STORES.BEAT_PLANS),
+        offlineStorage.getAll<any>(STORES.VISITS),
+        offlineStorage.getAll<any>(STORES.RETAILERS),
+        offlineStorage.getAll<any>(STORES.ORDERS)
+      ]);
+
+      const filteredBeatPlans = cachedBeatPlans.filter(bp => 
+        bp.user_id === userId && bp.plan_date === selectedDate
+      );
+      const filteredVisits = cachedVisits.filter(v => 
+        v.user_id === userId && v.planned_date === selectedDate
+      );
+      
+      const beatIds = filteredBeatPlans.map(bp => bp.beat_id);
+      const visitRetailerIds = new Set(filteredVisits.map(v => v.retailer_id));
+      
+      const filteredRetailers = cachedRetailers.filter(r => 
+        r.user_id === userId && (beatIds.includes(r.beat_id) || visitRetailerIds.has(r.id))
+      );
+      
+      const retailerIds = new Set(filteredRetailers.map(r => r.id));
+      const filteredOrders = cachedOrders.filter(o => 
+        o.user_id === userId && o.order_date === selectedDate && 
+        o.status === 'confirmed' && retailerIds.has(o.retailer_id)
+      );
+
+      setBeatPlans(filteredBeatPlans);
+      setVisits(filteredVisits);
+      setRetailers(filteredRetailers);
+      setOrders(filteredOrders);
+      setIsLoading(false);
+
+      cacheRef.current.set(selectedDate, {
+        beatPlans: filteredBeatPlans,
+        visits: filteredVisits,
+        retailers: filteredRetailers,
+        orders: filteredOrders
+      });
+    } catch (e) {
+      console.error('Cache load error:', e);
+    }
+
+    // 4. Network sync in background
+    if (navigator.onLine) {
+      setTimeout(() => syncFromNetwork(userId, selectedDate), 100);
+    }
+    
+    isFetchingRef.current = false;
+  }, [userId, selectedDate]);
+
+  // Background network sync
+  const syncFromNetwork = useCallback(async (uid: string, date: string) => {
+    if (!navigator.onLine) return;
+    
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      const [bpRes, vRes, oRes] = await Promise.all([
+        supabase.from('beat_plans').select('*').eq('user_id', uid).eq('plan_date', date),
+        supabase.from('visits').select('*').eq('user_id', uid).eq('planned_date', date),
+        supabase.from('orders').select('*').eq('user_id', uid).eq('order_date', date).eq('status', 'confirmed')
+      ]);
+
+      clearTimeout(timeout);
+
+      if (bpRes.error || vRes.error || oRes.error) return;
+
+      const beatPlansData = bpRes.data || [];
+      const visitsData = vRes.data || [];
+      const ordersData = oRes.data || [];
+
+      // Get retailer IDs
+      const beatIds = beatPlansData.map(bp => bp.beat_id);
+      const visitRetailerIds = visitsData.map(v => v.retailer_id);
+      const orderRetailerIds = ordersData.map(o => o.retailer_id);
+
+      let retailerIds: string[] = [...visitRetailerIds, ...orderRetailerIds];
+
+      if (beatIds.length > 0) {
+        const { data: beatRetailers } = await supabase
+          .from('retailers')
+          .select('id')
+          .eq('user_id', uid)
+          .in('beat_id', beatIds);
+        retailerIds.push(...(beatRetailers || []).map(r => r.id));
+      }
+
+      const uniqueRetailerIds = [...new Set(retailerIds)];
+      let retailersData: any[] = [];
+
+      if (uniqueRetailerIds.length > 0) {
+        const { data } = await supabase
+          .from('retailers')
+          .select('*')
+          .eq('user_id', uid)
+          .in('id', uniqueRetailerIds);
+        retailersData = data || [];
+      }
+
+      // Only update if this is still the current date
+      if (lastDateRef.current === date) {
+        setBeatPlans(beatPlansData);
+        setVisits(visitsData);
+        setRetailers(retailersData);
+        setOrders(ordersData);
+
+        // Update caches
+        cacheRef.current.set(date, {
+          beatPlans: beatPlansData,
+          visits: visitsData,
+          retailers: retailersData,
+          orders: ordersData
+        });
+
+        // Save snapshot
+        saveMyVisitsSnapshot(uid, date, {
+          beatPlans: beatPlansData,
+          visits: visitsData,
+          retailers: retailersData,
+          orders: ordersData,
+          progressStats: calculateStats(visitsData, ordersData, retailersData),
+          currentBeatName: beatPlansData.map(p => p.beat_name).join(', ')
+        }).catch(() => {});
+      }
+    } catch (e) {
+      console.log('Network sync error (silent):', e);
+    }
+  }, []);
+
+  // Helper to check if date is today
+  const isToday = (dateStr: string): boolean => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const check = new Date(dateStr);
+    check.setHours(0, 0, 0, 0);
+    return today.getTime() === check.getTime();
+  };
+
+  // Invalidate and reload
+  const invalidateVisitsData = useCallback(() => {
+    cacheRef.current.delete(selectedDate);
+    loadData();
+  }, [selectedDate, loadData]);
+
+  // Load on mount and date change
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Listen for events
+  useEffect(() => {
+    const handleStatusChange = () => invalidateVisitsData();
+    const handleSync = () => {
+      if (isToday(selectedDate)) invalidateVisitsData();
+    };
+
+    window.addEventListener('visitStatusChanged', handleStatusChange);
+    window.addEventListener('syncComplete', handleSync);
+
+    return () => {
+      window.removeEventListener('visitStatusChanged', handleStatusChange);
+      window.removeEventListener('syncComplete', handleSync);
+    };
+  }, [invalidateVisitsData, selectedDate]);
+
+  return {
+    beatPlans,
+    visits,
+    retailers,
+    orders,
     isLoading,
     error,
+    progressStats,
     invalidateVisitsData,
   };
 };
