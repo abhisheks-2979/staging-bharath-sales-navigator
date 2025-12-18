@@ -513,17 +513,47 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   // Listen for events - UPDATE LOCAL STATE DIRECTLY without network reload
   useEffect(() => {
     const handleStatusChange = (event: CustomEvent) => {
-      const { visitId, status, retailerId, order } = event.detail || {};
+      const { visitId, status, retailerId, order, noOrderReason } = event.detail || {};
       if (!visitId && !retailerId) return;
+      
+      console.log('[StatusChange] Processing event:', { visitId, status, retailerId, noOrderReason });
       
       // Update visits state directly - NO NETWORK CALL
       setVisits(prev => {
-        const updated = prev.map(v => {
-          if ((visitId && v.id === visitId) || (retailerId && v.retailer_id === retailerId)) {
-            return { ...v, status: status || v.status };
-          }
-          return v;
-        });
+        // Check if visit exists
+        const existingVisit = prev.find(v => 
+          (visitId && v.id === visitId) || (retailerId && v.retailer_id === retailerId)
+        );
+        
+        let updated;
+        if (existingVisit) {
+          // Update existing visit
+          updated = prev.map(v => {
+            if ((visitId && v.id === visitId) || (retailerId && v.retailer_id === retailerId)) {
+              return { 
+                ...v, 
+                status: status || v.status,
+                no_order_reason: noOrderReason || v.no_order_reason 
+              };
+            }
+            return v;
+          });
+        } else if (retailerId && status) {
+          // Create new visit entry for UI if doesn't exist
+          const newVisit = {
+            id: visitId || `temp_${retailerId}_${Date.now()}`,
+            retailer_id: retailerId,
+            user_id: userId,
+            planned_date: selectedDate,
+            status,
+            no_order_reason: noOrderReason,
+            created_at: new Date().toISOString()
+          };
+          updated = [...prev, newVisit];
+          console.log('[StatusChange] Created new visit for UI:', newVisit.id);
+        } else {
+          updated = prev;
+        }
         
         // Update in-memory cache
         const cached = cacheRef.current.get(selectedDate);
