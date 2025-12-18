@@ -25,6 +25,34 @@ export function useOfflineSync() {
     isSyncingRef.current = true;
 
     try {
+      // Helper to check if an ID is a valid UUID (from database) vs temp offline ID
+      const isValidUUID = (id: string): boolean => {
+        if (!id) return false;
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        return uuidRegex.test(id);
+      };
+
+      // Clean up stale sync items (older than 1 hour OR 3+ retries)
+      const cleanupStaleSyncItems = async (queue: any[]): Promise<any[]> => {
+        const now = Date.now();
+        const oneHourAgo = now - (60 * 60 * 1000);
+        const cleanQueue: any[] = [];
+        
+        for (const item of queue) {
+          const isStale = item.timestamp && item.timestamp < oneHourAgo;
+          const tooManyRetries = (item.retryCount || 0) >= 3;
+          
+          if (isStale || tooManyRetries) {
+            console.log(`🧹 Removing stale sync item: ${item.action}, age=${Math.round((now - item.timestamp) / 60000)}min, retries=${item.retryCount || 0}`);
+            await offlineStorage.delete(STORES.SYNC_QUEUE, item.id);
+          } else {
+            cleanQueue.push(item);
+          }
+        }
+        
+        return cleanQueue;
+      };
+
       const ensureNoOrderVisitsQueued = async (existingQueue: any[]) => {
         try {
           // If for any reason the syncQueue was not populated (or was cleared), rebuild
@@ -46,7 +74,8 @@ export function useOfflineSync() {
             !!v?.no_order_reason &&
             !!v?.retailer_id &&
             !!v?.user_id &&
-            !v?._synced // Skip already synced visits
+            !v?._synced && // Skip already synced visits
+            !isValidUUID(v?.id) // Skip visits with valid UUID (already in database)
           );
 
           for (const v of candidates) {
@@ -74,7 +103,11 @@ export function useOfflineSync() {
         }
       };
 
+      // Step 1: Get and clean up stale items first
       let syncQueue = await offlineStorage.getSyncQueue();
+      syncQueue = await cleanupStaleSyncItems(syncQueue);
+      
+      // Step 2: Only rebuild queue if there's genuinely nothing pending
       await ensureNoOrderVisitsQueued(syncQueue);
       syncQueue = await offlineStorage.getSyncQueue();
 
