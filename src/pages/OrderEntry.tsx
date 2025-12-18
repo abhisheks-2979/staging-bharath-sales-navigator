@@ -2014,13 +2014,37 @@ export const OrderEntry = () => {
                       
                       await offlineStorage.save(STORES.VISITS, visitToSave);
                       console.log('✅ Saved unproductive visit to offline cache:', visitToSave.id);
-                      
+
+                      // Also update status cache + snapshot so Visit status + Today progress update instantly
+                      // (useVisitsData prefers snapshot over offlineStorage, so this is critical)
+                      try {
+                        const [{ visitStatusCache }, { updateVisitStatusInSnapshot }] = await Promise.all([
+                          import('@/lib/visitStatusCache'),
+                          import('@/lib/myVisitsSnapshot'),
+                        ]);
+
+                        await Promise.allSettled([
+                          visitStatusCache.set(
+                            visitToSave.id,
+                            retailerId,
+                            userId,
+                            today,
+                            'unproductive',
+                            undefined,
+                            finalReason
+                          ),
+                          updateVisitStatusInSnapshot(userId, today, retailerId, 'unproductive', finalReason),
+                        ]);
+                      } catch (cacheUpdateError) {
+                        console.log('⚠️ NO ORDER: Local status caches update skipped:', cacheUpdateError);
+                      }
+
                       toast({
                         title: "📴 Saved Offline",
                         description: "No order reason will sync when online",
                         duration: 3000
                       });
-                      
+
                       // Clear cart and navigate
                       try {
                         const storageKey = validVisitId && validRetailerId 
@@ -2042,12 +2066,13 @@ export const OrderEntry = () => {
                           noOrderReason: finalReason
                         }
                       }));
-                      console.log('✅ NO ORDER OFFLINE: Dispatched visitStatusChanged event');
+                      window.dispatchEvent(new Event('visitDataChanged'));
+                      console.log('✅ NO ORDER OFFLINE: Dispatched visitStatusChanged + visitDataChanged');
                       
                       setTimeout(() => {
                         navigate("/visits/retailers");
                       }, 300);
-                      
+
                       return;
                     } catch (error: any) {
                       console.error('❌ Offline no-order save failed:', error);
@@ -2119,6 +2144,29 @@ export const OrderEntry = () => {
                         } catch (cacheError) {
                           console.log('⚠️ NO ORDER: Cache save skipped (non-critical):', cacheError);
                         }
+
+                        // Also update status cache + snapshot for instant UI/progress updates
+                        try {
+                          const [{ visitStatusCache }, { updateVisitStatusInSnapshot }] = await Promise.all([
+                            import('@/lib/visitStatusCache'),
+                            import('@/lib/myVisitsSnapshot'),
+                          ]);
+
+                          await Promise.allSettled([
+                            visitStatusCache.set(
+                              effectiveVisitId,
+                              retailerId,
+                              userId,
+                              today,
+                              'unproductive',
+                              undefined,
+                              finalReason
+                            ),
+                            updateVisitStatusInSnapshot(userId, today, retailerId, 'unproductive', finalReason),
+                          ]);
+                        } catch (cacheUpdateError) {
+                          console.log('⚠️ NO ORDER: Local status caches update skipped:', cacheUpdateError);
+                        }
                         
                         // Show success and navigate immediately
                         toast({
@@ -2126,7 +2174,7 @@ export const OrderEntry = () => {
                           description: `Reason: ${finalReason.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}`,
                           duration: 3000
                         });
-                        
+
                         // CRITICAL: Dispatch visitStatusChanged for progress stats update
                         window.dispatchEvent(new CustomEvent('visitStatusChanged', {
                           detail: { 
@@ -2136,12 +2184,13 @@ export const OrderEntry = () => {
                             noOrderReason: finalReason
                           }
                         }));
-                        console.log('✅ NO ORDER: Dispatched visitStatusChanged event');
+                        window.dispatchEvent(new Event('visitDataChanged'));
+                        console.log('✅ NO ORDER: Dispatched visitStatusChanged + visitDataChanged');
                         
                         setTimeout(() => {
                           navigate("/visits/retailers");
                         }, 300);
-                        
+
                         return;
                       }
                     }
@@ -2187,6 +2236,29 @@ export const OrderEntry = () => {
                     } catch (cacheError) {
                       console.log('⚠️ NO ORDER: Cache update skipped (non-critical):', cacheError);
                     }
+
+                    // Also update status cache + snapshot for instant UI/progress updates
+                    try {
+                      const [{ visitStatusCache }, { updateVisitStatusInSnapshot }] = await Promise.all([
+                        import('@/lib/visitStatusCache'),
+                        import('@/lib/myVisitsSnapshot'),
+                      ]);
+
+                      await Promise.allSettled([
+                        visitStatusCache.set(
+                          effectiveVisitId,
+                          retailerId,
+                          userId,
+                          getLocalDateString(),
+                          'unproductive',
+                          undefined,
+                          finalReason
+                        ),
+                        updateVisitStatusInSnapshot(userId, getLocalDateString(), retailerId, 'unproductive', finalReason),
+                      ]);
+                    } catch (cacheUpdateError) {
+                      console.log('⚠️ NO ORDER: Local status caches update skipped:', cacheUpdateError);
+                    }
                     
                     toast({
                       title: "✅ Visit Marked as Unproductive",
@@ -2216,13 +2288,14 @@ export const OrderEntry = () => {
                         noOrderReason: finalReason
                       }
                     }));
-                    console.log('✅ NO ORDER: Dispatched visitStatusChanged event with details');
+                    window.dispatchEvent(new Event('visitDataChanged'));
+                    console.log('✅ NO ORDER: Dispatched visitStatusChanged + visitDataChanged');
                     
                     // Small delay to ensure cache/event processing, then navigate
                     setTimeout(() => {
                       navigate("/visits/retailers");
                     }, 300);
-                    
+
                     
                   } catch (error: any) {
                     console.error('🔴 NO ORDER: Error saving no order reason:', error);
