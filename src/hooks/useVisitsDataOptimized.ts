@@ -70,7 +70,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   const [retailers, setRetailers] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [pointsData, setPointsData] = useState<PointsData>({ total: 0, byRetailer: new Map() });
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start true to prevent flash of empty state
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false); // Track if we've ever loaded data
   const [error, setError] = useState<any>(null);
 
   const lastDateRef = useRef<string>('');
@@ -282,28 +283,38 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     
     isFetchingRef.current = true;
     lastDateRef.current = selectedDate;
+    
+    // CRITICAL: Keep loading true until we have data or confirm empty
+    // Don't set isLoading=false until we have a definitive answer
+    let foundData = false;
 
     // 1. Try in-memory cache (instant)
     const cached = cacheRef.current.get(selectedDate);
     if (cached) {
-      setBeatPlans(cached.beatPlans);
-      setVisits(cached.visits);
-      setRetailers(cached.retailers);
-      setOrders(cached.orders);
+      setBeatPlans(cached.beatPlans || []);
+      setVisits(cached.visits || []);
+      setRetailers(cached.retailers || []);
+      setOrders(cached.orders || []);
       if (cached.points) {
         setPointsData({ 
           total: cached.points.total, 
           byRetailer: new Map(cached.points.byRetailer) 
         });
       }
-      setIsLoading(false);
+      foundData = cached.retailers?.length > 0 || cached.beatPlans?.length > 0;
+      if (foundData) {
+        setIsLoading(false);
+        setHasLoadedOnce(true);
+      }
       
       // Background sync for today only
       if (navigator.onLine && isToday(selectedDate)) {
         setTimeout(() => syncFromNetwork(userId, selectedDate), 100);
       }
-      isFetchingRef.current = false;
-      return;
+      if (foundData) {
+        isFetchingRef.current = false;
+        return;
+      }
     }
 
     // 2. Try persistent snapshot (fast)
@@ -315,6 +326,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         setRetailers(snapshot.retailers || []);
         setOrders(snapshot.orders || []);
         setIsLoading(false);
+        setHasLoadedOnce(true);
+        foundData = true;
         
         cacheRef.current.set(selectedDate, snapshot);
         
@@ -330,21 +343,31 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
     // 3. Try offline storage
     const offlineData = await loadFromOfflineStorage(userId, selectedDate);
-    if (offlineData && offlineData.retailers.length > 0) {
+    if (offlineData && (offlineData.retailers.length > 0 || offlineData.beatPlans.length > 0)) {
       setBeatPlans(offlineData.beatPlans);
       setVisits(offlineData.visits);
       setRetailers(offlineData.retailers);
       setOrders(offlineData.orders);
       setIsLoading(false);
+      setHasLoadedOnce(true);
+      foundData = true;
       
       cacheRef.current.set(selectedDate, offlineData);
     }
 
-    // 4. Network sync in background
+    // 4. Network sync - REQUIRED if no cached data found
     if (navigator.onLine) {
-      setTimeout(() => syncFromNetwork(userId, selectedDate), 50);
+      // If no cached data, do sync immediately (not background) to get data
+      if (!foundData) {
+        await syncFromNetwork(userId, selectedDate);
+      } else {
+        setTimeout(() => syncFromNetwork(userId, selectedDate), 50);
+      }
     }
     
+    // Only mark loading complete after all sources checked
+    setIsLoading(false);
+    setHasLoadedOnce(true);
     isFetchingRef.current = false;
   }, [userId, selectedDate, isToday, loadFromOfflineStorage, syncFromNetwork]);
 
@@ -388,6 +411,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     pointsData,
     progressStats,
     isLoading,
+    hasLoadedOnce,
     error,
     invalidateData,
   };
