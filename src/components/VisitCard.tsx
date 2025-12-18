@@ -1177,71 +1177,10 @@ export const VisitCard = ({
       maximumAge: 10000
     });
   });
-  const ensureVisit = async (userId: string, retailerId: string, date: string) => {
-    const isOnline = navigator.onLine;
-    
-    // ONLINE MODE: Try to get from database first
-    if (isOnline) {
-      try {
-        // Get the most recent visit (in case of duplicates, use the latest one)
-        const {
-          data,
-          error
-        } = await supabase.from('visits').select('id, status, check_in_time, location_match_in, location_match_out, skip_check_in_reason, skip_check_in_time').eq('user_id', userId).eq('retailer_id', retailerId).eq('planned_date', date).order('created_at', {
-          ascending: false
-        }).limit(1).maybeSingle();
-        
-        if (error) {
-          console.log('ensureVisit select error, falling back to offline:', error);
-          // Fall through to offline mode
-        } else if (data) {
-          setCurrentVisitId(data.id);
-          if (data.check_in_time || (data as any).skip_check_in_time) {
-            setPhase('in-progress');
-            setIsCheckedIn(true);
-          }
-          if (data.location_match_in != null) setLocationMatchIn(data.location_match_in);
-          if (data.location_match_out != null) setLocationMatchOut(data.location_match_out);
-          if ((data as any).skip_check_in_reason || (data as any).skip_check_in_time) {
-            setProceedWithoutCheckIn(true);
-            setSkipCheckInReason((data as any).skip_check_in_reason || 'phone-order');
-            setIsCheckedIn(true);
-          }
-          // Cache the visit for offline use
-          await offlineStorage.save(STORES.VISITS, data);
-          return data.id;
-        } else {
-          // No visit exists, create one
-          const {
-            data: inserted,
-            error: insertError
-          } = await supabase.from('visits').insert({
-            user_id: userId,
-            retailer_id: retailerId,
-            planned_date: date
-          }).select('id').single();
-          
-          if (insertError) {
-            console.log('ensureVisit insert error, falling back to offline:', insertError);
-            // Fall through to offline mode
-          } else {
-            setCurrentVisitId(inserted.id);
-            // Cache the new visit for offline use
-            await offlineStorage.save(STORES.VISITS, { id: inserted.id, user_id: userId, retailer_id: retailerId, planned_date: date, status: 'planned' });
-            return inserted.id;
-          }
-        }
-      } catch (error) {
-        console.log('ensureVisit online error, falling back to offline:', error);
-        // Fall through to offline mode
-      }
-    }
-    
-    // OFFLINE MODE: Check local cache first
-    console.log('📵 ensureVisit - Operating in offline mode');
-    
+  // FAST ensureVisit: Returns cached/temp ID immediately, syncs in background
+  const ensureVisit = async (userId: string, retailerId: string, date: string): Promise<string> => {
+    // STEP 1: INSTANT - Check local cache first (always, regardless of network)
     try {
-      // Try to find cached visit
       const allVisits = await offlineStorage.getAll(STORES.VISITS);
       const cachedVisit = allVisits.find((v: any) => 
         v.user_id === userId && 
@@ -1250,7 +1189,7 @@ export const VisitCard = ({
       ) as any;
       
       if (cachedVisit) {
-        console.log('📵 Found cached visit:', cachedVisit.id);
+        console.log('⚡ [ensureVisit] INSTANT - Found cached visit:', cachedVisit.id);
         setCurrentVisitId(cachedVisit.id);
         if (cachedVisit.check_in_time || cachedVisit.skip_check_in_time) {
           setPhase('in-progress');
@@ -1263,43 +1202,129 @@ export const VisitCard = ({
           setSkipCheckInReason(cachedVisit.skip_check_in_reason || 'phone-order');
           setIsCheckedIn(true);
         }
+        
+        // BACKGROUND: Sync with network if online (non-blocking)
+        if (navigator.onLine && !cachedVisit.id.startsWith('offline_') && !cachedVisit.id.startsWith('temp_')) {
+          setTimeout(async () => {
+            try {
+              const networkPromise = supabase.from('visits')
+                .select('id, status, check_in_time, location_match_in, location_match_out, skip_check_in_reason, skip_check_in_time')
+                .eq('id', cachedVisit.id)
+                .maybeSingle();
+              
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('timeout')), 5000)
+              );
+              
+              const result = await Promise.race([networkPromise, timeoutPromise]) as any;
+              if (result?.data) {
+                await offlineStorage.save(STORES.VISITS, { ...cachedVisit, ...result.data });
+              }
+            } catch (e) {
+              console.log('⚠️ [ensureVisit] Background sync skipped:', e);
+            }
+          }, 0);
+        }
+        
         return cachedVisit.id;
       }
-      
-      // No cached visit, create a temporary one for offline use
-      const tempVisitId = `offline_${userId}_${retailerId}_${date}_${Date.now()}`;
-      console.log('📵 Creating temporary offline visit:', tempVisitId);
-      
-      const tempVisit = {
-        id: tempVisitId,
-        user_id: userId,
-        retailer_id: retailerId,
-        planned_date: date,
-        status: 'planned',
-        created_at: new Date().toISOString(),
-        is_offline_created: true
-      };
-      
-      // Save to local cache
-      await offlineStorage.save(STORES.VISITS, tempVisit);
-      
-      // Queue for sync when back online
+    } catch (cacheError) {
+      console.log('⚠️ [ensureVisit] Cache check error:', cacheError);
+    }
+    
+    // STEP 2: No cache found - create temp ID immediately for instant UI response
+    const tempVisitId = `offline_${userId}_${retailerId}_${date}_${Date.now()}`;
+    console.log('⚡ [ensureVisit] INSTANT - Creating temp visit:', tempVisitId);
+    
+    const tempVisit = {
+      id: tempVisitId,
+      user_id: userId,
+      retailer_id: retailerId,
+      planned_date: date,
+      status: 'planned',
+      created_at: new Date().toISOString(),
+      is_offline_created: true
+    };
+    
+    // Save temp visit to cache
+    await offlineStorage.save(STORES.VISITS, tempVisit);
+    setCurrentVisitId(tempVisitId);
+    
+    // STEP 3: BACKGROUND - Try network sync (non-blocking, with timeout)
+    if (navigator.onLine) {
+      setTimeout(async () => {
+        try {
+          // Try to get existing visit from network with timeout
+          const networkPromise = supabase.from('visits')
+            .select('id, status, check_in_time, location_match_in, location_match_out, skip_check_in_reason, skip_check_in_time')
+            .eq('user_id', userId)
+            .eq('retailer_id', retailerId)
+            .eq('planned_date', date)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          const timeoutPromise = new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('timeout')), 5000)
+          );
+          
+          const { data, error } = await Promise.race([networkPromise, timeoutPromise]);
+          
+          if (error) throw error;
+          
+          if (data) {
+            // Found existing visit - update cache with real ID
+            console.log('🌐 [ensureVisit] Background found real visit:', data.id);
+            await offlineStorage.save(STORES.VISITS, data);
+            // Delete the temp visit
+            await offlineStorage.delete(STORES.VISITS, tempVisitId);
+            setCurrentVisitId(data.id);
+          } else {
+            // No existing visit - create one in background
+            const insertPromise = supabase.from('visits')
+              .insert({ user_id: userId, retailer_id: retailerId, planned_date: date })
+              .select('id')
+              .single();
+            
+            const insertTimeoutPromise = new Promise<never>((_, reject) => 
+              setTimeout(() => reject(new Error('timeout')), 5000)
+            );
+            
+            const { data: inserted, error: insertError } = await Promise.race([insertPromise, insertTimeoutPromise]);
+            
+            if (!insertError && inserted) {
+              console.log('🌐 [ensureVisit] Background created real visit:', inserted.id);
+              await offlineStorage.save(STORES.VISITS, { 
+                ...tempVisit, 
+                id: inserted.id, 
+                is_offline_created: false 
+              });
+              await offlineStorage.delete(STORES.VISITS, tempVisitId);
+              setCurrentVisitId(inserted.id);
+            }
+          }
+        } catch (e) {
+          console.log('⚠️ [ensureVisit] Background network sync failed, keeping temp ID:', e);
+          // Queue for sync when back online
+          await offlineStorage.addToSyncQueue('CREATE_VISIT', {
+            user_id: userId,
+            retailer_id: retailerId,
+            planned_date: date,
+            status: 'planned'
+          });
+        }
+      }, 0);
+    } else {
+      // Offline - queue for sync
       await offlineStorage.addToSyncQueue('CREATE_VISIT', {
         user_id: userId,
         retailer_id: retailerId,
         planned_date: date,
         status: 'planned'
       });
-      
-      setCurrentVisitId(tempVisitId);
-      return tempVisitId;
-    } catch (offlineError) {
-      console.error('📵 Offline ensureVisit error:', offlineError);
-      // Last resort: create a temp ID anyway so the flow can continue
-      const fallbackId = `temp_${Date.now()}`;
-      setCurrentVisitId(fallbackId);
-      return fallbackId;
     }
+    
+    return tempVisitId;
   };
   const handlePhotoCaptured = async (photoBlob: Blob) => {
     try {
@@ -1697,186 +1722,158 @@ export const VisitCard = ({
     }
   };
   const handleNoOrderReasonSelect = async (reason: string) => {
-    // CRITICAL: Log the retailer we're marking as unproductive to verify correct ID
-    console.log('🚫 [NoOrder] Marking visit as unproductive:', {
-      reason,
-      visitId: visit.id,
-      visitRetailerId: visit.retailerId,
-      retailerName: visit.retailerName,
-      resolvedRetailerId: visit.retailerId || visit.id
+    // =========================================================================
+    // INSTANT UI UPDATE STRATEGY:
+    // 1. Update ALL local state immediately (< 10ms)
+    // 2. Update local caches immediately (< 50ms)
+    // 3. Close modal and show toast immediately
+    // 4. Run ALL network operations in background (non-blocking)
+    // =========================================================================
+    
+    const today = selectedDate || new Date().toISOString().split('T')[0];
+    const retailerId = (visit.retailerId || visit.id) as string;
+    const checkOutTime = new Date().toISOString();
+    
+    console.log('🚫 [NoOrder] INSTANT - Marking visit as unproductive:', {
+      reason, retailerId, retailerName: visit.retailerName
     });
     
-    try {
-      setNoOrderReason(reason);
-      setIsNoOrderMarked(true);
+    // =====================================================
+    // STEP 1: INSTANT UI STATE UPDATE (before any async)
+    // =====================================================
+    setNoOrderReason(reason);
+    setIsNoOrderMarked(true);
+    setPhase('completed');
+    setIsCheckedOut(true);
+    setCurrentStatus('unproductive');
+    setStatusLoadedFromDB(true);
+    lastFetchedStatusRef.current = 'unproductive';
+    setShowNoOrderModal(false); // Close modal IMMEDIATELY
+    
+    // Show success toast IMMEDIATELY
+    toast({
+      title: "Visit Marked as Unproductive",
+      description: `Reason: ${reason.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}`
+    });
+    
+    // =====================================================
+    // STEP 2: INSTANT LOCAL CACHE UPDATES (fast, local-only)
+    // =====================================================
+    // Get user ID from localStorage cache (instant, no network)
+    const cachedUserId = localStorage.getItem('cached_user_id') || userId;
+    
+    if (cachedUserId) {
+      // Generate a temporary visit ID for cache operations
+      const tempVisitId = currentVisitId || `offline_${cachedUserId}_${retailerId}_${today}_${Date.now()}`;
       
-      // Use getSession() for offline support (reads from localStorage cache)
-      const { data: { session } } = await supabase.auth.getSession();
-      const currentUserId = session?.user?.id || userId;
+      // Update visit status cache (local, instant)
+      visitStatusCache.set(tempVisitId, retailerId, cachedUserId, today, 'unproductive', undefined, reason);
       
-      if (!currentUserId) {
-        toast({
-          title: 'Authentication Required',
-          description: 'Please sign in to mark visits',
-          variant: 'destructive'
-        });
-        return;
+      // Update snapshot cache for Today's Progress (local, instant)
+      updateVisitStatusInSnapshot(cachedUserId, today, retailerId, 'unproductive', reason);
+      
+      // Save to offline storage (local, instant)
+      offlineStorage.save(STORES.VISITS, {
+        id: tempVisitId,
+        retailer_id: retailerId,
+        user_id: cachedUserId,
+        planned_date: today,
+        status: 'unproductive',
+        no_order_reason: reason,
+        check_out_time: checkOutTime,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+    }
+    
+    // =====================================================
+    // STEP 3: DISPATCH EVENT FOR OTHER COMPONENTS
+    // =====================================================
+    retailerStatusRegistry.markForRefresh(retailerId);
+    window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+      detail: {
+        visitId: currentVisitId || `temp_${retailerId}`,
+        status: 'unproductive',
+        retailerId,
+        noOrderReason: reason
       }
-      
-      // Use selectedDate if available, otherwise use today's date
-      const today = selectedDate || new Date().toISOString().split('T')[0];
-      const retailerId = (visit.retailerId || visit.id) as string;
-      
-      console.log('🚫 [NoOrder] Using retailerId for ensureVisit:', retailerId, 'date:', today);
-      
-      const visitId = await ensureVisit(currentUserId, retailerId, today);
-      setCurrentVisitId(visitId);
-      console.log('🚫 [NoOrder] ensureVisit returned visitId:', visitId);
-
-        // Auto check-out when marking as no order
-        const checkOutTime = new Date().toISOString();
-
-        // Check connectivity for offline support
-        const isOnline = navigator.onLine;
+    }));
+    
+    // =====================================================
+    // STEP 4: BACKGROUND NETWORK OPERATIONS (non-blocking)
+    // =====================================================
+    setTimeout(async () => {
+      try {
+        // Get fresh session
+        const { data: { session } } = await supabase.auth.getSession();
+        const currentUserId = session?.user?.id;
         
-        if (isOnline) {
-          try {
-            // ONLINE: Update visit status to unproductive and store the reason
-            const {
-              data,
-              error
-            } = await supabase.from('visits').update({
-              status: 'unproductive',
-              no_order_reason: reason,
-              check_out_time: checkOutTime
-            }).eq('id', visitId).select();
-            
-            if (error) {
-              console.error('Error updating visit:', error);
-              throw error;
-            }
-            console.log('Visit updated successfully:', data);
-
-            // Update local state to reflect the change immediately
-            setPhase('completed');
-            setIsCheckedOut(true);
-            setCurrentStatus('unproductive'); // CRITICAL: Update status immediately
-            setIsNoOrderMarked(true);
-            setNoOrderReason(reason);
-            setStatusLoadedFromDB(true); // Prevent prop override
-            lastFetchedStatusRef.current = 'unproductive';
-            
-            // Update visit status cache - this is a FINAL status
-            const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
-            await visitStatusCache.set(visitId, retailerId, currentUserId, targetDate, 'unproductive', undefined, reason);
-            
-            // Update snapshot cache for real-time display
-            await updateVisitStatusInSnapshot(currentUserId, targetDate, retailerId, 'unproductive', reason);
-
-            // Mark this specific retailer for targeted refresh
-            retailerStatusRegistry.markForRefresh(retailerId);
-            window.dispatchEvent(new CustomEvent('visitStatusChanged', {
-              detail: {
-                visitId,
-                status: 'unproductive',
-                retailerId
-              }
-            }));
-            
-            setShowNoOrderModal(false);
-            toast({
-              title: "Visit Marked as Unproductive",
-              description: `Reason: ${reason.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}`
-            });
-          } catch (error: any) {
-            // If online update fails, fall back to offline mode
-            console.warn('Online update failed, falling back to offline:', error);
-            await handleOfflineNoOrder();
-          }
-        } else {
-          // OFFLINE: Queue for sync
-          await handleOfflineNoOrder();
+        if (!currentUserId) {
+          console.log('⚠️ [NoOrder] No user session for background sync');
+          return;
         }
-
-        async function handleOfflineNoOrder() {
-          console.log('📵 Offline mode - queuing no-order update for retailer:', retailerId);
-          
-          const syncData = {
+        
+        // Store userId for future instant lookups
+        localStorage.setItem('cached_user_id', currentUserId);
+        
+        // Ensure visit exists (now fast - uses cache first)
+        const visitId = await ensureVisit(currentUserId, retailerId, today);
+        setCurrentVisitId(visitId);
+        
+        // Only attempt network update if online
+        if (!navigator.onLine) {
+          console.log('📵 [NoOrder] Offline - queued for sync');
+          await offlineStorage.addToSyncQueue('UPDATE_VISIT_NO_ORDER', {
             visitId,
             retailerId,
             userId: currentUserId,
             noOrderReason: reason,
             checkOutTime,
             plannedDate: today,
-            timestamp: new Date().toISOString() // Add timestamp for sync
-          };
-          console.log('📵 Sync queue data:', JSON.stringify(syncData));
-          
-          // Save to offline sync queue
-          await offlineStorage.addToSyncQueue('UPDATE_VISIT_NO_ORDER', syncData);
-          console.log('✅ Added to sync queue successfully');
-          // Update local visit in cache - also create if doesn't exist
-          const cachedVisit = await offlineStorage.getById(STORES.VISITS, visitId);
-          const visitToSave = cachedVisit ? {
-            ...(cachedVisit as any),
+            timestamp: new Date().toISOString()
+          });
+          return;
+        }
+        
+        // Try network update with timeout using Promise.race
+        try {
+          const updatePromise = supabase.from('visits').update({
             status: 'unproductive',
             no_order_reason: reason,
-            check_out_time: checkOutTime,
-            updated_at: new Date().toISOString()
-          } : {
-            id: visitId,
-            retailer_id: retailerId,
-            user_id: currentUserId,
-            planned_date: today,
-            status: 'unproductive',
-            no_order_reason: reason,
-            check_out_time: checkOutTime,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
-          await offlineStorage.save(STORES.VISITS, visitToSave);
-
-          // CRITICAL: Update local state IMMEDIATELY for UI to reflect change
-          setPhase('completed');
-          setIsCheckedOut(true);
-          setCurrentStatus('unproductive'); // Set status immediately
-          setIsNoOrderMarked(true);
-          setNoOrderReason(reason);
-          setStatusLoadedFromDB(true); // Prevent prop override
-          lastFetchedStatusRef.current = 'unproductive';
+            check_out_time: checkOutTime
+          }).eq('id', visitId);
           
-          // Update visit status cache - this is a FINAL status (offline)
-          const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
-          await visitStatusCache.set(visitId, retailerId, currentUserId, targetDate, 'unproductive', undefined, reason);
+          const timeoutPromise = new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('timeout')), 8000)
+          );
           
-          // Update snapshot cache for real-time display
-          await updateVisitStatusInSnapshot(currentUserId, targetDate, retailerId, 'unproductive', reason);
-          console.log('✅ Local state and cache updated to unproductive');
-
-          // Mark this specific retailer for targeted refresh
-          retailerStatusRegistry.markForRefresh(retailerId);
-          window.dispatchEvent(new CustomEvent('visitStatusChanged', {
-            detail: {
-              visitId,
-              status: 'unproductive',
-              retailerId
-            }
-          }));
-
-          setShowNoOrderModal(false);
-          toast({
-            title: "📵 No Order Saved Offline",
-            description: "Will sync when you're back online"
+          const { error } = await Promise.race([updatePromise, timeoutPromise]);
+          
+          if (error) throw error;
+          console.log('✅ [NoOrder] Background network sync complete');
+          
+          // Update cache with confirmed visit ID
+          await visitStatusCache.set(visitId, retailerId, currentUserId, today, 'unproductive', undefined, reason);
+          
+        } catch (networkError: any) {
+          console.log('⚠️ [NoOrder] Network failed, queuing for sync:', networkError.message);
+          
+          // Queue for offline sync
+          await offlineStorage.addToSyncQueue('UPDATE_VISIT_NO_ORDER', {
+            visitId,
+            retailerId,
+            userId: currentUserId,
+            noOrderReason: reason,
+            checkOutTime,
+            plannedDate: today,
+            timestamp: new Date().toISOString()
           });
         }
-    } catch (err: any) {
-      console.error('Mark unproductive error', err);
-      toast({
-        title: 'Failed to mark unproductive',
-        description: err.message || 'Try again.',
-        variant: 'destructive'
-      });
-    }
+      } catch (err: any) {
+        console.error('⚠️ [NoOrder] Background sync error:', err);
+        // UI is already updated - no need to show error to user
+      }
+    }, 0); // setTimeout 0 ensures UI updates first
   };
   const handleNoOrderClick = () => {
     if (isLocationEnabled && isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn && isTodaysVisit) {
