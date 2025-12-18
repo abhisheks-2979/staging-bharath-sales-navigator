@@ -437,7 +437,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
     // 1. Try in-memory cache FIRST (instant)
     const cached = cacheRef.current.get(selectedDate);
-    if (cached && cached.retailers?.length > 0) {
+    // Check for ANY valid data (beat plans, retailers, visits, or orders)
+    const hasValidCachedData = cached && (
+      cached.beatPlans?.length > 0 || 
+      cached.retailers?.length > 0 || 
+      cached.visits?.length > 0 || 
+      cached.orders?.length > 0
+    );
+    if (hasValidCachedData) {
       setBeatPlans(cached.beatPlans || []);
       setVisits(cached.visits || []);
       setRetailers(cached.retailers || []);
@@ -463,7 +470,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     // 2. Try persistent snapshot (fast)
     try {
       const snapshot = await loadMyVisitsSnapshot(userId, selectedDate);
-      if (snapshot && snapshot.retailers?.length > 0) {
+      // Check for ANY valid data (beat plans, retailers, visits, or orders)
+      const hasValidSnapshotData = snapshot && (
+        snapshot.beatPlans?.length > 0 || 
+        snapshot.retailers?.length > 0 || 
+        snapshot.visits?.length > 0 || 
+        snapshot.orders?.length > 0
+      );
+      if (hasValidSnapshotData) {
         setBeatPlans(snapshot.beatPlans || []);
         setVisits(snapshot.visits || []);
         setRetailers(snapshot.retailers || []);
@@ -487,7 +501,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
     // 3. Try offline storage
     const offlineData = await loadFromOfflineStorage(userId, selectedDate);
-    if (offlineData && (offlineData.retailers.length > 0 || offlineData.beatPlans.length > 0 || offlineData.visits.length > 0)) {
+    // Check for ANY valid offline data (beat plans, retailers, visits, or orders)
+    const hasValidOfflineData = offlineData && (
+      offlineData.beatPlans.length > 0 || 
+      offlineData.retailers.length > 0 || 
+      offlineData.visits.length > 0 || 
+      offlineData.orders.length > 0
+    );
+    if (hasValidOfflineData) {
       setBeatPlans(offlineData.beatPlans);
       setVisits(offlineData.visits);
       setRetailers(offlineData.retailers);
