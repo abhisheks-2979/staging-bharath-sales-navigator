@@ -257,15 +257,24 @@ class OfflineStorage {
   }
 
   // Merge delta data with existing data (upsert pattern)
+  // IMPORTANT: Preserves _synced flag for visits to prevent rebuild loop in sync queue
   async mergeData<T extends { id: string }>(storeName: string, newItems: T[]): Promise<void> {
     await this.ensureReady();
     try {
       const existingItems = await this.getStoreData<T>(storeName);
       const existingMap = new Map(existingItems.map(item => [item.id, item]));
       
-      // Upsert new items
+      // Upsert new items, preserving _synced flag for visits
       for (const newItem of newItems) {
-        existingMap.set(newItem.id, newItem);
+        const existing = existingMap.get(newItem.id) as any;
+        
+        // Preserve _synced flag if it exists in the existing item
+        // This prevents sync queue from rebuilding already-synced visits
+        if (storeName === STORES.VISITS && existing?._synced) {
+          existingMap.set(newItem.id, { ...newItem, _synced: true } as T);
+        } else {
+          existingMap.set(newItem.id, newItem);
+        }
       }
       
       await this.setStoreData(storeName, Array.from(existingMap.values()));
