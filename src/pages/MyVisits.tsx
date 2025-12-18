@@ -144,17 +144,23 @@ export const MyVisits = () => {
     t
   } = useTranslation();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedDay, setSelectedDay] = useState("");
-  const [selectedDate, setSelectedDate] = useState("");
+
+  // Set default selected date/day immediately (avoids first-load empty state)
+  const initialWeekStart = startOfWeek(new Date(), { weekStartsOn: 0 });
+  const initialWeekDays = getWeekDays(initialWeekStart);
+  const initialDayInfo = initialWeekDays.find(d => d.isToday) || initialWeekDays[0];
+
+  const [selectedDay, setSelectedDay] = useState(() => initialDayInfo.day);
+  const [selectedDate, setSelectedDate] = useState(() => initialDayInfo.isoDate);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [filters, setFilters] = useState<FilterOptions>({});
   const [sortOrder, setSortOrder] = useState<'recent' | 'asc' | 'desc'>('recent');
-  const [selectedWeek, setSelectedWeek] = useState(new Date()); // Current week start
-  const [weekDays, setWeekDays] = useState(() => getWeekDays(new Date()));
+  const [selectedWeek, setSelectedWeek] = useState(initialWeekStart); // Current week start
+  const [weekDays, setWeekDays] = useState(() => initialWeekDays);
   // REMOVED: Double state for plannedBeats and retailers - now use optimized hook data directly via useMemo
   const [retailerStats, setRetailerStats] = useState<Map<string, any>>(new Map());
   const [plannedDates, setPlannedDates] = useState<Set<string>>(new Set());
-  const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
+  const [calendarDate, setCalendarDate] = useState<Date | undefined>(() => initialDayInfo.fullDate);
   const [isCreateVisitModalOpen, setIsCreateVisitModalOpen] = useState(false);
   const [isOrdersDialogOpen, setIsOrdersDialogOpen] = useState(false);
   const [ordersData, setOrdersData] = useState<any[]>([]);
@@ -193,16 +199,17 @@ export const MyVisits = () => {
       
       // If day hasn't ended, restore cancelled visits back to planned
       if (!attendance?.check_out_time) {
-        const { error } = await supabase
+        const { data: restored, error } = await supabase
           .from('visits')
           .update({ status: 'planned', updated_at: new Date().toISOString() })
           .eq('user_id', user.id)
           .eq('planned_date', today)
-          .eq('status', 'cancelled');
+          .eq('status', 'cancelled')
+          .select('id');
         
-        if (!error) {
+        // Only refresh if something actually changed (prevents wiping UI on initial load)
+        if (!error && (restored?.length || 0) > 0) {
           console.log('✅ Restored cancelled visits to planned (day not ended yet)');
-          // Refresh data to show updated statuses
           invalidateData?.();
         }
       }
