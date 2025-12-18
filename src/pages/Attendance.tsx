@@ -518,37 +518,10 @@ const Attendance = () => {
           // Don't throw - caching failure shouldn't block attendance marking
         }
 
-        // Only attempt to update visits when we successfully reached Supabase
-        if (!isOfflineInsertError) {
-          // Check in to all planned visits for today - CRITICAL: Only update 'planned' status visits
-          // to avoid overwriting visits already marked as 'unproductive' or 'productive'
-          const { data: plannedVisits } = await supabase
-            .from('visits')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('planned_date', today)
-            .eq('status', 'planned')
-            .is('check_in_time', null);
-
-          console.log('Planned visits found:', plannedVisits?.length || 0);
-
-          if (plannedVisits && plannedVisits.length > 0) {
-            for (const visit of plannedVisits) {
-              await supabase
-                .from('visits')
-                .update({
-                  check_in_time: timestamp,
-                  check_in_location: freshLocation,
-                  check_in_address: `${freshLocation.latitude}, ${freshLocation.longitude}`,
-                  check_in_photo_url: photoPath,
-                  location_match_in: true,
-                  status: 'in-progress'
-                })
-                .eq('id', visit.id);
-            }
-            console.log('All planned visits checked in');
-          }
-        }
+        // IMPORTANT: Attendance should NOT modify visit statuses or check-in/out times.
+        // It only records attendance; visit lifecycle is handled from My Visits / Visit Card.
+        // (Previously this updated all planned visits to in-progress, which broke No-Order counts.)
+        // No-op by design.
 
         // Update to complete step
         setProcessingState({

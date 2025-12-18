@@ -327,13 +327,21 @@ export const MyVisits = () => {
     
     // Process own retailers
     const processedRetailers = optimizedRetailers.map(retailer => {
-      // CRITICAL: Get the LATEST visit for this retailer (handles duplicates)
+      // CRITICAL: Get the BEST visit for this retailer (handles duplicates)
+      // Priority: productive > unproductive(no-order) > latest-by-time
       const retailerVisits = optimizedVisits.filter(v => v.retailer_id === retailer.id);
-      const visit = retailerVisits.length > 0 
-        ? retailerVisits.reduce((latest, current) => 
-            new Date(current.updated_at || current.created_at) > new Date(latest.updated_at || latest.created_at) ? current : latest
-          )
-        : null;
+      const getVisitTime = (v: any) => new Date(v.updated_at || v.created_at || 0).getTime();
+      const bestByTime = (arr: any[]) => arr.reduce((latest, cur) => (getVisitTime(cur) > getVisitTime(latest) ? cur : latest));
+
+      const visit = retailerVisits.length > 0 ? (() => {
+        const productiveVisits = retailerVisits.filter(v => v.status === 'productive');
+        if (productiveVisits.length > 0) return bestByTime(productiveVisits);
+
+        const unproductiveVisits = retailerVisits.filter(v => v.status === 'unproductive' || !!v.no_order_reason);
+        if (unproductiveVisits.length > 0) return bestByTime(unproductiveVisits);
+
+        return bestByTime(retailerVisits);
+      })() : null;
       const orders = optimizedOrders.filter(o => o.retailer_id === retailer.id);
       const totalOrderValue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
       const hasOrder = orders.length > 0;
