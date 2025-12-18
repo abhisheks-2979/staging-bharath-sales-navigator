@@ -289,21 +289,26 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
         let retailersData: any[] = [];
         if (allRetailerIds.length > 0) {
-          // Only fetch changed retailers if we have last sync
-          let retailerQuery = supabase.from('retailers').select('*').eq('user_id', uid).in('id', allRetailerIds);
-          if (lastSyncTimestamp) {
-            retailerQuery = retailerQuery.gt('updated_at', lastSyncTimestamp);
-          }
-          const { data } = await retailerQuery;
+          // Always fetch ALL retailers for the beat (no delta filter - retailers are static/rarely change)
+          const { data } = await supabase
+            .from('retailers')
+            .select('*')
+            .eq('user_id', uid)
+            .in('id', allRetailerIds);
           
-          if (lastSyncTimestamp && data) {
-            // Merge with existing retailers
-            retailersData = mergeById([...retailers], data);
+          if (data && data.length > 0) {
+            retailersData = data;
           } else {
-            retailersData = data || [];
+            // Fallback to offline storage if network returns nothing
+            const existingRetailers = await offlineStorage.getAll<any>(STORES.RETAILERS);
+            retailersData = existingRetailers.filter(r => 
+              r.user_id === uid && allRetailerIds.includes(r.id)
+            );
           }
         } else {
-          retailersData = retailers;
+          // No retailer IDs - load from offline storage as fallback
+          const existingRetailers = await offlineStorage.getAll<any>(STORES.RETAILERS);
+          retailersData = existingRetailers.filter(r => r.user_id === uid);
         }
 
         if (!mountedRef.current || lastDateRef.current !== date) return;
