@@ -11,6 +11,8 @@ import { ProfilePictureUpload } from "@/components/ProfilePictureUpload";
 import { PerformanceCalendar } from "@/components/PerformanceCalendar";
 import { AIInsightsSection } from "@/components/home/AIInsightsSection";
 import { PendingPayments } from "@/components/home/PendingPayments";
+import { CacheWarmingProgress, useCacheWarming } from "@/components/CacheWarmingProgress";
+import { useMasterDataCache } from "@/hooks/useMasterDataCache";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -25,6 +27,30 @@ const Index = () => {
   const { todayData, performance, urgentItems, isLoading, lastUpdated, refresh } = useHomeDashboard(userProfile?.id, selectedDate);
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
   const isOnline = navigator.onLine;
+  
+  // Cache warming
+  const { warmCacheWithProgress } = useMasterDataCache();
+  const {
+    isWarming,
+    steps,
+    currentStep,
+    startWarming,
+    updateStep,
+    completeWarming,
+    dismissWarming,
+    needsWarming
+  } = useCacheWarming();
+
+  // Check if cache warming is needed on mount
+  useEffect(() => {
+    if (user?.id && isOnline && needsWarming()) {
+      // Start cache warming
+      startWarming();
+      warmCacheWithProgress((stepId, status) => {
+        updateStep(stepId, status);
+      });
+    }
+  }, [user?.id, isOnline]);
 
   const refreshProfilePicture = async () => {
     if (!user?.id) return;
@@ -210,6 +236,16 @@ const Index = () => {
           onComplete={refreshProfilePicture}
         />
       )}
+
+      {/* Cache Warming Progress */}
+      <CacheWarmingProgress
+        isOpen={isWarming}
+        onComplete={completeWarming}
+        onDismiss={dismissWarming}
+        steps={steps}
+        currentStep={currentStep}
+        isOnline={isOnline}
+      />
     </Layout>
   );
 };
