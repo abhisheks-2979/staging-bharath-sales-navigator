@@ -332,14 +332,15 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           }
         });
 
-        // Update state
-        setBeatPlans(mergedBeatPlans);
-        setVisits(mergedVisits);
-        setRetailers(retailersData);
-        setOrders(mergedOrders);
-        setPointsData({ total: totalPoints, byRetailer: retailerPointsMap });
+        // STEP 1: Save to offline storage FIRST (Network → Storage)
+        await Promise.all([
+          offlineStorage.mergeData(STORES.BEAT_PLANS, mergedBeatPlans),
+          offlineStorage.mergeData(STORES.VISITS, mergedVisits),
+          offlineStorage.mergeData(STORES.RETAILERS, retailersData),
+          offlineStorage.mergeData(STORES.ORDERS, mergedOrders)
+        ]);
 
-        // Update cache
+        // STEP 2: Update in-memory cache
         const cacheData = {
           beatPlans: mergedBeatPlans,
           visits: mergedVisits,
@@ -349,23 +350,25 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         };
         cacheRef.current.set(date, cacheData);
 
-        // Save snapshot
-        saveMyVisitsSnapshot(uid, date, {
+        // STEP 3: Save snapshot for persistence
+        await saveMyVisitsSnapshot(uid, date, {
           beatPlans: mergedBeatPlans,
           visits: mergedVisits,
           retailers: retailersData,
           orders: mergedOrders,
           progressStats: calculateStats(mergedVisits, mergedOrders, retailersData),
           currentBeatName: mergedBeatPlans.map(p => p.beat_name).join(', ')
-        }).catch(() => {});
+        });
 
-        // Merge into offline storage (not replace)
-        Promise.all([
-          offlineStorage.mergeData(STORES.BEAT_PLANS, mergedBeatPlans),
-          offlineStorage.mergeData(STORES.VISITS, mergedVisits),
-          offlineStorage.mergeData(STORES.RETAILERS, retailersData),
-          offlineStorage.mergeData(STORES.ORDERS, mergedOrders)
-        ]).catch(() => {});
+        // STEP 4: Update UI from the stable cache (Storage → UI)
+        // This ensures UI only updates from verified local data, not raw network response
+        if (mountedRef.current && lastDateRef.current === date) {
+          setBeatPlans(cacheData.beatPlans);
+          setVisits(cacheData.visits);
+          setRetailers(cacheData.retailers);
+          setOrders(cacheData.orders);
+          setPointsData({ total: totalPoints, byRetailer: retailerPointsMap });
+        }
       }
 
       // Update sync timestamp
@@ -588,15 +591,55 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       }
     };
 
+    // Master data refreshed - reload UI from updated local storage
+    const handleMasterDataRefresh = async () => {
+      if (!userId) return;
+      console.log('[MasterDataRefresh] Reloading UI from updated local storage');
+      
+      const offlineData = await loadFromOfflineStorage(userId, selectedDate);
+      if (offlineData) {
+        setBeatPlans(offlineData.beatPlans);
+        setVisits(offlineData.visits);
+        setRetailers(offlineData.retailers);
+        setOrders(offlineData.orders);
+        cacheRef.current.set(selectedDate, offlineData);
+      }
+    };
+
+    // Retailer added - add to local state immediately
+    const handleRetailerAdded = (event: CustomEvent) => {
+      const { retailer } = event.detail || {};
+      if (!retailer || retailer.user_id !== userId) return;
+      
+      console.log('[RetailerAdded] Adding new retailer to local state:', retailer.name);
+      setRetailers(prev => {
+        const exists = prev.some(r => r.id === retailer.id);
+        if (exists) return prev;
+        const updated = [...prev, retailer];
+        
+        // Update cache
+        const cached = cacheRef.current.get(selectedDate);
+        if (cached) {
+          cacheRef.current.set(selectedDate, { ...cached, retailers: updated });
+        }
+        
+        return updated;
+      });
+    };
+
     window.addEventListener('visitStatusChanged', handleStatusChange as EventListener);
     window.addEventListener('visitDataChanged', handleDataChange);
     window.addEventListener('syncComplete', handleSync);
+    window.addEventListener('masterDataRefreshed', handleMasterDataRefresh);
+    window.addEventListener('retailerAdded', handleRetailerAdded as EventListener);
     document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       window.removeEventListener('visitStatusChanged', handleStatusChange as EventListener);
       window.removeEventListener('visitDataChanged', handleDataChange);
       window.removeEventListener('syncComplete', handleSync);
+      window.removeEventListener('masterDataRefreshed', handleMasterDataRefresh);
+      window.removeEventListener('retailerAdded', handleRetailerAdded as EventListener);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [selectedDate, isToday, userId, deltaSyncFromNetwork, shouldSyncNow]);

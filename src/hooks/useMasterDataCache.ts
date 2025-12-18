@@ -231,6 +231,36 @@ export function useMasterDataCache() {
     }
   }, [isOnline, user, cacheProducts, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData]);
 
+  // Force refresh master data AND notify UI to reload from storage
+  const forceRefreshMasterData = useCallback(async () => {
+    if (!navigator.onLine || !user) {
+      console.log('[Cache] Cannot force refresh - offline or no user');
+      return false;
+    }
+
+    console.log('[Cache] 🔄 Force refreshing all master data...');
+    try {
+      await Promise.all([
+        cacheProducts(),
+        cacheBeats(),
+        cacheRetailers(),
+        cacheBeatPlans(),
+        cacheCompetitionData()
+      ]);
+      
+      localStorage.setItem('master_data_cached_at', Date.now().toString());
+      
+      // Dispatch event so My Visits and other components can reload from updated storage
+      window.dispatchEvent(new CustomEvent('masterDataRefreshed'));
+      
+      console.log('[Cache] ✅ Force refresh complete, UI notified');
+      return true;
+    } catch (error) {
+      console.error('[Cache] Force refresh failed:', error);
+      return false;
+    }
+  }, [user, cacheProducts, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData]);
+
   // Load cached data (used when offline)
   const loadCachedData = useCallback(async (storeName: string) => {
     try {
@@ -253,14 +283,27 @@ export function useMasterDataCache() {
     if (isOnline) {
       if (!lastCached || parseInt(lastCached) < fourHoursAgo) {
         console.log('[Cache] Cache expired or missing, syncing offline data...');
-        cacheAllMasterData();
+        // Use forceRefreshMasterData to also notify UI
+        forceRefreshMasterData();
       } else {
         console.log('[Cache] Using recent cache, no sync needed');
       }
     } else if (!lastCached) {
       console.warn('[Cache] ⚠️ Offline with no cached data. Connect online to enable offline mode.');
     }
-  }, [isOnline, user, cacheAllMasterData]);
+  }, [isOnline, user, forceRefreshMasterData]);
+
+  // Background sync every 15 minutes when online to pick up admin changes silently
+  useEffect(() => {
+    if (!isOnline || !user) return;
+    
+    const intervalId = setInterval(() => {
+      console.log('[Cache] Background sync triggered (15-min interval)');
+      forceRefreshMasterData();
+    }, 15 * 60 * 1000); // 15 minutes
+    
+    return () => clearInterval(intervalId);
+  }, [isOnline, user, forceRefreshMasterData]);
 
   return {
     cacheProducts,
@@ -269,6 +312,7 @@ export function useMasterDataCache() {
     cacheBeatPlans,
     cacheCompetitionData,
     cacheAllMasterData,
+    forceRefreshMasterData,
     loadCachedData,
     isOnline
   };

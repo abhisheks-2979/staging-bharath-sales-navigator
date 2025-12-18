@@ -571,6 +571,11 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
       } 
     }));
     
+    // Dispatch retailerAdded event for Smart Silent Background Sync
+    window.dispatchEvent(new CustomEvent('retailerAdded', { 
+      detail: { retailer: fullRetailerData } 
+    }));
+    
     // Call parent callback with the new retailer
     onRetailerAdded(data.id, data.name);
     
@@ -625,6 +630,11 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
           newRetailerId: tempId,
           retailerData: offlineRetailer
         } 
+      }));
+      
+      // Dispatch retailerAdded event for Smart Silent Background Sync
+      window.dispatchEvent(new CustomEvent('retailerAdded', { 
+        detail: { retailer: offlineRetailer } 
       }));
       
       // Call parent callback with temporary ID
