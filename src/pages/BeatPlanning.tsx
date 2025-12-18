@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Layout } from "@/components/Layout";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -49,15 +49,22 @@ const getWeekDays = (selectedWeekStart: Date) => {
 };
 
 export const BeatPlanning = () => {
+  const [searchParams] = useSearchParams();
+  const dateParam = searchParams.get('date');
+  
+  // Initialize date from URL param or use today
+  const initialDate = dateParam ? new Date(dateParam + 'T00:00:00') : new Date();
+  const initialWeekStart = startOfWeek(initialDate, { weekStartsOn: 1 });
+  
   const [selectedCategory] = useState<"all">("all");
   const [selectedDay, setSelectedDay] = useState("");
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedWeek, setSelectedWeek] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(initialDate);
+  const [selectedWeek, setSelectedWeek] = useState(initialWeekStart);
   const [plannedBeats, setPlannedBeats] = useState<{[key: string]: string[]}>({});
-  const [weekDays, setWeekDays] = useState(() => getWeekDays(new Date()));
+  const [weekDays, setWeekDays] = useState(() => getWeekDays(initialWeekStart));
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
+  const [calendarDate, setCalendarDate] = useState<Date | undefined>(initialDate);
   const [plannedDates, setPlannedDates] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
   const { user } = useAuth();
