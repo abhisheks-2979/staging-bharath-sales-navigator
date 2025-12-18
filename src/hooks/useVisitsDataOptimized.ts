@@ -357,12 +357,12 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       clearTimeout(loadingTimeoutRef.current);
     }
     
-    // SAFETY: Set a timeout to prevent stuck loading state (5 second max)
+    // SAFETY: Set a timeout to prevent stuck loading state (15 second max for slow networks)
     loadingTimeoutRef.current = setTimeout(() => {
       console.log('⚠️ [VisitsData] Loading timeout - forcing loading to complete');
       setIsLoading(false);
       isLoadingRef.current = false;
-    }, 5000);
+    }, 15000);
     
     // CRITICAL FIX: Always allow date changes to proceed
     // Only block concurrent loads for the SAME date
@@ -1107,8 +1107,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         const dateEnd = new Date(selectedDate);
         dateEnd.setHours(23, 59, 59, 999);
 
-        // TIMEOUT: On slow networks, abort after 3 seconds and show cached/empty state
-        const NETWORK_TIMEOUT_MS = 3000;
+        // TIMEOUT: On slow networks, abort after 10 seconds (increased from 3 to handle slow connections)
+        const NETWORK_TIMEOUT_MS = 10000;
         const timeoutPromise = new Promise<never>((_, reject) => 
           setTimeout(() => reject(new Error('NETWORK_TIMEOUT')), NETWORK_TIMEOUT_MS)
         );
@@ -1690,14 +1690,27 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   useEffect(() => {
     console.log('🔄 useVisitsDataOptimized: Setting up for date:', selectedDate);
     
-    // DON'T clear data when date changes - let smart update handle it
-    // This prevents the flash/flicker when navigating between dates
-    // The loadData function will update only if data is different
-    
     // Load new data
     if (selectedDate) {
       loadData();
     }
+    
+    // Handle page visibility change - refresh data when returning to the page
+    // This ensures latest data shows after navigating from Cart/Order Entry
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine && selectedDate && userId) {
+        console.log('👁️ [VISIBILITY] Page became visible, checking for updates...');
+        // Clear cache and force refresh to get latest data
+        const today = new Date().toISOString().split('T')[0];
+        if (selectedDate === today) {
+          dateDataCacheRef.current.delete(selectedDate);
+          // Small delay to ensure any pending writes complete
+          setTimeout(() => {
+            backgroundNetworkSync(userId, selectedDate);
+          }, 300);
+        }
+      }
+    };
 
     // Listen for visitStatusChanged events to recalculate progress stats
     const handleStatusChange = (event: any) => {
@@ -1807,7 +1820,6 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           }
           
           // Skip network reload when we've already updated the UI with the new retailer
-          // The retailer is already saved to DB/cache by the time this event fires
           console.log('📌 [IMMEDIATE] Skipping loadData - already updated UI with new retailer');
           return;
         }
@@ -1833,7 +1845,6 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     };
     
     // Listen for sync complete event (offline -> online sync finished)
-    // This is the ONLY automatic refresh - runs once after offline data syncs to database
     const handleSyncComplete = () => {
       console.log('🔄 [SYNC-COMPLETE] Sync finished, clearing cache and refreshing data...');
       
@@ -1858,15 +1869,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       }, 300);
     };
     
-    // REMOVED: 30-second auto-refresh and "online" event listener
-    // These caused constant UI refreshes showing different data
-    // Now only refreshes on: page open, syncComplete, and explicit data changes
-    
+    // Add all event listeners
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('visitStatusChanged', handleStatusChange);
     window.addEventListener('visitDataChanged', handleDataChange);
     window.addEventListener('syncComplete', handleSyncComplete);
     
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('visitStatusChanged', handleStatusChange);
       window.removeEventListener('visitDataChanged', handleDataChange);
       window.removeEventListener('syncComplete', handleSyncComplete);
@@ -1878,7 +1888,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         clearTimeout(pendingLoadTimeoutRef.current);
       }
     };
-  }, [loadData, selectedDate]);
+  }, [loadData, selectedDate, userId, backgroundNetworkSync]);
 
   const invalidateData = useCallback(() => {
     // Background refresh - don't show loading spinner
