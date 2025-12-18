@@ -164,6 +164,109 @@ export const updateVisitStatusInSnapshot = async (
   }
 };
 
+// FIX: Add retailer directly to snapshot (called from AddRetailerInlineToBeat)
+export const addRetailerToSnapshot = async (
+  userId: string,
+  date: string,
+  retailer: any
+): Promise<void> => {
+  try {
+    const snapshot = await loadMyVisitsSnapshot(userId, date);
+    
+    if (!snapshot) {
+      // Create new snapshot if none exists
+      console.log('📸 [SNAPSHOT] Creating new snapshot for retailer add');
+      await saveMyVisitsSnapshot(userId, date, {
+        beatPlans: [],
+        visits: [],
+        retailers: [retailer],
+        orders: [],
+        progressStats: {
+          planned: 1,
+          productive: 0,
+          unproductive: 0,
+          totalOrders: 0,
+          totalOrderValue: 0
+        },
+        currentBeatName: retailer.beat_name || ''
+      });
+      return;
+    }
+
+    // Check if retailer already exists
+    if (snapshot.retailers.some(r => r.id === retailer.id)) {
+      console.log('📸 [SNAPSHOT] Retailer already in snapshot:', retailer.id);
+      return;
+    }
+
+    // Add retailer to snapshot
+    snapshot.retailers.push(retailer);
+    snapshot.progressStats.planned += 1;
+
+    // Save updated snapshot
+    const key = getSnapshotKey(userId, date);
+    await Preferences.set({
+      key,
+      value: JSON.stringify({ ...snapshot, timestamp: Date.now() })
+    });
+
+    console.log('📸 [SNAPSHOT] Added retailer to snapshot:', retailer.name, 'Total:', snapshot.retailers.length);
+  } catch (error) {
+    console.error('[SNAPSHOT] Failed to add retailer:', error);
+  }
+};
+
+// FIX: Update beat plan in snapshot (called when beat plan is created/updated offline)
+export const updateBeatPlanInSnapshot = async (
+  userId: string,
+  date: string,
+  beatPlan: any
+): Promise<void> => {
+  try {
+    const snapshot = await loadMyVisitsSnapshot(userId, date);
+    
+    if (!snapshot) {
+      // Create new snapshot with this beat plan
+      await saveMyVisitsSnapshot(userId, date, {
+        beatPlans: [beatPlan],
+        visits: [],
+        retailers: [],
+        orders: [],
+        progressStats: {
+          planned: 0,
+          productive: 0,
+          unproductive: 0,
+          totalOrders: 0,
+          totalOrderValue: 0
+        },
+        currentBeatName: beatPlan.beat_name || ''
+      });
+      return;
+    }
+
+    // Update or add beat plan
+    const existingIndex = snapshot.beatPlans.findIndex(bp => bp.id === beatPlan.id || bp.beat_id === beatPlan.beat_id);
+    if (existingIndex >= 0) {
+      snapshot.beatPlans[existingIndex] = beatPlan;
+    } else {
+      snapshot.beatPlans.push(beatPlan);
+    }
+
+    snapshot.currentBeatName = snapshot.beatPlans.map(bp => bp.beat_name).join(', ');
+
+    // Save updated snapshot
+    const key = getSnapshotKey(userId, date);
+    await Preferences.set({
+      key,
+      value: JSON.stringify({ ...snapshot, timestamp: Date.now() })
+    });
+
+    console.log('📸 [SNAPSHOT] Updated beat plan in snapshot:', beatPlan.beat_name);
+  } catch (error) {
+    console.error('[SNAPSHOT] Failed to update beat plan:', error);
+  }
+};
+
 // Clear old snapshots (keep only last 7 days)
 export const cleanupOldSnapshots = async (userId: string): Promise<void> => {
   try {
