@@ -32,6 +32,11 @@ export function useOfflineRetailers() {
         // Cache the new retailer
         await offlineStorage.save(STORES.RETAILERS, data);
 
+        // Dispatch retailerAdded event for Smart Silent Background Sync
+        window.dispatchEvent(new CustomEvent('retailerAdded', { 
+          detail: { retailer: data } 
+        }));
+
         toast({
           title: "Retailer Created",
           description: "Retailer has been created successfully.",
@@ -49,6 +54,11 @@ export function useOfflineRetailers() {
 
         await offlineStorage.save(STORES.RETAILERS, offlineRetailer);
         await offlineStorage.addToSyncQueue('CREATE_RETAILER', offlineRetailer);
+
+        // Dispatch retailerAdded event for Smart Silent Background Sync
+        window.dispatchEvent(new CustomEvent('retailerAdded', { 
+          detail: { retailer: offlineRetailer } 
+        }));
 
         toast({
           title: "Retailer Saved Offline",
