@@ -147,6 +147,15 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   
   // SMART SYNC: Lock to prevent multiple syncs
   const smartSyncLockRef = useRef(false);
+  
+  // STALE CLOSURE FIX: Keep refs in sync with latest values for event handlers
+  const userIdRef = useRef(userId);
+  const selectedDateRef = useRef(selectedDate);
+  
+  useEffect(() => {
+    userIdRef.current = userId;
+    selectedDateRef.current = selectedDate;
+  }, [userId, selectedDate]);
 
   // Memoized progress stats - LOCAL CALCULATION ONLY
   const progressStats = useMemo(() => 
@@ -763,19 +772,44 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     // Retailer added - add to local state immediately
     const handleRetailerAdded = (event: CustomEvent) => {
       const { retailer } = event.detail || {};
-      if (!retailer || retailer.user_id !== userId) return;
+      // Use refs to avoid stale closure issues
+      const currentUserId = userIdRef.current;
+      const currentDate = selectedDateRef.current;
       
-      console.log('[LocalEvent] Retailer added:', retailer.name);
+      if (!retailer || !currentUserId) {
+        console.log('[LocalEvent] Retailer skipped - no retailer or userId');
+        return;
+      }
+      
+      if (retailer.user_id !== currentUserId) {
+        console.log('[LocalEvent] Retailer skipped - user mismatch:', retailer.user_id, '!==', currentUserId);
+        return;
+      }
+      
+      console.log('[LocalEvent] Retailer added:', retailer.name, 'for date:', currentDate);
+      
       setRetailers(prev => {
-        if (prev.some(r => r.id === retailer.id)) return prev;
+        if (prev.some(r => r.id === retailer.id)) {
+          console.log('[LocalEvent] Retailer already exists in state:', retailer.id);
+          return prev;
+        }
         const updated = [...prev, retailer];
         
-        // Update cache
-        const cached = cacheRef.current.get(selectedDate);
-        if (cached) {
-          cacheRef.current.set(selectedDate, { ...cached, retailers: updated });
-        }
+        // FIXED: Create cache if it doesn't exist, then update it
+        const cached = cacheRef.current.get(currentDate) || {
+          beatPlans: [],
+          visits: [],
+          retailers: [],
+          orders: []
+        };
+        cacheRef.current.set(currentDate, { ...cached, retailers: updated });
         
+        // FIXED: Persist retailer to offline storage for app restarts
+        offlineStorage.save(STORES.RETAILERS, retailer).catch(e => {
+          console.error('[LocalEvent] Failed to save retailer to offline storage:', e);
+        });
+        
+        console.log('[LocalEvent] Retailer added to state and cache. Total retailers:', updated.length);
         return updated;
       });
     };
