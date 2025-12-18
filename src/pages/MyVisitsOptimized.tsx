@@ -6,8 +6,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { shouldSuppressError } from '@/utils/offlineErrorHandler';
 import { toast } from 'sonner';
 
-// Helper: Create a timeout promise
-const createTimeout = (ms: number) => new Promise((_, reject) => 
+// Helper: Create a timeout promise - increased to 8 seconds for slow networks
+const createTimeout = (ms: number = 8000) => new Promise((_, reject) => 
   setTimeout(() => reject(new Error('Network timeout')), ms)
 );
 
@@ -61,7 +61,7 @@ export const loadPlannedBeatsOptimized = async (
               .select('*')
               .eq('user_id', user.id)
               .eq('plan_date', date),
-            createTimeout(3000).then(() => null)
+            createTimeout(8000).then(() => null)
           ]).catch(() => null);
           
           if (!result || result.error) {
@@ -196,7 +196,7 @@ export const loadAllVisitsForDateOptimized = async (
     if (navigator.onLine) {
       const syncFromNetwork = async () => {
         try {
-          // Race against timeout
+          // Race against timeout - 8 seconds for slow networks
           const result = await Promise.race([
             Promise.all([
               supabase.from('visits').select('*').eq('user_id', user.id).eq('planned_date', date),
@@ -204,7 +204,7 @@ export const loadAllVisitsForDateOptimized = async (
                 ? supabase.from('retailers').select('id').eq('user_id', user.id).in('beat_id', plannedBeatIds)
                 : Promise.resolve({ data: [], error: null }),
             ]),
-            createTimeout(3000).then(() => null)
+            createTimeout(8000).then(() => null)
           ]).catch(() => null);
           
           if (!result) {
@@ -249,7 +249,7 @@ export const loadAllVisitsForDateOptimized = async (
                       .lte('created_at', dateEnd.toISOString())
                   : Promise.resolve({ data: [], error: null }),
               ]),
-              createTimeout(3000).then(() => null)
+              createTimeout(8000).then(() => null)
             ]).catch(() => null);
 
             if (!secondResult) {
