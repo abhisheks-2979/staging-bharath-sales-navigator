@@ -31,6 +31,7 @@ export const Layout = memo(({ children }: LayoutProps) => {
   }, [isOnline, cacheAllMasterData, processSyncQueue]);
 
   // Trigger sync whenever connectivity is restored (offline -> online transition)
+  // NOTE: syncComplete event is dispatched by useOfflineSync, not here (avoid duplicate dispatches)
   useEffect(() => {
     if (!isOnline) {
       wasOfflineRef.current = true;
@@ -38,12 +39,9 @@ export const Layout = memo(({ children }: LayoutProps) => {
       // We just came back online after being offline
       wasOfflineRef.current = false;
       console.log('🔄 Layout: Connectivity restored, triggering sync...');
-      // Small delay to ensure network is stable
-      setTimeout(async () => {
-        await processSyncQueue();
-        // Always dispatch syncComplete to ensure data refresh
-        console.log('📢 Layout: Dispatching syncComplete for data refresh');
-        window.dispatchEvent(new CustomEvent('syncComplete'));
+      // Small delay to ensure network is stable - processSyncQueue will dispatch syncComplete
+      setTimeout(() => {
+        processSyncQueue();
       }, 1000);
     }
   }, [isOnline, processSyncQueue]);
