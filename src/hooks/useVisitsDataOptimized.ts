@@ -21,6 +21,21 @@ interface ProgressStats {
   totalOrderValue: number;
 }
 
+// UI update cooldown to prevent rapid-fire updates
+const UI_UPDATE_COOLDOWN_MS = 2000;
+
+// Deep comparison helper - checks if data actually changed
+const hasDataChanged = (prev: any[], next: any[]): boolean => {
+  if (prev.length !== next.length) return true;
+  const prevIds = new Set(prev.map(item => `${item.id}_${item.updated_at || item.created_at}`));
+  for (const item of next) {
+    if (!prevIds.has(`${item.id}_${item.updated_at || item.created_at}`)) {
+      return true;
+    }
+  }
+  return false;
+};
+
 // Calculate progress stats
 const calculateStats = (visits: any[], orders: any[], retailers: any[]): ProgressStats => {
   const retailersWithOrders = new Set(orders.map(o => o.retailer_id));
@@ -79,6 +94,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   const isFetchingRef = useRef(false);
   const mountedRef = useRef(true);
   const lastSyncTimeRef = useRef<Map<string, number>>(new Map()); // Track sync times in memory
+  const lastUIUpdateRef = useRef<number>(0); // Debounce UI updates
 
   // Memoized progress stats
   const progressStats = useMemo(() => 
@@ -360,14 +376,25 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           currentBeatName: mergedBeatPlans.map(p => p.beat_name).join(', ')
         });
 
-        // STEP 4: Update UI from the stable cache (Storage → UI)
-        // This ensures UI only updates from verified local data, not raw network response
+        // STEP 4: Update UI ONLY if data actually changed (prevents unnecessary re-renders)
         if (mountedRef.current && lastDateRef.current === date) {
-          setBeatPlans(cacheData.beatPlans);
-          setVisits(cacheData.visits);
-          setRetailers(cacheData.retailers);
-          setOrders(cacheData.orders);
-          setPointsData({ total: totalPoints, byRetailer: retailerPointsMap });
+          const currentCache = cacheRef.current.get(date);
+          const shouldUpdateBeatPlans = !currentCache || hasDataChanged(currentCache.beatPlans || [], cacheData.beatPlans);
+          const shouldUpdateVisits = !currentCache || hasDataChanged(currentCache.visits || [], cacheData.visits);
+          const shouldUpdateRetailers = !currentCache || hasDataChanged(currentCache.retailers || [], cacheData.retailers);
+          const shouldUpdateOrders = !currentCache || hasDataChanged(currentCache.orders || [], cacheData.orders);
+          
+          if (shouldUpdateBeatPlans || shouldUpdateVisits || shouldUpdateRetailers || shouldUpdateOrders) {
+            console.log('[DeltaSync] Data changed - updating UI');
+            lastUIUpdateRef.current = Date.now();
+            setBeatPlans(cacheData.beatPlans);
+            setVisits(cacheData.visits);
+            setRetailers(cacheData.retailers);
+            setOrders(cacheData.orders);
+            setPointsData({ total: totalPoints, byRetailer: retailerPointsMap });
+          } else {
+            console.log('[DeltaSync] No changes detected - skipping UI update');
+          }
         }
       }
 
@@ -608,6 +635,12 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     };
 
     const handleSync = () => {
+      // Debounce - skip if UI was updated recently
+      const timeSinceLastUpdate = Date.now() - lastUIUpdateRef.current;
+      if (timeSinceLastUpdate < UI_UPDATE_COOLDOWN_MS) {
+        console.log('[Sync] Skipping - UI updated recently');
+        return;
+      }
       // After sync complete, do delta sync only for today
       if (isToday(selectedDate) && navigator.onLine && shouldSyncNow(selectedDate)) {
         setTimeout(() => deltaSyncFromNetwork(userId!, selectedDate), 500);
@@ -616,23 +649,50 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
     // Visibility change - sync when app comes to foreground
     const handleVisibility = () => {
+      // Debounce - skip if UI was updated recently
+      const timeSinceLastUpdate = Date.now() - lastUIUpdateRef.current;
+      if (timeSinceLastUpdate < UI_UPDATE_COOLDOWN_MS) {
+        console.log('[Visibility] Skipping sync - UI updated recently');
+        return;
+      }
       if (document.visibilityState === 'visible' && navigator.onLine && isToday(selectedDate) && shouldSyncNow(selectedDate)) {
         setTimeout(() => deltaSyncFromNetwork(userId!, selectedDate), 500);
       }
     };
 
-    // Master data refreshed - reload UI from updated local storage
+    // Master data refreshed - reload UI from updated local storage (with debounce)
     const handleMasterDataRefresh = async () => {
       if (!userId) return;
+      
+      // Debounce - skip if UI was updated recently
+      const timeSinceLastUpdate = Date.now() - lastUIUpdateRef.current;
+      if (timeSinceLastUpdate < UI_UPDATE_COOLDOWN_MS) {
+        console.log('[MasterDataRefresh] Skipping - UI updated recently');
+        return;
+      }
+      
       console.log('[MasterDataRefresh] Reloading UI from updated local storage');
       
       const offlineData = await loadFromOfflineStorage(userId, selectedDate);
       if (offlineData) {
-        setBeatPlans(offlineData.beatPlans);
-        setVisits(offlineData.visits);
-        setRetailers(offlineData.retailers);
-        setOrders(offlineData.orders);
-        cacheRef.current.set(selectedDate, offlineData);
+        // Compare before updating
+        const currentCache = cacheRef.current.get(selectedDate);
+        const hasChanges = !currentCache || 
+          hasDataChanged(currentCache.beatPlans || [], offlineData.beatPlans) ||
+          hasDataChanged(currentCache.visits || [], offlineData.visits) ||
+          hasDataChanged(currentCache.retailers || [], offlineData.retailers) ||
+          hasDataChanged(currentCache.orders || [], offlineData.orders);
+        
+        if (hasChanges) {
+          lastUIUpdateRef.current = Date.now();
+          setBeatPlans(offlineData.beatPlans);
+          setVisits(offlineData.visits);
+          setRetailers(offlineData.retailers);
+          setOrders(offlineData.orders);
+          cacheRef.current.set(selectedDate, offlineData);
+        } else {
+          console.log('[MasterDataRefresh] No changes - skipping UI update');
+        }
       }
     };
 

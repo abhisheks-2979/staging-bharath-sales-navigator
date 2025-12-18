@@ -293,14 +293,14 @@ export function useMasterDataCache() {
     }
   }, [isOnline, user, forceRefreshMasterData]);
 
-  // Background sync every 15 minutes when online to pick up admin changes silently
+  // Background sync every 30 minutes when online to pick up admin changes silently
   useEffect(() => {
     if (!isOnline || !user) return;
     
     const intervalId = setInterval(() => {
-      console.log('[Cache] Background sync triggered (15-min interval)');
+      console.log('[Cache] Background sync triggered (30-min interval)');
       forceRefreshMasterData();
-    }, 15 * 60 * 1000); // 15 minutes
+    }, 30 * 60 * 1000); // 30 minutes (reduced from 15 to minimize UI disruption)
     
     return () => clearInterval(intervalId);
   }, [isOnline, user, forceRefreshMasterData]);
