@@ -36,6 +36,7 @@ import { CreditScoreDisplay } from "./CreditScoreDisplay";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { visitStatusCache } from "@/lib/visitStatusCache";
 import { retailerStatusRegistry } from "@/lib/retailerStatusRegistry";
+import { updateVisitStatusInSnapshot } from "@/lib/myVisitsSnapshot";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
 import { RetailerDetailModal } from "./RetailerDetailModal";
@@ -1692,6 +1693,9 @@ export const VisitCard = ({
             // Update visit status cache - this is a FINAL status
             const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
             await visitStatusCache.set(visitId, retailerId, currentUserId, targetDate, 'unproductive', undefined, reason);
+            
+            // Update snapshot cache for real-time display
+            await updateVisitStatusInSnapshot(currentUserId, targetDate, retailerId, 'unproductive', reason);
 
             // Mark this specific retailer for targeted refresh
             retailerStatusRegistry.markForRefresh(retailerId);
@@ -1768,6 +1772,9 @@ export const VisitCard = ({
           // Update visit status cache - this is a FINAL status (offline)
           const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
           await visitStatusCache.set(visitId, retailerId, currentUserId, targetDate, 'unproductive', undefined, reason);
+          
+          // Update snapshot cache for real-time display
+          await updateVisitStatusInSnapshot(currentUserId, targetDate, retailerId, 'unproductive', reason);
           console.log('✅ Local state and cache updated to unproductive');
 
           // Mark this specific retailer for targeted refresh

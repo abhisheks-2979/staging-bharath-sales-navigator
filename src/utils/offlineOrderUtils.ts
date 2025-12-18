@@ -107,6 +107,29 @@ export async function submitOrderWithOfflineSupport(
               return r;
             });
             
+            // Update visits array in snapshot
+            const existingVisitIndex = existingSnapshot.visits.findIndex(
+              (v: any) => v.retailer_id === orderData.retailer_id
+            );
+            let updatedVisits = [...existingSnapshot.visits];
+            if (existingVisitIndex >= 0) {
+              updatedVisits[existingVisitIndex] = {
+                ...updatedVisits[existingVisitIndex],
+                status: 'productive',
+                updated_at: new Date().toISOString()
+              };
+            } else {
+              updatedVisits.push({
+                id: orderData.visit_id || crypto.randomUUID(),
+                retailer_id: orderData.retailer_id,
+                user_id: orderData.user_id,
+                status: 'productive',
+                planned_date: orderDate,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              });
+            }
+            
             // Recalculate progress stats
             const productiveCount = updatedRetailers.filter((r: any) => r.visitStatus === 'productive').length;
             const unproductiveCount = updatedRetailers.filter((r: any) => r.visitStatus === 'unproductive').length;
@@ -115,6 +138,7 @@ export async function submitOrderWithOfflineSupport(
               ...existingSnapshot,
               orders: updatedOrders,
               retailers: updatedRetailers,
+              visits: updatedVisits,
               progressStats: {
                 ...existingSnapshot.progressStats,
                 productive: productiveCount,
@@ -223,15 +247,38 @@ export async function submitOrderWithOfflineSupport(
           return r;
         });
         
+        // Update visits array in snapshot
+        const existingVisitIndex = existingSnapshot.visits.findIndex(
+          (v: any) => v.retailer_id === orderData.retailer_id
+        );
+        let updatedVisits = [...existingSnapshot.visits];
+        if (existingVisitIndex >= 0) {
+          updatedVisits[existingVisitIndex] = {
+            ...updatedVisits[existingVisitIndex],
+            status: 'productive',
+            updated_at: new Date().toISOString()
+          };
+        } else {
+          updatedVisits.push({
+            id: orderData.visit_id || orderId,
+            retailer_id: orderData.retailer_id,
+            user_id: orderData.user_id,
+            status: 'productive',
+            planned_date: orderDate,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        }
+        
         // Recalculate progress stats
         const productiveCount = updatedRetailers.filter((r: any) => r.visitStatus === 'productive').length;
         const unproductiveCount = updatedRetailers.filter((r: any) => r.visitStatus === 'unproductive').length;
-        const plannedCount = existingSnapshot.progressStats.planned;
         
         await saveMyVisitsSnapshot(orderData.user_id, orderDate, {
           ...existingSnapshot,
           orders: updatedOrders,
           retailers: updatedRetailers,
+          visits: updatedVisits,
           progressStats: {
             ...existingSnapshot.progressStats,
             productive: productiveCount,

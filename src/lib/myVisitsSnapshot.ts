@@ -95,6 +95,75 @@ export const loadMyVisitsSnapshot = async (
   }
 };
 
+// Update a specific visit's status in the snapshot (for real-time cache updates)
+export const updateVisitStatusInSnapshot = async (
+  userId: string,
+  date: string,
+  retailerId: string,
+  newStatus: 'productive' | 'unproductive' | 'planned',
+  noOrderReason?: string
+): Promise<void> => {
+  try {
+    const snapshot = await loadMyVisitsSnapshot(userId, date);
+    if (!snapshot) {
+      console.log('📸 [SNAPSHOT] No snapshot to update for', date);
+      return;
+    }
+
+    // Find and update the visit in the snapshot
+    const existingVisitIndex = snapshot.visits.findIndex(
+      (v: any) => v.retailer_id === retailerId
+    );
+
+    if (existingVisitIndex >= 0) {
+      snapshot.visits[existingVisitIndex] = {
+        ...snapshot.visits[existingVisitIndex],
+        status: newStatus,
+        no_order_reason: noOrderReason || null,
+        updated_at: new Date().toISOString()
+      };
+    } else {
+      // Add a new visit entry if it doesn't exist
+      snapshot.visits.push({
+        id: `visit-${retailerId}-${Date.now()}`,
+        retailer_id: retailerId,
+        user_id: userId,
+        status: newStatus,
+        no_order_reason: noOrderReason || null,
+        planned_date: date,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+    }
+
+    // Update progress stats
+    if (newStatus === 'unproductive') {
+      // Move from planned to unproductive
+      if (snapshot.progressStats.planned > 0) {
+        snapshot.progressStats.planned -= 1;
+      }
+      snapshot.progressStats.unproductive += 1;
+    } else if (newStatus === 'productive') {
+      // Move from planned to productive
+      if (snapshot.progressStats.planned > 0) {
+        snapshot.progressStats.planned -= 1;
+      }
+      snapshot.progressStats.productive += 1;
+    }
+
+    // Save updated snapshot
+    const key = getSnapshotKey(userId, date);
+    await Preferences.set({
+      key,
+      value: JSON.stringify({ ...snapshot, timestamp: Date.now() })
+    });
+
+    console.log('📸 [SNAPSHOT] Updated visit status in snapshot:', retailerId, '->', newStatus);
+  } catch (error) {
+    console.error('[SNAPSHOT] Failed to update visit status:', error);
+  }
+};
+
 // Clear old snapshots (keep only last 7 days)
 export const cleanupOldSnapshots = async (userId: string): Promise<void> => {
   try {
