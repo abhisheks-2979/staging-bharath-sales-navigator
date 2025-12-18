@@ -14,9 +14,13 @@ if (!root) {
   throw new Error('Root element not found');
 }
 
-// Render app immediately
+// Render app with StrictMode for better error detection
 console.log('🎨 Rendering app...');
-createRoot(root).render(<App />);
+createRoot(root).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
 console.log('✅ App rendered successfully');
 
 // Initialize background services after render
