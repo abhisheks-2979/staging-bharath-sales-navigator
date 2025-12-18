@@ -348,7 +348,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           }
         });
 
-        // STEP 1: Save to offline storage FIRST (Network → Storage)
+        // STEP 1: Get OLD cache BEFORE any updates (for comparison)
+        const oldCache = cacheRef.current.get(date);
+        
+        // STEP 2: Save to offline storage (Network → Storage)
         await Promise.all([
           offlineStorage.mergeData(STORES.BEAT_PLANS, mergedBeatPlans),
           offlineStorage.mergeData(STORES.VISITS, mergedVisits),
@@ -356,17 +359,16 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           offlineStorage.mergeData(STORES.ORDERS, mergedOrders)
         ]);
 
-        // STEP 2: Update in-memory cache
-        const cacheData = {
+        // STEP 3: Prepare new cache data
+        const newCacheData = {
           beatPlans: mergedBeatPlans,
           visits: mergedVisits,
           retailers: retailersData,
           orders: mergedOrders,
           points: { total: totalPoints, byRetailer: Array.from(retailerPointsMap.entries()) }
         };
-        cacheRef.current.set(date, cacheData);
 
-        // STEP 3: Save snapshot for persistence
+        // STEP 4: Save snapshot for persistence
         await saveMyVisitsSnapshot(uid, date, {
           beatPlans: mergedBeatPlans,
           visits: mergedVisits,
@@ -376,25 +378,30 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           currentBeatName: mergedBeatPlans.map(p => p.beat_name).join(', ')
         });
 
-        // STEP 4: Update UI ONLY if data actually changed (prevents unnecessary re-renders)
+        // STEP 5: Compare OLD cache with NEW data, then update UI only if changed
         if (mountedRef.current && lastDateRef.current === date) {
-          const currentCache = cacheRef.current.get(date);
-          const shouldUpdateBeatPlans = !currentCache || hasDataChanged(currentCache.beatPlans || [], cacheData.beatPlans);
-          const shouldUpdateVisits = !currentCache || hasDataChanged(currentCache.visits || [], cacheData.visits);
-          const shouldUpdateRetailers = !currentCache || hasDataChanged(currentCache.retailers || [], cacheData.retailers);
-          const shouldUpdateOrders = !currentCache || hasDataChanged(currentCache.orders || [], cacheData.orders);
+          const beatPlansChanged = !oldCache || hasDataChanged(oldCache.beatPlans || [], newCacheData.beatPlans);
+          const visitsChanged = !oldCache || hasDataChanged(oldCache.visits || [], newCacheData.visits);
+          const retailersChanged = !oldCache || hasDataChanged(oldCache.retailers || [], newCacheData.retailers);
+          const ordersChanged = !oldCache || hasDataChanged(oldCache.orders || [], newCacheData.orders);
           
-          if (shouldUpdateBeatPlans || shouldUpdateVisits || shouldUpdateRetailers || shouldUpdateOrders) {
-            console.log('[DeltaSync] Data changed - updating UI');
+          // Always update cache
+          cacheRef.current.set(date, newCacheData);
+          
+          if (beatPlansChanged || visitsChanged || retailersChanged || ordersChanged) {
+            console.log('[DeltaSync] Data changed - updating UI:', { beatPlansChanged, visitsChanged, retailersChanged, ordersChanged });
             lastUIUpdateRef.current = Date.now();
-            setBeatPlans(cacheData.beatPlans);
-            setVisits(cacheData.visits);
-            setRetailers(cacheData.retailers);
-            setOrders(cacheData.orders);
+            setBeatPlans(newCacheData.beatPlans);
+            setVisits(newCacheData.visits);
+            setRetailers(newCacheData.retailers);
+            setOrders(newCacheData.orders);
             setPointsData({ total: totalPoints, byRetailer: retailerPointsMap });
           } else {
             console.log('[DeltaSync] No changes detected - skipping UI update');
           }
+        } else {
+          // Still update cache even if not updating UI
+          cacheRef.current.set(date, newCacheData);
         }
       }
 
