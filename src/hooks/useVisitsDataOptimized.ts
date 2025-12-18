@@ -404,23 +404,59 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     return () => { mountedRef.current = false; };
   }, [loadData]);
 
-  // Listen for events
+  // Listen for events - UPDATE LOCAL STATE DIRECTLY without network reload
   useEffect(() => {
-    const handleChange = () => invalidateData();
-    const handleSync = () => {
-      if (isToday(selectedDate)) invalidateData();
+    const handleStatusChange = (event: CustomEvent) => {
+      const { visitId, status, retailerId } = event.detail || {};
+      if (!visitId && !retailerId) return;
+      
+      // Update visits state directly from event data - NO NETWORK CALL
+      setVisits(prev => {
+        const updated = prev.map(v => {
+          if ((visitId && v.id === visitId) || (retailerId && v.retailer_id === retailerId)) {
+            return { ...v, status: status || v.status };
+          }
+          return v;
+        });
+        
+        // Update in-memory cache with new data
+        const cached = cacheRef.current.get(selectedDate);
+        if (cached) {
+          cacheRef.current.set(selectedDate, { ...cached, visits: updated });
+        }
+        
+        return updated;
+      });
     };
 
-    window.addEventListener('visitStatusChanged', handleChange);
-    window.addEventListener('visitDataChanged', handleChange);
+    const handleDataChange = () => {
+      // Only reload from cache, not network
+      const cached = cacheRef.current.get(selectedDate);
+      if (cached) {
+        setBeatPlans(cached.beatPlans || []);
+        setVisits(cached.visits || []);
+        setRetailers(cached.retailers || []);
+        setOrders(cached.orders || []);
+      }
+    };
+
+    const handleSync = () => {
+      // After sync, do a silent background refresh only for today
+      if (isToday(selectedDate) && navigator.onLine) {
+        setTimeout(() => syncFromNetwork(userId!, selectedDate, false), 500);
+      }
+    };
+
+    window.addEventListener('visitStatusChanged', handleStatusChange as EventListener);
+    window.addEventListener('visitDataChanged', handleDataChange);
     window.addEventListener('syncComplete', handleSync);
 
     return () => {
-      window.removeEventListener('visitStatusChanged', handleChange);
-      window.removeEventListener('visitDataChanged', handleChange);
+      window.removeEventListener('visitStatusChanged', handleStatusChange as EventListener);
+      window.removeEventListener('visitDataChanged', handleDataChange);
       window.removeEventListener('syncComplete', handleSync);
     };
-  }, [invalidateData, selectedDate, isToday]);
+  }, [selectedDate, isToday, userId, syncFromNetwork]);
 
   return {
     beatPlans,
