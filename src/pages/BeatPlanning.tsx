@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MapPin, Users, CheckCircle, Save, ArrowLeft, Plus, Calendar as CalendarIcon, Search, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { SearchInput } from "@/components/SearchInput";
 import { format, isAfter, startOfDay, startOfWeek, addDays, isSameDay, addWeeks, subWeeks } from "date-fns";
 import { cn } from "@/lib/utils";
+import { offlineStorage, STORES } from "@/lib/offlineStorage";
 
 interface Beat {
   id: string; // beat_id
@@ -61,8 +62,58 @@ export const BeatPlanning = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [beats, setBeats] = useState<Beat[]>([]);
+  const hasLoadedFromCacheRef = useRef(false);
 
-  const loadBeats = async () => {
+  // CACHE-FIRST: Load beats from local cache instantly, then sync from network
+  const loadBeatsFromCache = async () => {
+    if (!user) return;
+    
+    try {
+      // INSTANT: Load from cache first
+      const cachedBeats = await offlineStorage.getAll<any>(STORES.BEATS);
+      const cachedRetailers = await offlineStorage.getAll<any>(STORES.RETAILERS);
+      
+      const userBeats = cachedBeats.filter((b: any) => 
+        b.is_active !== false && b.created_by === user.id
+      );
+      
+      const userRetailers = cachedRetailers.filter((r: any) => r.user_id === user.id);
+      
+      if (userBeats.length > 0) {
+        // Count retailers per beat
+        const retailerCountMap = new Map<string, { count: number; priority: 'high' | 'medium' | 'low' }>();
+        userRetailers.forEach((r: any) => {
+          const beatId = r.beat_id;
+          if (!beatId || beatId === 'unassigned') return;
+          const current = retailerCountMap.get(beatId) || { count: 0, priority: 'medium' };
+          const pr = (r.priority as string | null)?.toLowerCase() as 'high' | 'medium' | 'low' | undefined;
+          const priority = pr === 'high' ? 'high' : pr === 'low' ? (current.priority === 'high' ? 'high' : 'low') : current.priority;
+          retailerCountMap.set(beatId, { count: current.count + 1, priority });
+        });
+        
+        const beatsArr: Beat[] = userBeats.map((beat: any) => {
+          const retailerInfo = retailerCountMap.get(beat.beat_id) || { count: 0, priority: 'medium' };
+          return {
+            id: beat.beat_id,
+            name: beat.beat_name,
+            retailerCount: retailerInfo.count,
+            category: beat.category || 'all',
+            priority: retailerInfo.priority,
+            lastVisited: undefined,
+          };
+        });
+        
+        setBeats(beatsArr);
+        hasLoadedFromCacheRef.current = true;
+        console.log('[BeatPlanning] ⚡ Loaded', beatsArr.length, 'beats from cache instantly');
+      }
+    } catch (e) {
+      console.error('[BeatPlanning] Cache load error:', e);
+    }
+  };
+
+  // BACKGROUND: Load beats from network and update if different
+  const loadBeatsFromNetwork = async () => {
     if (!user) return;
     try {
       // Get user's own beats
@@ -125,10 +176,14 @@ export const BeatPlanning = () => {
         };
       });
       
-      // Show all beats, including those with 0 retailers (for new users)
-      setBeats(beatsArr);
+      // Only update if we have data (avoid clearing cache data with empty network result)
+      if (beatsArr.length > 0 || !hasLoadedFromCacheRef.current) {
+        setBeats(beatsArr);
+        console.log('[BeatPlanning] 🌐 Updated', beatsArr.length, 'beats from network');
+      }
     } catch (e) {
-      console.error('Error loading beats', e);
+      console.error('[BeatPlanning] Network error loading beats:', e);
+      // Don't clear beats on error - keep cached data
     }
   };
 
@@ -146,12 +201,22 @@ export const BeatPlanning = () => {
     setWeekDays(getWeekDays(selectedWeek));
   }, [selectedWeek]);
 
-  // Load existing beat plans when component mounts or selected date changes
+  // Load beats from cache IMMEDIATELY on mount
+  useEffect(() => {
+    if (user) {
+      loadBeatsFromCache();
+    }
+  }, [user]);
+
+  // Load existing beat plans and sync beats from network when date changes
   useEffect(() => {
     if (user && selectedDate) {
       const dateString = selectedDate.toISOString().split('T')[0];
       loadBeatPlans(dateString);
-      loadBeats();
+      // Background network sync (non-blocking)
+      if (navigator.onLine) {
+        loadBeatsFromNetwork();
+      }
     }
   }, [user, selectedDate]);
 
