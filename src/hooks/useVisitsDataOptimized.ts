@@ -202,11 +202,6 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       const todayBeatIds = filteredBeatPlans.map(bp => bp.beat_id);
       const visitRetailerIds = new Set(filteredVisits.map(v => v.retailer_id));
       
-      // FIX: Get ALL user's beat IDs (not just today's) to find newly added retailers
-      const allUserBeatIds = cachedBeats
-        .filter((b: any) => b.created_by === uid || b.user_id === uid)
-        .map((b: any) => b.beat_id);
-      
       // Get explicit retailer IDs from beat_data
       const explicitRetailerIds: string[] = [];
       for (const bp of filteredBeatPlans) {
@@ -216,18 +211,17 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         }
       }
       
-      // FIX: Less restrictive filter - include retailers from:
-      // 1. Today's beat plans (todayBeatIds)
-      // 2. ANY user beat (for newly added offline retailers)
-      // 3. Visits for today
-      // 4. Explicit retailer IDs in beat_data
+      // FIX: STRICT filter - only include retailers from:
+      // 1. Today's beat plans (todayBeatIds) - primary filter
+      // 2. Visits for today (visitRetailerIds)
+      // 3. Explicit retailer IDs in beat_data
+      // 4. Offline-created retailers ONLY if their beat_id matches today's beats
       const filteredRetailers = cachedRetailers.filter(r => 
         r.user_id === uid && (
-          todayBeatIds.includes(r.beat_id) ||      // Today's beat plans
-          allUserBeatIds.includes(r.beat_id) ||    // ANY user beat
-          visitRetailerIds.has(r.id) ||            // Has visit today
-          explicitRetailerIds.includes(r.id) ||    // Explicit in beat_data
-          r.id?.startsWith('offline_')             // Offline-created retailer
+          todayBeatIds.includes(r.beat_id) ||                              // Today's beat plans
+          visitRetailerIds.has(r.id) ||                                    // Has visit today
+          explicitRetailerIds.includes(r.id) ||                            // Explicit in beat_data
+          (r.id?.startsWith('offline_') && todayBeatIds.includes(r.beat_id)) // Offline + today's beat
         )
       );
       
@@ -242,8 +236,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         visits: filteredVisits.length,
         retailers: filteredRetailers.length,
         orders: filteredOrders.length,
-        todayBeatIds: todayBeatIds.length,
-        allUserBeatIds: allUserBeatIds.length
+        todayBeatIds
       });
 
       return {
@@ -381,11 +374,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       const allRetailerIds = [...new Set([...visitRetailerIds, ...orderRetailerIds, ...explicitRetailerIds])];
 
       // Fetch retailers by beat_id AND by explicit IDs
+      // FIX: Start fresh - don't keep old retailers from other beats/dates
       const retailerMap = new Map<string, any>();
       
-      // Keep existing retailers in cache
+      // Only keep offline-created retailers that match today's beats
       for (const r of currentCache.retailers) {
-        retailerMap.set(r.id, r);
+        if (r.id?.startsWith('offline_') && beatIds.includes(r.beat_id)) {
+          retailerMap.set(r.id, r);
+        }
       }
       
       if (beatIds.length > 0) {
