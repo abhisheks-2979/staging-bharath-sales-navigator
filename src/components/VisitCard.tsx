@@ -365,8 +365,70 @@ export const VisitCard = ({
     
     if (!currentUserId) return;
     
-    // ALWAYS fetch pending amount first - this is retailer-specific data independent of visit status caching
-    // This ensures pending payment tag is always displayed regardless of cache state
+    // OFFLINE GUARD: When offline, use ONLY cached data - NO network calls
+    if (!navigator.onLine) {
+      console.log('📵 [VisitCard] OFFLINE - using cache only for:', visitRetailerId);
+      const cachedStatus = await visitStatusCache.get(visitRetailerId, currentUserId, targetDate);
+      if (cachedStatus) {
+        if (currentStatus !== cachedStatus.status) {
+          setCurrentStatus(cachedStatus.status);
+        }
+        if (currentVisitId !== cachedStatus.visitId) {
+          setCurrentVisitId(cachedStatus.visitId);
+        }
+        if (!statusLoadedFromDB) {
+          setStatusLoadedFromDB(true);
+        }
+        lastFetchedStatusRef.current = cachedStatus.status;
+        if (cachedStatus.orderValue && actualOrderValue !== cachedStatus.orderValue) {
+          setActualOrderValue(cachedStatus.orderValue);
+          setHasOrderToday(true);
+        }
+        if (cachedStatus.noOrderReason && noOrderReason !== cachedStatus.noOrderReason) {
+          setIsNoOrderMarked(true);
+          setNoOrderReason(cachedStatus.noOrderReason);
+        }
+        if ((cachedStatus.status === 'productive' || cachedStatus.status === 'unproductive') && phase !== 'completed') {
+          setPhase('completed');
+          setIsCheckedOut(true);
+        }
+      }
+      // Also check offline storage for visits
+      try {
+        const cachedVisits = await offlineStorage.getAll(STORES.VISITS);
+        const possibleRetailerIds = [visit.retailerId, visit.id].filter(Boolean);
+        const matchingVisits = (cachedVisits as any[])?.filter((v: any) => 
+          possibleRetailerIds.includes(v.retailer_id) && 
+          v.user_id === currentUserId && 
+          v.planned_date === targetDate
+        ).sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        
+        const cachedVisit = matchingVisits?.[0];
+        if (cachedVisit) {
+          console.log('📦 [VisitCard] OFFLINE - using cached visit:', cachedVisit.status);
+          setCurrentVisitId(cachedVisit.id);
+          if (cachedVisit.status) {
+            const validStatus = cachedVisit.status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
+            setCurrentStatus(validStatus);
+            setStatusLoadedFromDB(true);
+            if (validStatus === 'unproductive' || validStatus === 'productive') {
+              setPhase('completed');
+              setIsCheckedOut(true);
+            }
+          }
+          if (cachedVisit.no_order_reason) {
+            setIsNoOrderMarked(true);
+            setNoOrderReason(cachedVisit.no_order_reason);
+          }
+        }
+      } catch (e) {
+        console.log('Cache check error:', e);
+      }
+      retailerStatusRegistry.markInitialCheckDone(visitRetailerId);
+      return; // EXIT EARLY - no network calls when offline
+    }
+    
+    // ONLINE: Fetch pending amount - this is retailer-specific data independent of visit status caching
     try {
       const { data: retailerPendingData, error: pendingError } = await supabase
         .from('retailers')
@@ -809,10 +871,15 @@ export const VisitCard = ({
     };
   }, [myRetailerId, skipInitialCheck]); // Removed checkStatus and visit.status from deps to prevent re-running
 
-  // ALWAYS fetch pending amount for retailer - independent of visit status caching
-  // This ensures pending payment tag is always displayed regardless of skipInitialCheck or cache state
+  // Fetch pending amount for retailer - ONLY when online
   useEffect(() => {
     const fetchPendingAmount = async () => {
+      // OFFLINE GUARD: Skip network calls when offline - use existing cached state
+      if (!navigator.onLine) {
+        console.log('📵 [VisitCard] OFFLINE - skipping pending amount fetch');
+        return;
+      }
+      
       const visitRetailerId = visit.retailerId || visit.id;
       
       try {
@@ -843,22 +910,30 @@ export const VisitCard = ({
               setPendingSinceDate(oldestOrder.order_date);
             }
           }
-        } else if (!pendingError && !retailerPendingData?.pending_amount && pendingAmount !== 0) {
-          // Reset pending amount if no longer pending
+        } else if (!pendingError && !retailerPendingData?.pending_amount) {
+          // Only reset if we got a successful response with no pending
+          // Don't reset on error to preserve cached data
           setPendingAmount(0);
           setPendingSinceDate(null);
         }
       } catch (err) {
-        console.error('Error fetching pending amount:', err);
+        // Network error - keep existing state, don't reset
+        console.log('📵 [VisitCard] Network error fetching pending - keeping cached state');
       }
     };
     
     fetchPendingAmount();
   }, [myRetailerId]); // Only depend on retailerId, run once per retailer
 
-  // Check for existing feedback data to show tick marks
+  // Check for existing feedback data to show tick marks - ONLY when online
   useEffect(() => {
     const checkFeedbackExists = async () => {
+      // OFFLINE GUARD: Skip network calls when offline - use existing state
+      if (!navigator.onLine) {
+        console.log('📵 [VisitCard] OFFLINE - skipping feedback check');
+        return;
+      }
+      
       const visitRetailerId = visit.retailerId || visit.id;
       const targetDate = selectedDate || new Date().toISOString().split('T')[0];
       
@@ -908,7 +983,8 @@ export const VisitCard = ({
           .maybeSingle();
         setHasJointSalesFeedback(!!jointFeedback);
       } catch (err) {
-        console.error('Error checking feedback existence:', err);
+        // Network error - keep existing state
+        console.log('📵 [VisitCard] Network error checking feedback - keeping cached state');
       }
     };
     
