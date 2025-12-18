@@ -18,6 +18,38 @@ export async function submitOrderWithOfflineSupport(
     connectivityStatus?: 'online' | 'offline' | 'unknown';
   } = {}
 ) {
+  // CRITICAL: Update visit status cache IMMEDIATELY for instant UI feedback
+  // This ensures the VisitCard shows "Productive" right away, even on slow internet
+  const orderDate = orderData.order_date || new Date().toISOString().split('T')[0];
+  const orderValue = orderData.total_amount || orderItems.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+  
+  if (orderData.retailer_id && orderData.user_id) {
+    console.log('⚡ [ORDER] Immediate cache update for instant UI feedback:', {
+      retailerId: orderData.retailer_id,
+      date: orderDate,
+      orderValue
+    });
+    
+    await visitStatusCache.set(
+      orderData.visit_id || crypto.randomUUID(),
+      orderData.retailer_id,
+      orderData.user_id,
+      orderDate,
+      'productive',
+      orderValue
+    );
+    
+    // Dispatch event immediately for instant UI update
+    window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+      detail: {
+        visitId: orderData.visit_id,
+        status: 'productive',
+        retailerId: orderData.retailer_id,
+        orderValue
+      }
+    }));
+  }
+
   // Double-check connectivity: use both provided status and navigator.onLine
   const connectivityCheck = options.connectivityStatus !== 'offline' && navigator.onLine;
   
@@ -175,7 +207,7 @@ export async function submitOrderWithOfflineSupport(
   options.onOffline?.();
   
   // Update My Visits snapshot with the new offline order so it shows when app reopens
-  const orderDate = offlineOrder.order_date || new Date().toISOString().split('T')[0];
+  // Note: orderDate already defined at top of function
   if (orderData.user_id) {
     try {
       const existingSnapshot = await loadMyVisitsSnapshot(orderData.user_id, orderDate);

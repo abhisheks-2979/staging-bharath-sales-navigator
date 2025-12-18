@@ -3,6 +3,7 @@ import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { supabase } from '@/integrations/supabase/client';
 import { useConnectivity } from './useConnectivity';
 import { toast } from './use-toast';
+import { visitStatusCache } from '@/lib/visitStatusCache';
 
 /**
  * Comprehensive offline order entry hook
@@ -188,6 +189,23 @@ export function useOfflineOrderComplete() {
    */
   const submitOrder = useCallback(async (orderData: any, orderItems: any[]) => {
     try {
+      // CRITICAL: Update visit status cache IMMEDIATELY for instant UI feedback
+      // This ensures the VisitCard shows "Productive" right away, even on slow internet
+      const orderDate = orderData.order_date || new Date().toISOString().split('T')[0];
+      const orderValue = orderData.total_amount || orderItems.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+      
+      if (orderData.retailer_id && orderData.user_id) {
+        console.log('⚡ [ORDER] Immediate cache update for instant UI feedback');
+        await visitStatusCache.set(
+          orderData.visit_id || crypto.randomUUID(),
+          orderData.retailer_id,
+          orderData.user_id,
+          orderDate,
+          'productive',
+          orderValue
+        );
+      }
+
       if (isOnline) {
         // Online: Submit directly to Supabase
         const { data: order, error: orderError } = await supabase
