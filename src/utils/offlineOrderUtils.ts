@@ -54,9 +54,49 @@ export async function submitOrderWithOfflineSupport(
         return order;
       })();
       
-      const order = await Promise.race([submitPromise, timeoutPromise]);
+      const order = await Promise.race([submitPromise, timeoutPromise]) as any;
 
       options.onOnline?.();
+      
+      // Update My Visits snapshot with the new online order so it shows when app reopens
+      const orderDate = orderData.order_date || new Date().toISOString().split('T')[0];
+      if (orderData.user_id) {
+        try {
+          const existingSnapshot = await loadMyVisitsSnapshot(orderData.user_id, orderDate);
+          if (existingSnapshot) {
+            // Add the new order to snapshot
+            const updatedOrders = [...existingSnapshot.orders, { ...order, items: orderItems }];
+            
+            // Update retailer status in snapshot
+            const updatedRetailers = existingSnapshot.retailers.map((r: any) => {
+              if (r.retailer_id === orderData.retailer_id || r.id === orderData.retailer_id) {
+                return { ...r, visitStatus: 'productive', orderValue: order.total_amount };
+              }
+              return r;
+            });
+            
+            // Recalculate progress stats
+            const productiveCount = updatedRetailers.filter((r: any) => r.visitStatus === 'productive').length;
+            const unproductiveCount = updatedRetailers.filter((r: any) => r.visitStatus === 'unproductive').length;
+            
+            await saveMyVisitsSnapshot(orderData.user_id, orderDate, {
+              ...existingSnapshot,
+              orders: updatedOrders,
+              retailers: updatedRetailers,
+              progressStats: {
+                ...existingSnapshot.progressStats,
+                productive: productiveCount,
+                unproductive: unproductiveCount,
+                totalOrders: updatedOrders.length,
+                totalOrderValue: updatedOrders.reduce((sum: number, o: any) => sum + (Number(o.total_amount) || 0), 0)
+              }
+            });
+            console.log('📸 [ORDER] Updated My Visits snapshot with online order');
+          }
+        } catch (snapshotError) {
+          console.warn('[ORDER] Could not update snapshot:', snapshotError);
+        }
+      }
       
       // Trigger data refresh for Today's Progress
       console.log('✅ [ORDER] Online submission successful, triggering data refresh');

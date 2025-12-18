@@ -647,23 +647,25 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       // This ensures data shows instantly even after app restart on slow/no network
       try {
         const snapshot = await loadMyVisitsSnapshot(userId, selectedDate);
-        if (snapshot && snapshot.retailers.length > 0) {
-          console.log('📸 [SNAPSHOT] Loading from persistent snapshot for date:', selectedDate, 'retailers:', snapshot.retailers.length);
-          setBeatPlans(snapshot.beatPlans);
-          setVisits(snapshot.visits);
-          setRetailers(snapshot.retailers);
-          setOrders(snapshot.orders);
-          setProgressStats(snapshot.progressStats);
+        if (snapshot && (snapshot.retailers?.length > 0 || snapshot.beatPlans?.length > 0 || snapshot.visits?.length > 0)) {
+          console.log('📸 [SNAPSHOT] Loading from persistent snapshot for date:', selectedDate, 'retailers:', snapshot.retailers?.length || 0, 'beatPlans:', snapshot.beatPlans?.length || 0);
+          
+          // CRITICAL: Display snapshot immediately - this is the source of truth for slow/no network
+          setBeatPlans(snapshot.beatPlans || []);
+          setVisits(snapshot.visits || []);
+          setRetailers(snapshot.retailers || []);
+          setOrders(snapshot.orders || []);
+          setProgressStats(snapshot.progressStats || { planned: 0, productive: 0, unproductive: 0, totalOrders: 0, totalOrderValue: 0 });
           setIsLoading(false);
           lastLoadedDateRef.current = selectedDate;
           
           // Also populate in-memory cache for subsequent fast access
           dateDataCacheRef.current.set(selectedDate, {
-            beatPlans: snapshot.beatPlans,
-            visits: snapshot.visits,
-            retailers: snapshot.retailers,
-            orders: snapshot.orders,
-            progressStats: snapshot.progressStats,
+            beatPlans: snapshot.beatPlans || [],
+            visits: snapshot.visits || [],
+            retailers: snapshot.retailers || [],
+            orders: snapshot.orders || [],
+            progressStats: snapshot.progressStats || { planned: 0, productive: 0, unproductive: 0, totalOrders: 0, totalOrderValue: 0 },
             timestamp: snapshot.timestamp
           });
           
@@ -768,7 +770,15 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             isLoadingRef.current = false;
             return;
           }
-          // Continue to network sync in background
+          
+          // CRITICAL FIX: When online with snapshot, start background sync and RETURN
+          // Don't fall through to offlineStorage which may have stale data
+          if (navigator.onLine) {
+            console.log('🌐 [SNAPSHOT] Online - starting background sync, NOT falling through to offlineStorage');
+            backgroundNetworkSync(userId, selectedDate);
+            isLoadingRef.current = false;
+            return;
+          }
         }
       } catch (snapshotError) {
         console.log('Snapshot load failed (non-critical):', snapshotError);
