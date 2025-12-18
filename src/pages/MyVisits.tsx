@@ -151,11 +151,9 @@ export const MyVisits = () => {
   const [sortOrder, setSortOrder] = useState<'recent' | 'asc' | 'desc'>('recent');
   const [selectedWeek, setSelectedWeek] = useState(new Date()); // Current week start
   const [weekDays, setWeekDays] = useState(() => getWeekDays(new Date()));
-  const [plannedBeats, setPlannedBeats] = useState<any[]>([]);
-  const [retailers, setRetailers] = useState<any[]>([]);
+  // REMOVED: Double state for plannedBeats and retailers - now use optimized hook data directly via useMemo
   const [retailerStats, setRetailerStats] = useState<Map<string, any>>(new Map());
   const [plannedDates, setPlannedDates] = useState<Set<string>>(new Set());
-  const [currentBeatName, setCurrentBeatName] = useState("No beats planned");
   const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
   const [isCreateVisitModalOpen, setIsCreateVisitModalOpen] = useState(false);
   const [isOrdersDialogOpen, setIsOrdersDialogOpen] = useState(false);
@@ -174,16 +172,7 @@ export const MyVisits = () => {
   } = useAuth();
   const navigate = useNavigate();
 
-  // Get current beat ID for recommendations
-  const currentBeatId = plannedBeats.length > 0 ? plannedBeats[0].beat_id : undefined;
-
-  // AI Recommendations hooks
-  const {
-    recommendations: retailerPriorityRecs,
-    loading: retailerRecsLoading,
-    generateRecommendation: generateRetailerRecs,
-    provideFeedback: provideRetailerFeedback
-  } = useRecommendations('retailer_priority', currentBeatId);
+  // NOTE: AI Recommendations hooks moved below after plannedBeats is defined
   
   const { isLocationEnabled } = useLocationFeature();
 
@@ -238,6 +227,85 @@ export const MyVisits = () => {
     selectedDate,
   });
 
+  // DERIVED VALUES - using useMemo to prevent double state and unnecessary re-renders
+  const plannedBeats = useMemo(() => optimizedBeatPlans, [optimizedBeatPlans]);
+  
+  // Get current beat ID for recommendations - MUST be after plannedBeats is defined
+  const currentBeatId = plannedBeats.length > 0 ? plannedBeats[0].beat_id : undefined;
+  
+  // AI Recommendations hooks - placed here after plannedBeats is defined
+  const {
+    recommendations: retailerPriorityRecs,
+    loading: retailerRecsLoading,
+    generateRecommendation: generateRetailerRecs,
+    provideFeedback: provideRetailerFeedback
+  } = useRecommendations('retailer_priority', currentBeatId);
+  
+  const currentBeatName = useMemo(() => {
+    if (optimizedBeatPlans.length > 0) {
+      return optimizedBeatPlans.map(plan => plan.beat_name).join(', ');
+    }
+    return "No beats planned";
+  }, [optimizedBeatPlans]);
+  
+  // Process retailers from optimized data - single source of truth
+  const retailers = useMemo(() => {
+    if (optimizedRetailers.length === 0) return [];
+    
+    return optimizedRetailers.map(retailer => {
+      // Get the BEST visit for this retailer (handles duplicates)
+      const retailerVisits = optimizedVisits.filter(v => v.retailer_id === retailer.id);
+      const getVisitTime = (v: any) => new Date(v.updated_at || v.created_at || 0).getTime();
+      const bestByTime = (arr: any[]) => arr.reduce((latest, cur) => (getVisitTime(cur) > getVisitTime(latest) ? cur : latest));
+
+      const visit = retailerVisits.length > 0 ? (() => {
+        const productiveVisits = retailerVisits.filter(v => v.status === 'productive');
+        if (productiveVisits.length > 0) return bestByTime(productiveVisits);
+
+        const unproductiveVisits = retailerVisits.filter(v => v.status === 'unproductive' || !!v.no_order_reason);
+        if (unproductiveVisits.length > 0) return bestByTime(unproductiveVisits);
+
+        return bestByTime(retailerVisits);
+      })() : null;
+      
+      const orders = optimizedOrders.filter(o => o.retailer_id === retailer.id);
+      const totalOrderValue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+      const hasOrder = orders.length > 0;
+      
+      // Status priority: hasOrder (productive) > actual visit.status > planned
+      let status: 'planned' | 'in-progress' | 'productive' | 'unproductive' | 'store-closed' | 'cancelled';
+      if (hasOrder) {
+        status = 'productive';
+      } else if (visit?.status) {
+        status = visit.status as typeof status;
+      } else {
+        status = 'planned';
+      }
+      
+      return {
+        id: retailer.id,
+        retailerId: retailer.id,
+        retailerName: retailer.name || '',
+        address: retailer.address || '',
+        phone: retailer.phone || '',
+        retailerCategory: retailer.category || '',
+        status,
+        visitType: 'Regular Visit',
+        createdAt: retailer.created_at || undefined,
+        visitId: visit?.id,
+        hasOrder,
+        orderValue: totalOrderValue,
+        visitStatus: visit?.status,
+        noOrderReason: visit?.no_order_reason,
+        distributor: retailer.parent_name,
+        priority: retailer.potential,
+        retailerLat: retailer.latitude != null ? Number(retailer.latitude) : undefined,
+        retailerLng: retailer.longitude != null ? Number(retailer.longitude) : undefined,
+        pendingAmount: retailer.pending_amount || 0, // Include pending_amount from hook
+      };
+    });
+  }, [optimizedRetailers, optimizedVisits, optimizedOrders]);
+
   // REMOVED: Don't clear retailers/beats on date change - causes flickering
   // The smart update in useVisitsDataOptimized handles this now
   // Data will update only when there's actual new data
@@ -269,26 +337,8 @@ export const MyVisits = () => {
     }
   }, [pointsData]);
 
-  // Update local state when optimized data loads - smart update to prevent flicker
-  useEffect(() => {
-    if (optimizedBeatPlans.length > 0) {
-      // Only update if data actually changed
-      setPlannedBeats(prev => {
-        const prevIds = new Set(prev.map(p => p.id));
-        const newIds = new Set(optimizedBeatPlans.map(p => p.id));
-        if (prevIds.size === newIds.size && [...prevIds].every(id => newIds.has(id))) {
-          return prev; // No change
-        }
-        return optimizedBeatPlans;
-      });
-      const beatNames = optimizedBeatPlans.map(plan => plan.beat_name).join(', ');
-      setCurrentBeatName(prev => prev === beatNames ? prev : beatNames);
-    } else if (plannedBeats.length > 0) {
-      // Only reset if we had beats before and now don't
-      setPlannedBeats([]);
-      setCurrentBeatName("No beats planned");
-    }
-  }, [optimizedBeatPlans]);
+  // REMOVED: Old useEffect that synced to local state - now using useMemo for single source of truth
+  // The retailers, plannedBeats, and currentBeatName are now computed via useMemo above
 
   // Prefetch products in background after initial data loads for faster Order Entry
   useEffect(() => {
@@ -297,92 +347,6 @@ export const MyVisits = () => {
       schedulePrefetch(1000); // Prefetch after 1 second
     }
   }, [dataLoading, optimizedRetailers.length]);
-
-  // Track last processed data to prevent redundant updates
-  const lastProcessedRetailersRef = useRef<string>('');
-  
-  useEffect(() => {
-    // CRITICAL: When optimized retailers is empty, clear local state immediately
-    // This prevents showing stale retailers when switching to dates with no plans
-    if (optimizedRetailers.length === 0) {
-      if (retailers.length > 0) {
-        console.log('📊 [MyVisits] No retailers from hook, clearing local state');
-        setRetailers([]);
-        lastProcessedRetailersRef.current = '';
-      }
-      return;
-    }
-    
-    // Create a fingerprint of current data to detect changes
-    const fingerprint = optimizedRetailers.map(r => r.id).sort().join(',') + 
-      '|' + optimizedVisits.map(v => `${v.retailer_id}:${v.status}`).join(',') +
-      '|' + optimizedOrders.map(o => `${o.retailer_id}:${o.total_amount}`).join(',');
-    
-    // Skip if data hasn't changed
-    if (lastProcessedRetailersRef.current === fingerprint) {
-      console.log('📊 [MyVisits] Retailers data unchanged, skipping update');
-      return;
-    }
-    
-    lastProcessedRetailersRef.current = fingerprint;
-    
-    // Process own retailers
-    const processedRetailers = optimizedRetailers.map(retailer => {
-      // CRITICAL: Get the BEST visit for this retailer (handles duplicates)
-      // Priority: productive > unproductive(no-order) > latest-by-time
-      const retailerVisits = optimizedVisits.filter(v => v.retailer_id === retailer.id);
-      const getVisitTime = (v: any) => new Date(v.updated_at || v.created_at || 0).getTime();
-      const bestByTime = (arr: any[]) => arr.reduce((latest, cur) => (getVisitTime(cur) > getVisitTime(latest) ? cur : latest));
-
-      const visit = retailerVisits.length > 0 ? (() => {
-        const productiveVisits = retailerVisits.filter(v => v.status === 'productive');
-        if (productiveVisits.length > 0) return bestByTime(productiveVisits);
-
-        const unproductiveVisits = retailerVisits.filter(v => v.status === 'unproductive' || !!v.no_order_reason);
-        if (unproductiveVisits.length > 0) return bestByTime(unproductiveVisits);
-
-        return bestByTime(retailerVisits);
-      })() : null;
-      const orders = optimizedOrders.filter(o => o.retailer_id === retailer.id);
-      const totalOrderValue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
-      const hasOrder = orders.length > 0;
-      
-      // CRITICAL: Use the ACTUAL status from database
-      // Order of priority: hasOrder (productive) > actual visit.status > planned (only if no visit)
-      let status: 'planned' | 'in-progress' | 'productive' | 'unproductive' | 'store-closed' | 'cancelled';
-      if (hasOrder) {
-        status = 'productive';
-      } else if (visit?.status) {
-        status = visit.status as typeof status;
-      } else {
-        status = 'planned';
-      }
-      
-      return {
-        id: retailer.id,
-        retailerId: retailer.id,
-        retailerName: retailer.name || '',
-        address: retailer.address || '',
-        phone: retailer.phone || '',
-        retailerCategory: retailer.category || '',
-        status,
-        visitType: 'Regular Visit',
-        createdAt: retailer.created_at || undefined,
-        visitId: visit?.id,
-        hasOrder,
-        orderValue: totalOrderValue,
-        visitStatus: visit?.status,
-        noOrderReason: visit?.no_order_reason,
-        distributor: retailer.parent_name,
-        priority: retailer.potential,
-        retailerLat: retailer.latitude != null ? Number(retailer.latitude) : undefined,
-        retailerLng: retailer.longitude != null ? Number(retailer.longitude) : undefined,
-      };
-    });
-
-    setRetailers(processedRetailers);
-    console.log('📊 [MyVisits] Retailers processed and updated:', processedRetailers.length);
-  }, [optimizedRetailers, optimizedVisits, optimizedOrders, retailers.length]);
 
   // Initialize selected day to today
   useEffect(() => {
@@ -665,7 +629,7 @@ export const MyVisits = () => {
       }
 
       if (allRetailerIds.size === 0) {
-        setRetailers([]);
+        // NOTE: retailers is now derived via useMemo from optimized hook - no need to set state
         setRetailerStats(new Map());
         setInitialRetailerOrder([]);
         return;
@@ -859,7 +823,8 @@ export const MyVisits = () => {
           noOrderReason: visit?.no_order_reason
         };
       }).filter(Boolean);
-      setRetailers(transformedRetailers);
+      // NOTE: retailers is now derived via useMemo from optimized hook - legacy function no longer sets retailers
+      // If needed in future, call invalidateData() to trigger hook refresh
     } catch (error) {
       console.error('Error loading visits for date:', error);
     }
