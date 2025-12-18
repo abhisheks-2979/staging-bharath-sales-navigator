@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { offlineStorage, STORES } from '@/lib/offlineStorage';
+import { offlineStorage, STORES, MIN_SYNC_INTERVAL_MS } from '@/lib/offlineStorage';
 import { loadMyVisitsSnapshot, saveMyVisitsSnapshot } from '@/lib/myVisitsSnapshot';
 
 interface UseVisitsDataOptimizedProps {
@@ -70,16 +70,17 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   const [retailers, setRetailers] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [pointsData, setPointsData] = useState<PointsData>({ total: 0, byRetailer: new Map() });
-  const [isLoading, setIsLoading] = useState(true); // Start true to prevent flash of empty state
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false); // Track if we've ever loaded data
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [error, setError] = useState<any>(null);
 
   const lastDateRef = useRef<string>('');
   const cacheRef = useRef<Map<string, any>>(new Map());
   const isFetchingRef = useRef(false);
   const mountedRef = useRef(true);
+  const lastSyncTimeRef = useRef<Map<string, number>>(new Map()); // Track sync times in memory
 
-  // Memoized progress stats - recalculates only when data changes
+  // Memoized progress stats
   const progressStats = useMemo(() => 
     calculateStats(visits, orders, retailers),
     [visits, orders, retailers]
@@ -94,7 +95,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     return today.getTime() === check.getTime();
   }, []);
 
-  // Load from offline storage
+  // Check if should sync (time-based throttling)
+  const shouldSyncNow = useCallback((date: string): boolean => {
+    const lastSync = lastSyncTimeRef.current.get(date);
+    if (!lastSync) return true;
+    return (Date.now() - lastSync) >= MIN_SYNC_INTERVAL_MS;
+  }, []);
+
+  // Load from offline storage (ALWAYS returns local data)
   const loadFromOfflineStorage = useCallback(async (uid: string, date: string) => {
     try {
       const [cachedBeatPlans, cachedVisits, cachedRetailers, cachedOrders] = await Promise.all([
@@ -149,158 +157,223 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     }
   }, []);
 
-  // Background network sync - NEVER blocks UI, has timeout
-  const syncFromNetwork = useCallback(async (uid: string, date: string, updateLoadingState = false) => {
-    if (!navigator.onLine || !mountedRef.current) {
-      if (updateLoadingState) {
-        setIsLoading(false);
-        setHasLoadedOnce(true);
-      }
+  // Update local state and cache
+  const updateLocalState = useCallback((data: { 
+    beatPlans?: any[], 
+    visits?: any[], 
+    retailers?: any[], 
+    orders?: any[],
+    points?: { total: number, byRetailer: any[] }
+  }) => {
+    if (data.beatPlans !== undefined) setBeatPlans(data.beatPlans);
+    if (data.visits !== undefined) setVisits(data.visits);
+    if (data.retailers !== undefined) setRetailers(data.retailers);
+    if (data.orders !== undefined) setOrders(data.orders);
+    if (data.points) {
+      setPointsData({ 
+        total: data.points.total, 
+        byRetailer: new Map(data.points.byRetailer) 
+      });
+    }
+
+    // Update in-memory cache
+    const currentCache = cacheRef.current.get(selectedDate) || {};
+    cacheRef.current.set(selectedDate, {
+      ...currentCache,
+      ...data
+    });
+  }, [selectedDate]);
+
+  // DELTA SYNC: Only fetch changed records since last sync
+  const deltaSyncFromNetwork = useCallback(async (uid: string, date: string) => {
+    if (!navigator.onLine || !mountedRef.current) return;
+    if (!shouldSyncNow(date)) {
+      console.log('[DeltaSync] Skipping - synced recently');
       return;
     }
+
+    console.log('[DeltaSync] Starting delta sync for', date);
     
-    // 8-second timeout to prevent slow network blocking
+    // Get last sync timestamp
+    const lastSyncTimestamp = await offlineStorage.getLastSyncTimestamp('visits', uid, date);
+    
+    // 8-second timeout
     const timeoutPromise = new Promise((_, reject) => 
       setTimeout(() => reject(new Error('Network timeout')), 8000)
     );
-    
+
     try {
       const dateStart = new Date(date);
       dateStart.setHours(0, 0, 0, 0);
       const dateEnd = new Date(date);
       dateEnd.setHours(23, 59, 59, 999);
 
-      const fetchPromise = Promise.all([
-        supabase.from('beat_plans').select('*').eq('user_id', uid).eq('plan_date', date),
-        supabase.from('visits').select('*').eq('user_id', uid).eq('planned_date', date),
-        supabase.from('orders').select('*').eq('user_id', uid).eq('order_date', date).eq('status', 'confirmed'),
-        supabase.from('gamification_points')
-          .select('points, reference_id, reference_type, metadata')
-          .eq('user_id', uid)
-          .gte('earned_at', dateStart.toISOString())
-          .lte('earned_at', dateEnd.toISOString())
-      ]);
+      // Build queries - use delta if we have last sync time
+      let beatPlansQuery = supabase.from('beat_plans').select('*').eq('user_id', uid).eq('plan_date', date);
+      let visitsQuery = supabase.from('visits').select('*').eq('user_id', uid).eq('planned_date', date);
+      let ordersQuery = supabase.from('orders').select('*').eq('user_id', uid).eq('order_date', date).eq('status', 'confirmed');
+      let pointsQuery = supabase.from('gamification_points')
+        .select('points, reference_id, reference_type, metadata')
+        .eq('user_id', uid)
+        .gte('earned_at', dateStart.toISOString())
+        .lte('earned_at', dateEnd.toISOString());
 
+      // Apply delta filter if we have previous sync timestamp
+      if (lastSyncTimestamp) {
+        beatPlansQuery = beatPlansQuery.gt('updated_at', lastSyncTimestamp);
+        visitsQuery = visitsQuery.gt('updated_at', lastSyncTimestamp);
+        ordersQuery = ordersQuery.gt('updated_at', lastSyncTimestamp);
+      }
+
+      const fetchPromise = Promise.all([beatPlansQuery, visitsQuery, ordersQuery, pointsQuery]);
       const [bpRes, vRes, oRes, pRes] = await Promise.race([fetchPromise, timeoutPromise]) as any;
 
       if (bpRes.error || vRes.error || oRes.error) {
-        if (updateLoadingState) {
-          setIsLoading(false);
-          setHasLoadedOnce(true);
-        }
+        console.error('[DeltaSync] Query error:', bpRes.error || vRes.error || oRes.error);
         return;
       }
       if (!mountedRef.current) return;
 
-      const beatPlansData = bpRes.data || [];
-      const visitsData = vRes.data || [];
-      const ordersData = oRes.data || [];
+      const newBeatPlans = bpRes.data || [];
+      const newVisits = vRes.data || [];
+      const newOrders = oRes.data || [];
       const pointsRawData = pRes.data || [];
 
-      // Get retailer IDs
-      const beatIds = beatPlansData.map(bp => bp.beat_id);
-      const visitRetailerIds = visitsData.map(v => v.retailer_id);
-      const orderRetailerIds = ordersData.map(o => o.retailer_id);
+      // If we have delta data, merge with existing
+      const hasChanges = newBeatPlans.length > 0 || newVisits.length > 0 || newOrders.length > 0;
       
-      // Get explicit retailer IDs from beat_data
-      const explicitRetailerIds: string[] = [];
-      for (const bp of beatPlansData) {
-        const beatData = bp.beat_data as any;
-        if (beatData?.retailer_ids?.length > 0) {
-          explicitRetailerIds.push(...beatData.retailer_ids);
+      if (hasChanges || !lastSyncTimestamp) {
+        console.log(`[DeltaSync] Found changes: ${newBeatPlans.length} beat plans, ${newVisits.length} visits, ${newOrders.length} orders`);
+        
+        // Get current local data
+        const currentBeatPlans = [...beatPlans];
+        const currentVisits = [...visits];
+        const currentOrders = [...orders];
+
+        // Merge new data (upsert)
+        const mergeById = <T extends { id: string }>(existing: T[], newItems: T[]): T[] => {
+          const map = new Map(existing.map(item => [item.id, item]));
+          newItems.forEach(item => map.set(item.id, item));
+          return Array.from(map.values());
+        };
+
+        const mergedBeatPlans = lastSyncTimestamp ? mergeById(currentBeatPlans, newBeatPlans) : newBeatPlans;
+        const mergedVisits = lastSyncTimestamp ? mergeById(currentVisits, newVisits) : newVisits;
+        const mergedOrders = lastSyncTimestamp ? mergeById(currentOrders, newOrders) : newOrders;
+
+        // Get retailer IDs for fetching retailers
+        const beatIds = mergedBeatPlans.map(bp => bp.beat_id);
+        const visitRetailerIds = mergedVisits.map(v => v.retailer_id);
+        const orderRetailerIds = mergedOrders.map(o => o.retailer_id);
+        
+        const explicitRetailerIds: string[] = [];
+        for (const bp of mergedBeatPlans) {
+          const beatData = bp.beat_data as any;
+          if (beatData?.retailer_ids?.length > 0) {
+            explicitRetailerIds.push(...beatData.retailer_ids);
+          }
         }
+
+        let allRetailerIds = [...new Set([...visitRetailerIds, ...orderRetailerIds, ...explicitRetailerIds])];
+
+        if (beatIds.length > 0) {
+          const { data: beatRetailers } = await supabase
+            .from('retailers')
+            .select('id')
+            .eq('user_id', uid)
+            .in('beat_id', beatIds);
+          if (beatRetailers) {
+            allRetailerIds = [...new Set([...allRetailerIds, ...beatRetailers.map(r => r.id)])];
+          }
+        }
+
+        let retailersData: any[] = [];
+        if (allRetailerIds.length > 0) {
+          // Only fetch changed retailers if we have last sync
+          let retailerQuery = supabase.from('retailers').select('*').eq('user_id', uid).in('id', allRetailerIds);
+          if (lastSyncTimestamp) {
+            retailerQuery = retailerQuery.gt('updated_at', lastSyncTimestamp);
+          }
+          const { data } = await retailerQuery;
+          
+          if (lastSyncTimestamp && data) {
+            // Merge with existing retailers
+            retailersData = mergeById([...retailers], data);
+          } else {
+            retailersData = data || [];
+          }
+        } else {
+          retailersData = retailers;
+        }
+
+        if (!mountedRef.current || lastDateRef.current !== date) return;
+
+        // Calculate points
+        const totalPoints = pointsRawData.reduce((sum, item) => sum + item.points, 0);
+        const retailerPointsMap = new Map<string, { name: string; points: number; visitId: string | null }>();
+        const retailerNamesMap = new Map(retailersData.map(r => [r.id, r.name]));
+        
+        mergedVisits.forEach(visit => {
+          const retailerId = visit.retailer_id;
+          const retailerPoints = pointsRawData
+            .filter(p => p.reference_id === retailerId)
+            .reduce((sum, p) => sum + p.points, 0);
+          if (retailerPoints > 0) {
+            retailerPointsMap.set(retailerId, {
+              name: retailerNamesMap.get(retailerId) || 'Unknown',
+              points: retailerPoints,
+              visitId: visit.id
+            });
+          }
+        });
+
+        // Update state
+        setBeatPlans(mergedBeatPlans);
+        setVisits(mergedVisits);
+        setRetailers(retailersData);
+        setOrders(mergedOrders);
+        setPointsData({ total: totalPoints, byRetailer: retailerPointsMap });
+
+        // Update cache
+        const cacheData = {
+          beatPlans: mergedBeatPlans,
+          visits: mergedVisits,
+          retailers: retailersData,
+          orders: mergedOrders,
+          points: { total: totalPoints, byRetailer: Array.from(retailerPointsMap.entries()) }
+        };
+        cacheRef.current.set(date, cacheData);
+
+        // Save snapshot
+        saveMyVisitsSnapshot(uid, date, {
+          beatPlans: mergedBeatPlans,
+          visits: mergedVisits,
+          retailers: retailersData,
+          orders: mergedOrders,
+          progressStats: calculateStats(mergedVisits, mergedOrders, retailersData),
+          currentBeatName: mergedBeatPlans.map(p => p.beat_name).join(', ')
+        }).catch(() => {});
+
+        // Merge into offline storage (not replace)
+        Promise.all([
+          offlineStorage.mergeData(STORES.BEAT_PLANS, mergedBeatPlans),
+          offlineStorage.mergeData(STORES.VISITS, mergedVisits),
+          offlineStorage.mergeData(STORES.RETAILERS, retailersData),
+          offlineStorage.mergeData(STORES.ORDERS, mergedOrders)
+        ]).catch(() => {});
       }
 
-      let allRetailerIds = [...new Set([...visitRetailerIds, ...orderRetailerIds, ...explicitRetailerIds])];
-
-      if (beatIds.length > 0) {
-        const { data: beatRetailers } = await supabase
-          .from('retailers')
-          .select('id')
-          .eq('user_id', uid)
-          .in('beat_id', beatIds);
-        if (beatRetailers) {
-          allRetailerIds = [...new Set([...allRetailerIds, ...beatRetailers.map(r => r.id)])];
-        }
-      }
-
-      let retailersData: any[] = [];
-      if (allRetailerIds.length > 0) {
-        const { data } = await supabase
-          .from('retailers')
-          .select('*')
-          .eq('user_id', uid)
-          .in('id', allRetailerIds);
-        retailersData = data || [];
-      }
-
-      if (!mountedRef.current || lastDateRef.current !== date) return;
-
-      // Calculate points
-      const totalPoints = pointsRawData.reduce((sum, item) => sum + item.points, 0);
-      const retailerPointsMap = new Map<string, { name: string; points: number; visitId: string | null }>();
-      const retailerNamesMap = new Map(retailersData.map(r => [r.id, r.name]));
-      
-      visitsData.forEach(visit => {
-        const retailerId = visit.retailer_id;
-        const retailerPoints = pointsRawData
-          .filter(p => p.reference_id === retailerId)
-          .reduce((sum, p) => sum + p.points, 0);
-        if (retailerPoints > 0) {
-          retailerPointsMap.set(retailerId, {
-            name: retailerNamesMap.get(retailerId) || 'Unknown',
-            points: retailerPoints,
-            visitId: visit.id
-          });
-        }
-      });
-
-      // Update state
-      setBeatPlans(beatPlansData);
-      setVisits(visitsData);
-      setRetailers(retailersData);
-      setOrders(ordersData);
-      setPointsData({ total: totalPoints, byRetailer: retailerPointsMap });
-
-      // Update cache
-      const cacheData = {
-        beatPlans: beatPlansData,
-        visits: visitsData,
-        retailers: retailersData,
-        orders: ordersData,
-        points: { total: totalPoints, byRetailer: Array.from(retailerPointsMap.entries()) }
-      };
-      cacheRef.current.set(date, cacheData);
-
-      // Save snapshot
-      saveMyVisitsSnapshot(uid, date, {
-        beatPlans: beatPlansData,
-        visits: visitsData,
-        retailers: retailersData,
-        orders: ordersData,
-        progressStats: calculateStats(visitsData, ordersData, retailersData),
-        currentBeatName: beatPlansData.map(p => p.beat_name).join(', ')
-      }).catch(() => {});
-
-      // Update offline storage in background
-      Promise.all([
-        ...beatPlansData.map(plan => offlineStorage.save(STORES.BEAT_PLANS, plan)),
-        ...visitsData.map(visit => offlineStorage.save(STORES.VISITS, visit)),
-        ...retailersData.map(retailer => offlineStorage.save(STORES.RETAILERS, retailer)),
-        ...ordersData.map(order => offlineStorage.save(STORES.ORDERS, order))
-      ]).catch(() => {});
+      // Update sync timestamp
+      lastSyncTimeRef.current.set(date, Date.now());
+      await offlineStorage.setSyncMetadata('visits', uid, date);
+      console.log('[DeltaSync] Complete');
 
     } catch (e) {
-      console.log('Network sync timeout or error:', e);
-    } finally {
-      if (updateLoadingState) {
-        setIsLoading(false);
-        setHasLoadedOnce(true);
-      }
+      console.log('[DeltaSync] Error or timeout:', e);
     }
-  }, []);
+  }, [beatPlans, visits, retailers, orders, shouldSyncNow]);
 
-  // Main load function - ALWAYS cache first, network NEVER blocks
+  // Main load function - ALWAYS LOCAL FIRST, NEVER WAITS FOR NETWORK
   const loadData = useCallback(async () => {
     if (!userId || !selectedDate) return;
     if (isFetchingRef.current && lastDateRef.current === selectedDate) return;
@@ -324,9 +397,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       setIsLoading(false);
       setHasLoadedOnce(true);
       
-      // Background sync only - never blocks
-      if (navigator.onLine && isToday(selectedDate)) {
-        setTimeout(() => syncFromNetwork(userId, selectedDate, false), 100);
+      // Background delta sync - never blocks
+      if (navigator.onLine && isToday(selectedDate) && shouldSyncNow(selectedDate)) {
+        requestIdleCallback?.(() => deltaSyncFromNetwork(userId, selectedDate)) || 
+          setTimeout(() => deltaSyncFromNetwork(userId, selectedDate), 100);
       }
       isFetchingRef.current = false;
       return;
@@ -345,9 +419,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         
         cacheRef.current.set(selectedDate, snapshot);
         
-        // Background sync only - never blocks
-        if (navigator.onLine && isToday(selectedDate)) {
-          setTimeout(() => syncFromNetwork(userId, selectedDate, false), 100);
+        // Background delta sync - never blocks
+        if (navigator.onLine && isToday(selectedDate) && shouldSyncNow(selectedDate)) {
+          requestIdleCallback?.(() => deltaSyncFromNetwork(userId, selectedDate)) || 
+            setTimeout(() => deltaSyncFromNetwork(userId, selectedDate), 100);
         }
         isFetchingRef.current = false;
         return;
@@ -358,7 +433,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
     // 3. Try offline storage
     const offlineData = await loadFromOfflineStorage(userId, selectedDate);
-    if (offlineData && (offlineData.retailers.length > 0 || offlineData.beatPlans.length > 0)) {
+    if (offlineData && (offlineData.retailers.length > 0 || offlineData.beatPlans.length > 0 || offlineData.visits.length > 0)) {
       setBeatPlans(offlineData.beatPlans);
       setVisits(offlineData.visits);
       setRetailers(offlineData.retailers);
@@ -368,19 +443,25 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       
       cacheRef.current.set(selectedDate, offlineData);
       
-      // Background sync only - never blocks
-      if (navigator.onLine) {
-        setTimeout(() => syncFromNetwork(userId, selectedDate, false), 100);
+      // Background delta sync - never blocks
+      if (navigator.onLine && shouldSyncNow(selectedDate)) {
+        requestIdleCallback?.(() => deltaSyncFromNetwork(userId, selectedDate)) || 
+          setTimeout(() => deltaSyncFromNetwork(userId, selectedDate), 100);
       }
       isFetchingRef.current = false;
       return;
     }
 
-    // 4. No cache found - start network sync in background, don't wait
-    // Show loading state but let network complete asynchronously
+    // 4. No local data found - need to do full sync (only case where we wait)
     if (navigator.onLine) {
-      // Fire network sync but don't await - let it update loading state when done
-      syncFromNetwork(userId, selectedDate, true);
+      // Do a full initial sync since we have no local data
+      try {
+        setIsLoading(true);
+        await deltaSyncFromNetwork(userId, selectedDate);
+      } finally {
+        setIsLoading(false);
+        setHasLoadedOnce(true);
+      }
     } else {
       // No cache, no network - show empty state
       setIsLoading(false);
@@ -388,14 +469,31 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     }
     
     isFetchingRef.current = false;
-  }, [userId, selectedDate, isToday, loadFromOfflineStorage, syncFromNetwork]);
+  }, [userId, selectedDate, isToday, loadFromOfflineStorage, deltaSyncFromNetwork, shouldSyncNow]);
 
-  // Invalidate and reload
-  const invalidateData = useCallback(() => {
+  // Invalidate cache for date and reload from local
+  const invalidateData = useCallback(async () => {
     cacheRef.current.delete(selectedDate);
+    lastSyncTimeRef.current.delete(selectedDate); // Allow immediate sync
     isFetchingRef.current = false;
-    loadData();
-  }, [selectedDate, loadData]);
+    
+    // Reload from local first
+    if (userId) {
+      const offlineData = await loadFromOfflineStorage(userId, selectedDate);
+      if (offlineData) {
+        setBeatPlans(offlineData.beatPlans);
+        setVisits(offlineData.visits);
+        setRetailers(offlineData.retailers);
+        setOrders(offlineData.orders);
+        cacheRef.current.set(selectedDate, offlineData);
+      }
+      
+      // Then trigger background sync
+      if (navigator.onLine) {
+        deltaSyncFromNetwork(userId, selectedDate);
+      }
+    }
+  }, [selectedDate, userId, loadFromOfflineStorage, deltaSyncFromNetwork]);
 
   // Load on mount and date change
   useEffect(() => {
@@ -407,10 +505,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   // Listen for events - UPDATE LOCAL STATE DIRECTLY without network reload
   useEffect(() => {
     const handleStatusChange = (event: CustomEvent) => {
-      const { visitId, status, retailerId } = event.detail || {};
+      const { visitId, status, retailerId, order } = event.detail || {};
       if (!visitId && !retailerId) return;
       
-      // Update visits state directly from event data - NO NETWORK CALL
+      // Update visits state directly - NO NETWORK CALL
       setVisits(prev => {
         const updated = prev.map(v => {
           if ((visitId && v.id === visitId) || (retailerId && v.retailer_id === retailerId)) {
@@ -419,18 +517,49 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           return v;
         });
         
-        // Update in-memory cache with new data
+        // Update in-memory cache
         const cached = cacheRef.current.get(selectedDate);
         if (cached) {
           cacheRef.current.set(selectedDate, { ...cached, visits: updated });
         }
         
+        // Persist to offline storage
+        updated.forEach(v => {
+          if ((visitId && v.id === visitId) || (retailerId && v.retailer_id === retailerId)) {
+            offlineStorage.save(STORES.VISITS, v).catch(() => {});
+          }
+        });
+        
         return updated;
       });
+
+      // If order data is included, update orders too
+      if (order) {
+        setOrders(prev => {
+          const existing = prev.find(o => o.id === order.id);
+          let updated;
+          if (existing) {
+            updated = prev.map(o => o.id === order.id ? order : o);
+          } else {
+            updated = [...prev, order];
+          }
+          
+          // Update cache
+          const cached = cacheRef.current.get(selectedDate);
+          if (cached) {
+            cacheRef.current.set(selectedDate, { ...cached, orders: updated });
+          }
+          
+          // Persist
+          offlineStorage.save(STORES.ORDERS, order).catch(() => {});
+          
+          return updated;
+        });
+      }
     };
 
     const handleDataChange = () => {
-      // Only reload from cache, not network
+      // Reload from cache only, not network
       const cached = cacheRef.current.get(selectedDate);
       if (cached) {
         setBeatPlans(cached.beatPlans || []);
@@ -441,22 +570,31 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     };
 
     const handleSync = () => {
-      // After sync, do a silent background refresh only for today
-      if (isToday(selectedDate) && navigator.onLine) {
-        setTimeout(() => syncFromNetwork(userId!, selectedDate, false), 500);
+      // After sync complete, do delta sync only for today
+      if (isToday(selectedDate) && navigator.onLine && shouldSyncNow(selectedDate)) {
+        setTimeout(() => deltaSyncFromNetwork(userId!, selectedDate), 500);
+      }
+    };
+
+    // Visibility change - sync when app comes to foreground
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine && isToday(selectedDate) && shouldSyncNow(selectedDate)) {
+        setTimeout(() => deltaSyncFromNetwork(userId!, selectedDate), 500);
       }
     };
 
     window.addEventListener('visitStatusChanged', handleStatusChange as EventListener);
     window.addEventListener('visitDataChanged', handleDataChange);
     window.addEventListener('syncComplete', handleSync);
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       window.removeEventListener('visitStatusChanged', handleStatusChange as EventListener);
       window.removeEventListener('visitDataChanged', handleDataChange);
       window.removeEventListener('syncComplete', handleSync);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [selectedDate, isToday, userId, syncFromNetwork]);
+  }, [selectedDate, isToday, userId, deltaSyncFromNetwork, shouldSyncNow]);
 
   return {
     beatPlans,
