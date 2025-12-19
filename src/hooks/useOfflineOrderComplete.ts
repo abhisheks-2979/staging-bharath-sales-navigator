@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useConnectivity } from './useConnectivity';
 import { toast } from './use-toast';
 import { visitStatusCache } from '@/lib/visitStatusCache';
+import { getLocalTodayDate } from '@/utils/dateUtils';
 
 /**
  * Comprehensive offline order entry hook
@@ -191,7 +192,7 @@ export function useOfflineOrderComplete() {
     try {
       // CRITICAL: Update visit status cache IMMEDIATELY for instant UI feedback
       // This ensures the VisitCard shows "Productive" right away, even on slow internet
-      const orderDate = orderData.order_date || new Date().toISOString().split('T')[0];
+      const orderDate = orderData.order_date || getLocalTodayDate();
       const orderValue = orderData.total_amount || orderItems.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
       
       if (orderData.retailer_id && orderData.user_id) {

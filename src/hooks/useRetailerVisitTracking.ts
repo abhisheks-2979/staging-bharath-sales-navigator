@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
+import { getLocalTodayDate } from '@/utils/dateUtils';
 
 interface VisitLog {
   id: string;

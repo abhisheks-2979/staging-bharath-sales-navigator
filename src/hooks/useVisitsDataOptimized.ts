@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES, MIN_SYNC_INTERVAL_MS } from '@/lib/offlineStorage';
 import { loadMyVisitsSnapshot, saveMyVisitsSnapshot } from '@/lib/myVisitsSnapshot';
+import { getLocalTodayDate } from '@/utils/dateUtils';
 
 interface UseVisitsDataOptimizedProps {
   userId: string | undefined;
@@ -175,13 +176,9 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     [visits, orders, retailers, selectedDate]
   );
 
-  // Check if date is today
+  // Check if date is today using centralized date logic
   const isToday = useCallback((dateStr: string): boolean => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const check = new Date(dateStr);
-    check.setHours(0, 0, 0, 0);
-    return today.getTime() === check.getTime();
+    return dateStr === getLocalTodayDate();
   }, []);
 
   // Check if should sync (time-based throttling)

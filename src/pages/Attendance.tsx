@@ -24,6 +24,7 @@ import { CameraCapture } from '@/components/CameraCapture';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { shouldSuppressError } from '@/utils/offlineErrorHandler';
 import { useVanSales } from '@/hooks/useVanSales';
+import { getLocalTodayDate, toLocalISODate } from '@/utils/dateUtils';
 
 // Processing steps for attendance
 type ProcessingStep = 'location' | 'photo' | 'face' | 'saving' | 'complete';
@@ -252,7 +253,7 @@ const Attendance = () => {
       setAttendanceData(attendanceRecords || []);
 
       // Check today's attendance
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalTodayDate();
       const todayRecord = attendanceRecords?.find(record => record.date === today);
       setTodaysAttendance(todayRecord);
 
@@ -271,7 +272,7 @@ const Attendance = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalTodayDate();
 
       // Fetch all visits for today with check-in times
       const { data: visits, error } = await supabase
@@ -363,7 +364,7 @@ const Attendance = () => {
         stepMessage: 'Uploading photo...'
       });
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalTodayDate();
       const timestamp = new Date().toISOString();
 
       // Upload photo - path must start with user.id for RLS policy

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { format } from 'date-fns';
+import { getLocalTodayDate, toLocalISODate } from '@/utils/dateUtils';
 
 interface HomeDashboardData {
   todayData: {
@@ -117,8 +118,8 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
 
   const [data, setData] = useState<HomeDashboardData>(getInitialState);
 
-  const dateStr = format(selectedDate, 'yyyy-MM-dd');
-  const isToday = dateStr === format(new Date(), 'yyyy-MM-dd');
+  const dateStr = toLocalISODate(selectedDate);
+  const isToday = dateStr === getLocalTodayDate();
 
   // Save data to localStorage cache
   const saveToCache = useCallback((newData: HomeDashboardData) => {

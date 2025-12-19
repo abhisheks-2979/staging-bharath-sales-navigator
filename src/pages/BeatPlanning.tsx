@@ -14,6 +14,7 @@ import { SearchInput } from "@/components/SearchInput";
 import { format, isAfter, startOfDay, startOfWeek, addDays, isSameDay, addWeeks, subWeeks } from "date-fns";
 import { cn } from "@/lib/utils";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
+import { toLocalISODate, getLocalTodayDate, parseLocalDate, formatWeekdayShort } from "@/utils/dateUtils";
 
 interface Beat {
   id: string; // beat_id
@@ -72,8 +73,7 @@ export const BeatPlanning = () => {
   const [beats, setBeats] = useState<Beat[]>([]);
   const hasLoadedFromCacheRef = useRef(false);
 
-  // Local YYYY-MM-DD (avoids timezone issues from toISOString())
-  const toLocalISODate = (d: Date) => format(d, 'yyyy-MM-dd');
+  // toLocalISODate is now imported from @/utils/dateUtils
 
   // CACHE-FIRST: Load beats from local cache instantly, then sync from network
   const loadBeatsFromCache = async () => {
