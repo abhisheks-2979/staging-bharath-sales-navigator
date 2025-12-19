@@ -51,16 +51,17 @@ const getWeekDays = (selectedWeekStart: Date) => {
 export const BeatPlanning = () => {
   const [searchParams] = useSearchParams();
   const dateParam = searchParams.get('date');
-  
+
   // Initialize date from URL param or use today
   const initialDate = dateParam ? new Date(dateParam + 'T00:00:00') : new Date();
   const initialWeekStart = startOfWeek(initialDate, { weekStartsOn: 1 });
-  
+
   const [selectedCategory] = useState<"all">("all");
-  const [selectedDay, setSelectedDay] = useState("");
+  // Important: initialize selected day from the selected date (not "today") to avoid mismatch
+  const [selectedDay, setSelectedDay] = useState(() => format(initialDate, 'EEE'));
   const [selectedDate, setSelectedDate] = useState<Date>(initialDate);
   const [selectedWeek, setSelectedWeek] = useState(initialWeekStart);
-  const [plannedBeats, setPlannedBeats] = useState<{[key: string]: string[]}>({});
+  const [plannedBeats, setPlannedBeats] = useState<{ [key: string]: string[] }>({});
   const [weekDays, setWeekDays] = useState(() => getWeekDays(initialWeekStart));
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -71,21 +72,22 @@ export const BeatPlanning = () => {
   const [beats, setBeats] = useState<Beat[]>([]);
   const hasLoadedFromCacheRef = useRef(false);
 
+  // Local YYYY-MM-DD (avoids timezone issues from toISOString())
+  const toLocalISODate = (d: Date) => format(d, 'yyyy-MM-dd');
+
   // CACHE-FIRST: Load beats from local cache instantly, then sync from network
   const loadBeatsFromCache = async () => {
     if (!user) return;
-    
+
     try {
       // INSTANT: Load from cache first
       const cachedBeats = await offlineStorage.getAll<any>(STORES.BEATS);
       const cachedRetailers = await offlineStorage.getAll<any>(STORES.RETAILERS);
-      
-      const userBeats = cachedBeats.filter((b: any) => 
-        b.is_active !== false && b.created_by === user.id
-      );
-      
+
+      const userBeats = cachedBeats.filter((b: any) => b.is_active !== false && b.created_by === user.id);
+
       const userRetailers = cachedRetailers.filter((r: any) => r.user_id === user.id);
-      
+
       if (userBeats.length > 0) {
         // Count retailers per beat
         const retailerCountMap = new Map<string, { count: number; priority: 'high' | 'medium' | 'low' }>();
@@ -97,7 +99,7 @@ export const BeatPlanning = () => {
           const priority = pr === 'high' ? 'high' : pr === 'low' ? (current.priority === 'high' ? 'high' : 'low') : current.priority;
           retailerCountMap.set(beatId, { count: current.count + 1, priority });
         });
-        
+
         const beatsArr: Beat[] = userBeats.map((beat: any) => {
           const retailerInfo = retailerCountMap.get(beat.beat_id) || { count: 0, priority: 'medium' };
           return {
@@ -109,7 +111,7 @@ export const BeatPlanning = () => {
             lastVisited: undefined,
           };
         });
-        
+
         setBeats(beatsArr);
         hasLoadedFromCacheRef.current = true;
         console.log('[BeatPlanning] ⚡ Loaded', beatsArr.length, 'beats from cache instantly');
@@ -133,6 +135,13 @@ export const BeatPlanning = () => {
 
       if (beatsError) throw beatsError;
 
+      // Cache beats for offline usage
+      if (beatsData?.length) {
+        for (const beat of beatsData) {
+          await offlineStorage.save(STORES.BEATS, beat);
+        }
+      }
+
       // Get retailer counts for each beat for the current user
       const { data: retailersData, error: retailersError } = await supabase
         .from('retailers')
@@ -148,7 +157,7 @@ export const BeatPlanning = () => {
         .select('beat_id, plan_date')
         .eq('user_id', user.id)
         .in('beat_id', beatIds)
-        .lte('plan_date', new Date().toISOString().split('T')[0])
+        .lte('plan_date', toLocalISODate(new Date()))
         .order('plan_date', { ascending: false });
 
       // Create a map of beat_id to last visited date
@@ -182,7 +191,7 @@ export const BeatPlanning = () => {
           lastVisited: lastVisitedMap.get(beat.beat_id),
         };
       });
-      
+
       // Only update if we have data (avoid clearing cache data with empty network result)
       if (beatsArr.length > 0 || !hasLoadedFromCacheRef.current) {
         setBeats(beatsArr);
@@ -194,14 +203,14 @@ export const BeatPlanning = () => {
     }
   };
 
-  // Initialize selected day to today if it exists in current week
+  // Ensure selected day matches selected date (prevents "no beat selected" mismatch)
   useEffect(() => {
-    const today = weekDays.find(d => d.isToday);
-    if (today && !selectedDay) {
-      setSelectedDay(today.day);
-      setSelectedDate(today.fullDate);
+    if (!selectedDate) return;
+    const dayKey = format(selectedDate, 'EEE');
+    if (selectedDay !== dayKey) {
+      setSelectedDay(dayKey);
     }
-  }, [weekDays, selectedDay]);
+  }, [selectedDate]);
 
   // Update week days when selected week changes
   useEffect(() => {
@@ -215,10 +224,10 @@ export const BeatPlanning = () => {
     }
   }, [user]);
 
-  // Load existing beat plans and sync beats from network when date changes
+  // Load existing beat plans (cache-first) and sync beats from network when date changes
   useEffect(() => {
     if (user && selectedDate) {
-      const dateString = selectedDate.toISOString().split('T')[0];
+      const dateString = toLocalISODate(selectedDate);
       loadBeatPlans(dateString);
       // Background network sync (non-blocking)
       if (navigator.onLine) {
@@ -227,49 +236,114 @@ export const BeatPlanning = () => {
     }
   }, [user, selectedDate]);
 
-  // Load week plan markers for calendar
+  // Load week plan markers for calendar (cache-first, then network)
   useEffect(() => {
     if (!user) return;
+
     const loadWeekPlans = async () => {
       try {
         const startIso = weekDays[0]?.isoDate;
         const endIso = weekDays[weekDays.length - 1]?.isoDate;
         if (!startIso || !endIso) return;
+
+        // 1) Cache-first
+        try {
+          const cachedPlans = await offlineStorage.getAll<any>(STORES.BEAT_PLANS);
+          const cachedDates = new Set(
+            (cachedPlans || [])
+              .filter((p: any) => p.user_id === user.id && p.plan_date >= startIso && p.plan_date <= endIso)
+              .map((p: any) => p.plan_date)
+          );
+          if (cachedDates.size > 0) {
+            setPlannedDates(cachedDates);
+          }
+        } catch (cacheErr) {
+          console.error('Error loading week plans from cache:', cacheErr);
+        }
+
+        // 2) Network sync
+        if (!navigator.onLine) return;
+
         const { data, error } = await supabase
           .from('beat_plans')
-          .select('plan_date')
+          .select('*')
           .eq('user_id', user.id)
           .gte('plan_date', startIso)
           .lte('plan_date', endIso);
+
         if (error) throw error;
-        setPlannedDates(new Set((data || []).map((d: any) => d.plan_date)));
+
+        const nextDates = new Set((data || []).map((d: any) => d.plan_date));
+        setPlannedDates(nextDates);
+
+        // Cache plans for offline usage
+        if (data?.length) {
+          for (const plan of data) {
+            await offlineStorage.save(STORES.BEAT_PLANS, plan);
+          }
+        }
       } catch (err) {
         console.error('Error loading week plans:', err);
       }
     };
+
     loadWeekPlans();
   }, [user, weekDays]);
 
   const loadBeatPlans = async (date: string) => {
     if (!user) return;
-    
+
+    const loadedDate = new Date(date + 'T00:00:00');
+    const dayKey = format(loadedDate, 'EEE');
+
+    // 1) Cache-first: show selection instantly even on slow/no network
+    try {
+      const cachedPlans = await offlineStorage.getAll<any>(STORES.BEAT_PLANS);
+      const plansForDate = (cachedPlans || []).filter((p: any) => p.user_id === user.id && p.plan_date === date);
+      if (plansForDate.length > 0) {
+        const plannedBeatIds = plansForDate.map((p: any) => p.beat_id);
+        setPlannedBeats(prev => ({
+          ...prev,
+          [dayKey]: plannedBeatIds,
+        }));
+        console.log('[BeatPlanning] ⚡ Loaded', plannedBeatIds.length, 'planned beats from cache for', date);
+      }
+    } catch (cacheErr) {
+      console.error('Error loading beat plans from cache:', cacheErr);
+    }
+
+    // 2) Network sync
+    if (!navigator.onLine) return;
+
     try {
       const { data, error } = await supabase
         .from('beat_plans')
-        .select('beat_id')
+        .select('*')
         .eq('user_id', user.id)
         .eq('plan_date', date);
 
       if (error) throw error;
 
-      const plannedBeatIds = data.map(plan => plan.beat_id);
-      // Use the correct day key based on the date being loaded
-      const loadedDate = new Date(date + 'T00:00:00');
-      const dayKey = loadedDate.toLocaleDateString('en-US', { weekday: 'short' });
+      const plannedBeatIds = (data || []).map((plan: any) => plan.beat_id);
       setPlannedBeats(prev => ({
         ...prev,
-        [dayKey]: plannedBeatIds
+        [dayKey]: plannedBeatIds,
       }));
+
+      // Cache beat plans for offline usage
+      if (data?.length) {
+        for (const plan of data) {
+          await offlineStorage.save(STORES.BEAT_PLANS, plan);
+        }
+      }
+
+      // Keep plannedDates consistent for the marker dot
+      setPlannedDates(prev => {
+        const next = new Set(prev);
+        if ((data || []).length > 0) next.add(date);
+        else next.delete(date);
+        return next;
+      });
     } catch (error) {
       console.error('Error loading beat plans:', error);
     }
