@@ -22,7 +22,8 @@ const solutions = [
       "Real-time attendance & performance tracking"
     ],
     color: "from-blue-500 to-cyan-600",
-    cta: "Explore Field Sales"
+    cta: "Explore Field Sales",
+    link: "/solutions/field-sales"
   },
   {
     icon: Building2,
@@ -35,7 +36,8 @@ const solutions = [
       "Retailer & beat management"
     ],
     color: "from-emerald-500 to-teal-600",
-    cta: "Explore Distributor Portal"
+    cta: "Explore Distributor Portal",
+    link: "/solutions/distributor-portal"
   },
   {
     icon: Briefcase,
@@ -48,7 +50,8 @@ const solutions = [
       "Collections & invoice management"
     ],
     color: "from-violet-500 to-purple-600",
-    cta: "Explore Institutional CRM"
+    cta: "Explore Institutional CRM",
+    link: "/solutions/institutional-sales"
   },
   {
     icon: Truck,
@@ -61,7 +64,8 @@ const solutions = [
       "EOD reconciliation"
     ],
     color: "from-amber-500 to-orange-600",
-    cta: "Explore Van Sales"
+    cta: "Explore Van Sales",
+    link: "/solutions/van-sales"
   }
 ];
 
@@ -117,7 +121,7 @@ export const SolutionsSection = () => {
                 <Button 
                   variant="outline" 
                   className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
-                  onClick={() => navigate('/auth')}
+                  onClick={() => navigate(solution.link)}
                 >
                   {solution.cta}
                   <ArrowRight className="h-4 w-4 ml-2" />
