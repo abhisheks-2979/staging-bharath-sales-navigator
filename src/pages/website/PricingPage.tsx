@@ -1,4 +1,4 @@
-import { Check, Zap, Building2, Rocket, Crown } from "lucide-react";
+import { Check, Zap, Building2, Rocket, Crown, Package, RefreshCw, Bolt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -220,6 +220,117 @@ export const PricingPage = () => {
         </div>
       </section>
 
+      {/* Add-On Packs Section */}
+      <section className="py-16 px-4">
+        <div className="container mx-auto max-w-5xl">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-4">
+              <Package className="w-4 h-4" />
+              Add-On Packs
+            </div>
+            <h2 className="text-2xl md:text-3xl font-bold mb-3">Need More Capacity?</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Top up instantly with prepaid add-on packs. No per-transaction penalties, just predictable pricing.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 mb-8">
+            {/* Starter Pack */}
+            <Card className="p-6 border-border hover:border-primary/50 transition-colors">
+              <div className="text-center mb-4">
+                <span className="text-3xl font-bold">₹2,000</span>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between py-2 border-b border-border/50">
+                  <span className="text-muted-foreground">Additional Orders</span>
+                  <span className="font-semibold">500</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-border/50">
+                  <span className="text-muted-foreground">Additional Retailers</span>
+                  <span className="font-semibold">50</span>
+                </div>
+                <div className="flex justify-between py-2">
+                  <span className="text-muted-foreground">Additional Visits</span>
+                  <span className="font-semibold">2,000</span>
+                </div>
+              </div>
+            </Card>
+
+            {/* Growth Pack */}
+            <Card className="p-6 border-primary bg-primary/5 relative">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <span className="bg-primary text-primary-foreground text-xs font-semibold px-3 py-1 rounded-full">
+                  Best Value
+                </span>
+              </div>
+              <div className="text-center mb-4">
+                <span className="text-3xl font-bold">₹5,000</span>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between py-2 border-b border-border/50">
+                  <span className="text-muted-foreground">Additional Orders</span>
+                  <span className="font-semibold">1,500</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-border/50">
+                  <span className="text-muted-foreground">Additional Retailers</span>
+                  <span className="font-semibold">150</span>
+                </div>
+                <div className="flex justify-between py-2">
+                  <span className="text-muted-foreground">Additional Visits</span>
+                  <span className="font-semibold">6,000</span>
+                </div>
+              </div>
+            </Card>
+
+            {/* Scale Pack */}
+            <Card className="p-6 border-border hover:border-primary/50 transition-colors">
+              <div className="text-center mb-4">
+                <span className="text-3xl font-bold">₹10,000</span>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between py-2 border-b border-border/50">
+                  <span className="text-muted-foreground">Additional Orders</span>
+                  <span className="font-semibold">3,500</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-border/50">
+                  <span className="text-muted-foreground">Additional Retailers</span>
+                  <span className="font-semibold">350</span>
+                </div>
+                <div className="flex justify-between py-2">
+                  <span className="text-muted-foreground">Additional Visits</span>
+                  <span className="font-semibold">15,000</span>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Benefits */}
+          <div className="grid sm:grid-cols-3 gap-4 text-center">
+            <div className="flex flex-col items-center gap-2 p-4">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <RefreshCw className="w-5 h-5 text-primary" />
+              </div>
+              <p className="text-sm font-medium">Unused Quota Rolls Over</p>
+              <p className="text-xs text-muted-foreground">Never lose what you paid for</p>
+            </div>
+            <div className="flex flex-col items-center gap-2 p-4">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <Package className="w-5 h-5 text-primary" />
+              </div>
+              <p className="text-sm font-medium">Stack Multiple Packs</p>
+              <p className="text-xs text-muted-foreground">Buy as many as you need</p>
+            </div>
+            <div className="flex flex-col items-center gap-2 p-4">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <Bolt className="w-5 h-5 text-primary" />
+              </div>
+              <p className="text-sm font-medium">Instant Activation</p>
+              <p className="text-xs text-muted-foreground">Start using immediately</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* FAQ Section */}
       <section className="py-16 px-4 bg-muted/30">
         <div className="container mx-auto max-w-3xl">
@@ -228,7 +339,7 @@ export const PricingPage = () => {
             <div>
               <h3 className="font-semibold mb-2">What happens if I exceed my plan limits?</h3>
               <p className="text-muted-foreground text-sm">
-                We'll notify you when you're approaching limits. Overages are charged at ₹3 per additional order and ₹8 per additional retailer.
+                We'll notify you at 80% and 100% consumption. You can instantly top up with Add-On Packs—no per-transaction penalties, just predictable pricing.
               </p>
             </div>
             <div>
