@@ -204,8 +204,8 @@ export function useMasterDataCache() {
   }, [user]);
 
   // Cache ONLY today's and next 3 days beat plans (not historical)
-  const cacheBeatPlans = useCallback(async (onProgress?: CacheProgressCallback) => {
-    if (!user) return;
+  const cacheBeatPlans = useCallback(async (onProgress?: CacheProgressCallback): Promise<number> => {
+    if (!user) return 0;
     
     try {
       onProgress?.('beatPlans', 'loading');
@@ -234,9 +234,80 @@ export function useMasterDataCache() {
         console.log(`[Cache] ✅ ${beatPlans.length} beat plans cached (today + 3 days)`);
       }
       onProgress?.('beatPlans', 'done');
+      return beatPlans?.length || 0;
     } catch (error) {
       console.error('[Cache] Error caching beat plans, keeping existing cache:', error);
       onProgress?.('beatPlans', 'error');
+      return 0;
+    }
+  }, [user]);
+
+  // Cache today's visits from network
+  const cacheVisits = useCallback(async (onProgress?: CacheProgressCallback): Promise<number> => {
+    if (!user) return 0;
+    
+    try {
+      onProgress?.('visits', 'loading');
+      console.log('[Cache] Syncing today\'s visits...');
+      
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { data: visits, error } = await supabase
+        .from('visits')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('planned_date', today);
+
+      if (error) throw error;
+
+      if (visits) {
+        await offlineStorage.clear(STORES.VISITS);
+        for (const visit of visits) {
+          await offlineStorage.save(STORES.VISITS, visit);
+        }
+        console.log(`[Cache] ✅ ${visits.length} visits cached`);
+      }
+      onProgress?.('visits', 'done');
+      return visits?.length || 0;
+    } catch (error) {
+      console.error('[Cache] Error caching visits:', error);
+      onProgress?.('visits', 'error');
+      return 0;
+    }
+  }, [user]);
+
+  // Cache today's orders from network
+  const cacheOrders = useCallback(async (onProgress?: CacheProgressCallback): Promise<number> => {
+    if (!user) return 0;
+    
+    try {
+      onProgress?.('orders', 'loading');
+      console.log('[Cache] Syncing today\'s orders...');
+      
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .eq('user_id', user.id)
+        .gte('created_at', `${today}T00:00:00`)
+        .lte('created_at', `${today}T23:59:59`);
+
+      if (error) throw error;
+
+      if (orders) {
+        await offlineStorage.clear(STORES.ORDERS);
+        for (const order of orders) {
+          await offlineStorage.save(STORES.ORDERS, order);
+        }
+        console.log(`[Cache] ✅ ${orders.length} orders cached`);
+      }
+      onProgress?.('orders', 'done');
+      return orders?.length || 0;
+    } catch (error) {
+      console.error('[Cache] Error caching orders:', error);
+      onProgress?.('orders', 'error');
+      return 0;
     }
   }, [user]);
 
@@ -256,6 +327,8 @@ export function useMasterDataCache() {
       await cacheRetailers(onProgress);
       await cacheBeatPlans(onProgress);
       await cacheCompetitionData(onProgress);
+      await cacheVisits(onProgress);
+      await cacheOrders(onProgress);
       
       localStorage.setItem('master_data_cached_at', Date.now().toString());
       localStorage.setItem('cache_warmed_at', Date.now().toString());
@@ -269,7 +342,176 @@ export function useMasterDataCache() {
       console.error('[Cache] Cache warming failed:', error);
       return false;
     }
-  }, [user, cacheProducts, cacheSchemes, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData]);
+  }, [user, cacheProducts, cacheSchemes, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData, cacheVisits, cacheOrders]);
+
+  // Full sync with item counts - returns summary for UI
+  type SyncSummaryLocal = {
+    products: number;
+    schemes: number;
+    beats: number;
+    retailers: number;
+    beatPlans: number;
+    competition: number;
+    visits: number;
+    orders: number;
+    total: number;
+  };
+
+  const fullOfflineSync = useCallback(async (
+    onProgress: CacheProgressCallback,
+    onItemCount?: (stepId: string, count: number) => void
+  ): Promise<SyncSummaryLocal> => {
+    if (!navigator.onLine || !user) {
+      console.log('[Cache] Cannot sync - offline or no user');
+      return { products: 0, schemes: 0, beats: 0, retailers: 0, beatPlans: 0, competition: 0, visits: 0, orders: 0, total: 0 };
+    }
+
+    console.log('[Cache] 🔄 Starting full offline sync...');
+    const summary: SyncSummaryLocal = {
+      products: 0,
+      schemes: 0,
+      beats: 0,
+      retailers: 0,
+      beatPlans: 0,
+      competition: 0,
+      visits: 0,
+      orders: 0,
+      total: 0
+    };
+
+    try {
+      // Products
+      onProgress('products', 'loading');
+      const { data: products } = await supabase.from('products').select('*').eq('is_active', true);
+      const { data: variants } = await supabase.from('product_variants').select('*').eq('is_active', true);
+      if (products) {
+        await offlineStorage.clear(STORES.PRODUCTS);
+        for (const p of products) await offlineStorage.save(STORES.PRODUCTS, p);
+      }
+      if (variants) {
+        await offlineStorage.clear(STORES.VARIANTS);
+        for (const v of variants) await offlineStorage.save(STORES.VARIANTS, v);
+      }
+      summary.products = (products?.length || 0) + (variants?.length || 0);
+      onItemCount?.('products', summary.products);
+      onProgress('products', 'done');
+
+      // Schemes
+      onProgress('schemes', 'loading');
+      const { data: schemes } = await supabase.from('product_schemes').select('*').eq('is_active', true);
+      const { data: categories } = await supabase.from('product_categories').select('*');
+      if (schemes) {
+        await offlineStorage.clear(STORES.SCHEMES);
+        for (const s of schemes) await offlineStorage.save(STORES.SCHEMES, s);
+      }
+      if (categories) {
+        await offlineStorage.clear(STORES.CATEGORIES);
+        for (const c of categories) await offlineStorage.save(STORES.CATEGORIES, c);
+      }
+      summary.schemes = (schemes?.length || 0) + (categories?.length || 0);
+      onItemCount?.('schemes', summary.schemes);
+      onProgress('schemes', 'done');
+
+      // Beats
+      onProgress('beats', 'loading');
+      const { data: beats } = await supabase.from('beats').select('*').eq('is_active', true).eq('created_by', user.id);
+      if (beats) {
+        await offlineStorage.clear(STORES.BEATS);
+        for (const b of beats) await offlineStorage.save(STORES.BEATS, b);
+      }
+      summary.beats = beats?.length || 0;
+      onItemCount?.('beats', summary.beats);
+      onProgress('beats', 'done');
+
+      // Retailers
+      onProgress('retailers', 'loading');
+      const { data: retailers } = await supabase.from('retailers').select('*').eq('user_id', user.id);
+      if (retailers) {
+        await offlineStorage.clear(STORES.RETAILERS);
+        for (const r of retailers) await offlineStorage.save(STORES.RETAILERS, r);
+      }
+      summary.retailers = retailers?.length || 0;
+      onItemCount?.('retailers', summary.retailers);
+      onProgress('retailers', 'done');
+
+      // Beat Plans
+      onProgress('beatPlans', 'loading');
+      const today = new Date();
+      const threeDaysLater = new Date(today);
+      threeDaysLater.setDate(today.getDate() + 3);
+      const { data: beatPlans } = await supabase
+        .from('beat_plans')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('plan_date', today.toISOString().split('T')[0])
+        .lte('plan_date', threeDaysLater.toISOString().split('T')[0]);
+      if (beatPlans) {
+        await offlineStorage.clear(STORES.BEAT_PLANS);
+        for (const bp of beatPlans) await offlineStorage.save(STORES.BEAT_PLANS, bp);
+      }
+      summary.beatPlans = beatPlans?.length || 0;
+      onItemCount?.('beatPlans', summary.beatPlans);
+      onProgress('beatPlans', 'done');
+
+      // Competition
+      onProgress('competition', 'loading');
+      const { data: competitors } = await supabase.from('competition_master').select('*');
+      const { data: skus } = await supabase.from('competition_skus').select('*').eq('is_active', true);
+      if (competitors) {
+        for (const c of competitors) await offlineStorage.save(STORES.COMPETITION_MASTER, c);
+      }
+      if (skus) {
+        for (const s of skus) await offlineStorage.save(STORES.COMPETITION_SKUS, s);
+      }
+      summary.competition = (competitors?.length || 0) + (skus?.length || 0);
+      onItemCount?.('competition', summary.competition);
+      onProgress('competition', 'done');
+
+      // Today's Visits
+      onProgress('visits', 'loading');
+      const todayStr = today.toISOString().split('T')[0];
+      const { data: visits } = await supabase.from('visits').select('*').eq('user_id', user.id).eq('planned_date', todayStr);
+      if (visits) {
+        await offlineStorage.clear(STORES.VISITS);
+        for (const v of visits) await offlineStorage.save(STORES.VISITS, v);
+      }
+      summary.visits = visits?.length || 0;
+      onItemCount?.('visits', summary.visits);
+      onProgress('visits', 'done');
+
+      // Today's Orders
+      onProgress('orders', 'loading');
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .eq('user_id', user.id)
+        .gte('created_at', `${todayStr}T00:00:00`)
+        .lte('created_at', `${todayStr}T23:59:59`);
+      if (orders) {
+        await offlineStorage.clear(STORES.ORDERS);
+        for (const o of orders) await offlineStorage.save(STORES.ORDERS, o);
+      }
+      summary.orders = orders?.length || 0;
+      onItemCount?.('orders', summary.orders);
+      onProgress('orders', 'done');
+
+      // Calculate total
+      summary.total = summary.products + summary.schemes + summary.beats + summary.retailers + 
+                      summary.beatPlans + summary.competition + summary.visits + summary.orders;
+
+      localStorage.setItem('master_data_cached_at', Date.now().toString());
+      localStorage.setItem('cache_warmed_at', Date.now().toString());
+      localStorage.setItem('full_sync_at', Date.now().toString());
+      
+      window.dispatchEvent(new CustomEvent('masterDataRefreshed'));
+      
+      console.log(`[Cache] ✅ Full sync complete - ${summary.total} items cached`);
+      return summary;
+    } catch (error) {
+      console.error('[Cache] Full sync failed:', error);
+      return summary;
+    }
+  }, [user]);
 
   // Cache essential master data (NOT historical data)
   const cacheAllMasterData = useCallback(async () => {
@@ -376,10 +618,26 @@ export function useMasterDataCache() {
     cacheRetailers,
     cacheBeatPlans,
     cacheCompetitionData,
+    cacheVisits,
+    cacheOrders,
     cacheAllMasterData,
     forceRefreshMasterData,
     warmCacheWithProgress,
+    fullOfflineSync,
     loadCachedData,
     isOnline
   };
 }
+
+// Export type for use in components
+export type SyncSummary = {
+  products: number;
+  schemes: number;
+  beats: number;
+  retailers: number;
+  beatPlans: number;
+  competition: number;
+  visits: number;
+  orders: number;
+  total: number;
+};
