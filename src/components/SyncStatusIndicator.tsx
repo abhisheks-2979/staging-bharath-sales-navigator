@@ -77,52 +77,79 @@ export const SyncStatusIndicator = memo(() => {
     };
     
     checkQueue();
-    // Check every 5 seconds instead of 2 - reduces CPU usage
-    const interval = setInterval(checkQueue, 5000);
+    // Check every 3 seconds for faster response
+    const interval = setInterval(checkQueue, 3000);
+
+    // Listen for online event to trigger immediate sync check
+    const handleOnline = () => {
+      console.log('🌐 SyncStatusIndicator: Online detected, checking queue...');
+      checkQueue();
+    };
+    
+    window.addEventListener('online', handleOnline);
 
     return () => {
       mountedRef.current = false;
       clearInterval(interval);
+      window.removeEventListener('online', handleOnline);
     };
   }, []);
 
-  // Monitor syncing status when coming online - SILENT mode
+  // Monitor syncing status when coming online - SILENT mode with aggressive retry
   useEffect(() => {
+    let syncTimeout: NodeJS.Timeout | null = null;
+    
     const handleSync = async () => {
+      if (!mountedRef.current) return;
       if (isOnline && syncQueueCount > 0 && !isSyncing) {
         setIsSyncing(true);
         setLastSyncStatus(null);
         
-        console.log(`🔄 SyncStatusIndicator: Starting silent sync of ${syncQueueCount} items...`);
+        console.log(`🔄 SyncStatusIndicator: Starting sync of ${syncQueueCount} items...`);
 
         try {
-          // Trigger sync process silently
+          // Trigger sync process
           await processSyncQueue();
           
           // Wait for queue to update
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
+          if (!mountedRef.current) return;
           
           // Check final queue status
           const queue = await offlineStorage.getSyncQueue();
+          const actualPending = queue.filter((item: any) => {
+            if (item.retryCount >= 5) return false;
+            return true;
+          });
           
-          if (queue.length === 0) {
-            console.log(`✅ SyncStatusIndicator: All items synced successfully (silent)`);
+          if (actualPending.length === 0) {
+            console.log(`✅ SyncStatusIndicator: All items synced successfully`);
             setLastSyncStatus('success');
             setSyncQueueCount(0);
-            // NOTE: syncComplete event is dispatched by useOfflineSync.ts - don't dispatch here to prevent duplicates
             
             // Clear success status after 3 seconds
-            setTimeout(() => setLastSyncStatus(null), 3000);
+            setTimeout(() => {
+              if (mountedRef.current) setLastSyncStatus(null);
+            }, 3000);
           } else {
-            console.log(`⚠️ SyncStatusIndicator: ${queue.length} items still pending (silent)`);
-            setSyncQueueCount(queue.length);
+            console.log(`⚠️ SyncStatusIndicator: ${actualPending.length} items still pending`);
+            setSyncQueueCount(actualPending.length);
             setLastSyncStatus('error');
+            
+            // Retry sync after 5 seconds for pending items
+            syncTimeout = setTimeout(() => {
+              if (mountedRef.current && isOnline) {
+                console.log('🔄 Retrying sync for pending items...');
+                processSyncQueue();
+              }
+            }, 5000);
           }
         } catch (error) {
-          console.error(`❌ SyncStatusIndicator: Sync failed (silent):`, error);
-          setLastSyncStatus('error');
+          console.error(`❌ SyncStatusIndicator: Sync failed:`, error);
+          if (mountedRef.current) setLastSyncStatus('error');
         } finally {
-          setIsSyncing(false);
+          if (mountedRef.current) setIsSyncing(false);
         }
       }
     };
@@ -131,6 +158,10 @@ export const SyncStatusIndicator = memo(() => {
     if (isOnline && syncQueueCount > 0 && !isSyncing) {
       handleSync();
     }
+    
+    return () => {
+      if (syncTimeout) clearTimeout(syncTimeout);
+    };
   }, [isOnline, syncQueueCount, isSyncing, processSyncQueue]);
 
   // Only show when ACTIVELY syncing or have ACTUAL pending items (not stuck/old ones)
