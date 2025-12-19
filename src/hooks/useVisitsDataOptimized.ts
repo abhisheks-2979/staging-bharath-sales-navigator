@@ -171,10 +171,15 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
   // Memoized progress stats - LOCAL CALCULATION ONLY
   // FIX: Pass selectedDate to calculateStats to ensure only matching visits are counted
-  const progressStats = useMemo(() => 
-    calculateStats(visits, orders, retailers, selectedDate),
-    [visits, orders, retailers, selectedDate]
-  );
+  const progressStats = useMemo(() => {
+    // Warn only if there's a data inconsistency (visits from wrong dates in state)
+    const wrongDateVisits = visits.filter(v => v.planned_date !== selectedDate);
+    if (wrongDateVisits.length > 0) {
+      console.warn(`[ProgressStats] ⚠️ ${wrongDateVisits.length} visits with wrong dates found, expected: ${selectedDate}`);
+    }
+    
+    return calculateStats(visits, orders, retailers, selectedDate);
+  }, [visits, orders, retailers, selectedDate]);
 
   // Check if date is today using centralized date logic
   const isToday = useCallback((dateStr: string): boolean => {
@@ -484,6 +489,16 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     if (!userId || !selectedDate) return;
     if (isFetchingRef.current && lastDateRef.current === selectedDate) return;
     
+    // CRITICAL FIX: If date changed, immediately clear visits/orders to prevent
+    // showing stale data from previous date while new data loads
+    const dateChanged = lastDateRef.current !== '' && lastDateRef.current !== selectedDate;
+    if (dateChanged) {
+      console.log('[LoadData] Date changed from', lastDateRef.current, 'to', selectedDate, '- clearing stale data');
+      // Filter existing state to only keep items matching new date
+      setVisits(prev => prev.filter(v => v.planned_date === selectedDate));
+      setOrders(prev => prev.filter(o => o.order_date === selectedDate));
+    }
+    
     isFetchingRef.current = true;
     lastDateRef.current = selectedDate;
 
@@ -501,11 +516,26 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       cached.orders?.length > 0
     );
     
+    // CRITICAL FIX: Validate that cached visits actually match the selected date
+    // This prevents stale data from wrong dates contaminating the display
+    const cachedVisitsMatchDate = cached?.visits?.length
+      ? cached.visits.every((v: any) => v.planned_date === selectedDate)
+      : true;
+    const cachedOrdersMatchDate = cached?.orders?.length
+      ? cached.orders.every((o: any) => o.order_date === selectedDate)
+      : true;
+    const isCacheDataValid = cachedVisitsMatchDate && cachedOrdersMatchDate;
+    
+    if (!isCacheDataValid && cached) {
+      console.warn('[LoadData] ⚠️ In-memory cache has mismatched dates, clearing cache for', selectedDate);
+      cacheRef.current.delete(selectedDate);
+    }
+    
     // Check if cache is stale (for today only)
     const cacheAge = cached?.timestamp ? Date.now() - cached.timestamp : Infinity;
     const isCacheStale = isTodayDate && cacheAge > MAX_CACHE_AGE_MS;
     
-    if (hasValidCachedData) {
+    if (hasValidCachedData && isCacheDataValid) {
       setBeatPlans(cached.beatPlans || []);
       setVisits(cached.visits || []);
       setRetailers(cached.retailers || []);

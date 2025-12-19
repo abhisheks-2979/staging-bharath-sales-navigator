@@ -272,6 +272,12 @@ export const MyVisits = () => {
     const dateFilteredVisits = optimizedVisits.filter(v => v.planned_date === selectedDate);
     const dateFilteredOrders = optimizedOrders.filter(o => o.order_date === selectedDate);
     
+    // Warn if there are visits from wrong dates (indicates a cache/state issue)
+    const wrongDateVisits = optimizedVisits.filter(v => v.planned_date !== selectedDate);
+    if (wrongDateVisits.length > 0) {
+      console.warn(`[MyVisits] ⚠️ ${wrongDateVisits.length} visits with wrong dates in state, expected: ${selectedDate}`);
+    }
+    
     return optimizedRetailers.map(retailer => {
       // Get the BEST visit for this retailer (handles duplicates)
       const retailerVisits = dateFilteredVisits.filter(v => v.retailer_id === retailer.id);
