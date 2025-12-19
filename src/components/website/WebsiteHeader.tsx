@@ -12,7 +12,7 @@ export const WebsiteHeader = () => {
     { label: "Solutions", href: "#solutions" },
     { label: "Platform", href: "#platform" },
     { label: "Industries", href: "#industries" },
-    { label: "Why Us", href: "#why-us" },
+    { label: "Pricing", href: "/pricing" },
   ];
 
   return (
@@ -34,13 +34,23 @@ export const WebsiteHeader = () => {
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-8">
           {navItems.map((item) => (
-            <a
-              key={item.label}
-              href={item.href}
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {item.label}
-            </a>
+            item.href.startsWith('/') ? (
+              <button
+                key={item.label}
+                onClick={() => navigate(item.href)}
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {item.label}
+              </button>
+            ) : (
+              <a
+                key={item.label}
+                href={item.href}
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {item.label}
+              </a>
+            )
           ))}
         </nav>
 
@@ -74,14 +84,24 @@ export const WebsiteHeader = () => {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-border/40 bg-background px-4 py-4 space-y-4">
           {navItems.map((item) => (
-            <a
-              key={item.label}
-              href={item.href}
-              className="block text-sm font-medium text-muted-foreground hover:text-foreground"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              {item.label}
-            </a>
+            item.href.startsWith('/') ? (
+              <button
+                key={item.label}
+                onClick={() => { navigate(item.href); setMobileMenuOpen(false); }}
+                className="block text-sm font-medium text-muted-foreground hover:text-foreground text-left w-full"
+              >
+                {item.label}
+              </button>
+            ) : (
+              <a
+                key={item.label}
+                href={item.href}
+                className="block text-sm font-medium text-muted-foreground hover:text-foreground"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                {item.label}
+              </a>
+            )
           ))}
           <div className="flex flex-col gap-2 pt-4 border-t border-border/40">
             <Button 
