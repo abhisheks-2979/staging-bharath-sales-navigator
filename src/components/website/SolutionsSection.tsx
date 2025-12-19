@@ -126,6 +126,18 @@ export const SolutionsSection = () => {
             </Card>
           ))}
         </div>
+
+        {/* View All Features Button */}
+        <div className="text-center mt-12">
+          <Button 
+            size="lg"
+            className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-8"
+            onClick={() => navigate('/features')}
+          >
+            View All 100+ Features
+            <ArrowRight className="h-4 w-4 ml-2" />
+          </Button>
+        </div>
       </div>
     </section>
   );
