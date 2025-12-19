@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users, Clock, Truck, ArrowUpDown, RefreshCw } from "lucide-react";
+import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users, Clock, Truck, ArrowUpDown, RefreshCw, Download } from "lucide-react";
 import { PointsDetailsModal } from "@/components/PointsDetailsModal";
 import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addWeeks, subWeeks, differenceInDays } from "date-fns";
 import { SearchInput } from "@/components/SearchInput";
@@ -35,6 +35,7 @@ import { schedulePrefetch } from "@/utils/backgroundProductPrefetch";
 import { Preferences } from "@capacitor/preferences";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { getLocalTodayDate, toLocalISODate } from "@/utils/dateUtils";
+import { SyncDataModal } from "@/components/SyncDataModal";
 
 interface Visit {
   id: string;
@@ -178,6 +179,7 @@ export const MyVisits = () => {
   const [pointsDetailsList, setPointsDetailsList] = useState<Array<{ retailerName: string; points: number; visitId: string | null }>>([]);
   const [isPointsDialogOpen, setIsPointsDialogOpen] = useState(false);
   const [showClearCacheDialog, setShowClearCacheDialog] = useState(false);
+  const [showSyncModal, setShowSyncModal] = useState(false);
   const {
     user
   } = useAuth();
@@ -1172,26 +1174,26 @@ export const MyVisits = () => {
                   month: 'short'
                 })}
                 </div>
-                {/* Clear Cache Button */}
+                {/* Sync Data Button */}
                 <Button
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "h-6 w-6 p-0 text-muted-foreground hover:text-destructive",
+                    "h-6 w-6 p-0 text-muted-foreground hover:text-primary",
                     !isOnline && "opacity-50 cursor-not-allowed"
                   )}
                   disabled={!isOnline}
                   onClick={() => {
                     if (!user?.id) return;
                     if (!navigator.onLine || networkStatus === 'offline') {
-                      toast.error('Cannot clear cache while offline');
+                      toast.error('Cannot sync while offline');
                       return;
                     }
-                    setShowClearCacheDialog(true);
+                    setShowSyncModal(true);
                   }}
-                  title={!isOnline ? "Cannot clear cache while offline" : "Clear local cache and refresh data"}
+                  title={!isOnline ? "Cannot sync while offline" : "Sync all data for offline use"}
                 >
-                  <RefreshCw size={12} />
+                  <Download size={12} />
                 </Button>
               </div>
             </div>
@@ -1456,6 +1458,16 @@ export const MyVisits = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Sync Data Modal */}
+        <SyncDataModal 
+          isOpen={showSyncModal} 
+          onClose={() => setShowSyncModal(false)}
+          onComplete={() => {
+            invalidateData?.();
+            toast.success('Data synced successfully!');
+          }}
+        />
       </div>
     </Layout>;
 };
