@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Search, Pencil, Trash2, Calendar, Users, Check, ShoppingCart, Phone, CheckCircle2 } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Calendar, Users, Check, ShoppingCart, Phone, CheckCircle2, RefreshCw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -128,11 +128,46 @@ export const MyRetailers = () => {
   }, []);
 
 
-  const loadRetailers = async () => {
+  const loadRetailers = async (forceRefresh = false) => {
     if (!user) return;
     setLoading(true);
     
     try {
+      // If force refresh, skip cache and fetch directly from server
+      if (forceRefresh) {
+        console.log('🔄 Force refreshing retailers from server...');
+        
+        if (!navigator.onLine) {
+          toast({ title: "Offline", description: "Cannot refresh while offline", variant: "destructive" });
+          setLoading(false);
+          return;
+        }
+        
+        const { data, error } = await supabase
+          .from("retailers")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("name");
+          
+        if (error) throw error;
+        
+        if (data) {
+          console.log('✅ Fetched fresh retailers:', data.length);
+          // Clear old cache for this user and save new data
+          const cachedRetailers: any[] = await offlineStorage.getAll(STORES.RETAILERS);
+          for (const cached of cachedRetailers.filter((r: any) => r.user_id === user.id)) {
+            await offlineStorage.delete(STORES.RETAILERS, cached.id);
+          }
+          for (const retailer of data) {
+            await offlineStorage.save(STORES.RETAILERS, retailer);
+          }
+          setRetailers(data);
+          toast({ title: "Refreshed", description: `${data.length} retailers loaded from server` });
+        }
+        setLoading(false);
+        return;
+      }
+      
       // ALWAYS load from cache FIRST for instant display (works offline and online)
       console.log('📦 Loading retailers from cache...');
       let cachedRetailers: any[] = await offlineStorage.getAll(STORES.RETAILERS);
@@ -177,9 +212,14 @@ export const MyRetailers = () => {
       }
     } catch (error: any) {
       console.error('Error loading retailers:', error);
+      toast({ title: "Error", description: "Failed to load retailers", variant: "destructive" });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForceRefresh = () => {
+    loadRetailers(true);
   };
 
   useEffect(() => {
@@ -473,6 +513,15 @@ export const MyRetailers = () => {
         <Card>
           <CardContent className="pt-6 space-y-3">
             <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={handleForceRefresh} 
+                disabled={loading}
+                title="Refresh from server"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
                 <Input placeholder="Search by name, phone, address, category, beat" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
