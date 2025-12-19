@@ -961,6 +961,63 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       }
     };
 
+    // FIX: Listen to visitDataChanged - force local reload for progress stats refresh
+    // This is critical for offline No Order submissions to reflect in Today's Progress
+    const handleVisitDataChanged = async () => {
+      const currentDate = selectedDateRef.current;
+      const currentUserId = userIdRef.current;
+      
+      if (!currentUserId) return;
+      
+      console.log('[LocalEvent] visitDataChanged - reloading from local cache/storage');
+      
+      // Reload from snapshot first (most up-to-date for offline changes)
+      try {
+        const snapshot = await loadMyVisitsSnapshot(currentUserId, currentDate);
+        if (snapshot) {
+          console.log('[LocalEvent] Reloaded from snapshot:', {
+            visits: snapshot.visits?.length || 0,
+            progressStats: snapshot.progressStats
+          });
+          
+          // Update state from snapshot
+          setBeatPlans(prev => snapshot.beatPlans?.length > 0 ? snapshot.beatPlans : prev);
+          setVisits(snapshot.visits || []);
+          setRetailers(prev => snapshot.retailers?.length > 0 ? snapshot.retailers : prev);
+          setOrders(snapshot.orders || []);
+          
+          // Update cache
+          cacheRef.current.set(currentDate, {
+            beatPlans: snapshot.beatPlans || [],
+            visits: snapshot.visits || [],
+            retailers: snapshot.retailers || [],
+            orders: snapshot.orders || [],
+            timestamp: Date.now()
+          });
+          return;
+        }
+      } catch (e) {
+        console.error('[LocalEvent] Snapshot load failed:', e);
+      }
+      
+      // Fallback: reload from offline storage
+      const offlineData = await loadFromOfflineStorage(currentUserId, currentDate);
+      if (offlineData) {
+        console.log('[LocalEvent] Reloaded from offline storage:', {
+          visits: offlineData.visits.length
+        });
+        setVisits(offlineData.visits);
+        setOrders(offlineData.orders);
+        
+        cacheRef.current.set(currentDate, {
+          ...cacheRef.current.get(currentDate),
+          visits: offlineData.visits,
+          orders: offlineData.orders,
+          timestamp: Date.now()
+        });
+      }
+    };
+
     // Visibility change - sync when app comes to foreground
     const handleVisibility = () => {
       const currentDate = selectedDateRef.current;
@@ -972,16 +1029,18 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
     window.addEventListener('visitStatusChanged', handleStatusChange as EventListener);
     window.addEventListener('retailerAdded', handleRetailerAdded as EventListener);
+    window.addEventListener('visitDataChanged', handleVisitDataChanged);
     window.addEventListener('syncComplete', handleSyncComplete);
     document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       window.removeEventListener('visitStatusChanged', handleStatusChange as EventListener);
       window.removeEventListener('retailerAdded', handleRetailerAdded as EventListener);
+      window.removeEventListener('visitDataChanged', handleVisitDataChanged);
       window.removeEventListener('syncComplete', handleSyncComplete);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [selectedDate, isToday, userId, smartDeltaSync, shouldSyncNow]);
+  }, [selectedDate, isToday, userId, smartDeltaSync, shouldSyncNow, loadFromOfflineStorage]);
 
   return {
     beatPlans,
