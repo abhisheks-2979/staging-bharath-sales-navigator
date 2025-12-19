@@ -268,9 +268,13 @@ export const MyVisits = () => {
   const retailers = useMemo(() => {
     if (optimizedRetailers.length === 0) return [];
     
+    // CRITICAL FIX: Filter visits and orders by selectedDate to prevent stale data
+    const dateFilteredVisits = optimizedVisits.filter(v => v.planned_date === selectedDate);
+    const dateFilteredOrders = optimizedOrders.filter(o => o.order_date === selectedDate);
+    
     return optimizedRetailers.map(retailer => {
       // Get the BEST visit for this retailer (handles duplicates)
-      const retailerVisits = optimizedVisits.filter(v => v.retailer_id === retailer.id);
+      const retailerVisits = dateFilteredVisits.filter(v => v.retailer_id === retailer.id);
       const getVisitTime = (v: any) => new Date(v.updated_at || v.created_at || 0).getTime();
       const bestByTime = (arr: any[]) => arr.reduce((latest, cur) => (getVisitTime(cur) > getVisitTime(latest) ? cur : latest));
 
@@ -284,7 +288,7 @@ export const MyVisits = () => {
         return bestByTime(retailerVisits);
       })() : null;
       
-      const orders = optimizedOrders.filter(o => o.retailer_id === retailer.id);
+      const orders = dateFilteredOrders.filter(o => o.retailer_id === retailer.id);
       const totalOrderValue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
       const hasOrder = orders.length > 0;
       
@@ -320,7 +324,7 @@ export const MyVisits = () => {
         pendingAmount: retailer.pending_amount || 0, // Include pending_amount from hook
       };
     });
-  }, [optimizedRetailers, optimizedVisits, optimizedOrders]);
+  }, [optimizedRetailers, optimizedVisits, optimizedOrders, selectedDate]);
 
   // REMOVED: Don't clear retailers/beats on date change - causes flickering
   // The smart update in useVisitsDataOptimized handles this now

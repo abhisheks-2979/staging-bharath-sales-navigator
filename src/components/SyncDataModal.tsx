@@ -6,6 +6,9 @@ import { Check, Loader2, Wifi, WifiOff, Download, CheckCircle2, AlertCircle } fr
 import { cn } from '@/lib/utils';
 import { useMasterDataCache } from '@/hooks/useMasterDataCache';
 import { useConnectivity } from '@/hooks/useConnectivity';
+import { useAuth } from '@/hooks/useAuth';
+import { Preferences } from '@capacitor/preferences';
+import { getLocalTodayDate } from '@/utils/dateUtils';
 
 interface SyncStep {
   id: string;
@@ -39,6 +42,7 @@ export const SyncDataModal = ({ isOpen, onClose, onComplete }: SyncDataModalProp
   const [error, setError] = useState<string | null>(null);
   
   const { fullOfflineSync } = useMasterDataCache();
+  const { user } = useAuth();
   const networkStatus = useConnectivity();
   const isOnline = networkStatus === 'online';
 
@@ -71,6 +75,15 @@ export const SyncDataModal = ({ isOpen, onClose, onComplete }: SyncDataModalProp
     setError(null);
     
     try {
+      // CRITICAL: Clear today's snapshot first to prevent stale data
+      if (user?.id) {
+        const today = getLocalTodayDate();
+        const snapshotKey = `myvisits_snapshot_${user.id}_${today}`;
+        await Preferences.remove({ key: snapshotKey });
+        await Preferences.remove({ key: 'visit_status_cache' });
+        console.log('[SyncModal] Cleared snapshot for fresh sync');
+      }
+      
       const summary = await fullOfflineSync(updateStepStatus, updateStepCount);
       setTotalItems(summary.total);
       setSyncComplete(true);
