@@ -1,13 +1,17 @@
-import { Check, Sparkles, MapPin, ShoppingCart, Users, BarChart3, Trophy, Truck, Building2, Smartphone, Globe, Shield, Zap, Brain, Target, Clock, Camera, MessageSquare, Bell, FileText, CreditCard, Package, Headphones, Settings } from "lucide-react";
+import { useState } from "react";
+import { Check, Sparkles, Target, Brain, BarChart3, Users, Trophy, Truck, Building2, Shield, Settings, ChevronRight, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import quickappLogo from "@/assets/quickapp-logo.png";
+import { cn } from "@/lib/utils";
 
 const featureCategories = [
   {
+    id: "sales",
     title: "Sales Execution",
     icon: Target,
     color: "from-amber-500 to-orange-500",
+    tagline: "Execute flawlessly in the field",
     features: [
       { name: "Beat Planning & Management", description: "Create, assign, and optimize sales beats with territory mapping" },
       { name: "Visit Management", description: "Plan, execute, and track retailer visits with check-in/check-out" },
@@ -21,9 +25,11 @@ const featureCategories = [
     ]
   },
   {
+    id: "ai",
     title: "AI Intelligence",
     icon: Brain,
     color: "from-purple-500 to-pink-500",
+    tagline: "Smart insights that drive results",
     features: [
       { name: "Sales Coach AI", description: "AI-powered sales recommendations and coaching tips" },
       { name: "Stock Image Analysis", description: "AI scans shelf images to detect stock levels" },
@@ -37,9 +43,11 @@ const featureCategories = [
     ]
   },
   {
+    id: "analytics",
     title: "Analytics & Insights",
     icon: BarChart3,
     color: "from-blue-500 to-cyan-500",
+    tagline: "Data-driven decisions",
     features: [
       { name: "Real-time Dashboard", description: "Live sales, visits, and performance metrics" },
       { name: "Performance Reports", description: "Detailed reports on team and individual performance" },
@@ -53,9 +61,11 @@ const featureCategories = [
     ]
   },
   {
+    id: "retailer",
     title: "Retailer Management",
     icon: Users,
     color: "from-green-500 to-emerald-500",
+    tagline: "Build lasting relationships",
     features: [
       { name: "Retailer Profiles", description: "Complete retailer information with photos and location" },
       { name: "Loyalty Programs", description: "Points-based rewards and redemption system" },
@@ -69,9 +79,11 @@ const featureCategories = [
     ]
   },
   {
+    id: "gamification",
     title: "Gamification",
     icon: Trophy,
     color: "from-yellow-500 to-amber-500",
+    tagline: "Motivate and engage teams",
     features: [
       { name: "Leaderboard", description: "Real-time rankings with daily, weekly, monthly views" },
       { name: "Badges & Achievements", description: "Earn badges for hitting milestones" },
@@ -85,9 +97,11 @@ const featureCategories = [
     ]
   },
   {
+    id: "van",
     title: "Van Sales",
     icon: Truck,
     color: "from-orange-500 to-red-500",
+    tagline: "Mobile commerce made easy",
     features: [
       { name: "Morning Inventory", description: "Load van stock at start of day" },
       { name: "Stock Management", description: "Track van inventory in real-time" },
@@ -101,9 +115,11 @@ const featureCategories = [
     ]
   },
   {
+    id: "distributor",
     title: "Distributor Portal",
     icon: Building2,
     color: "from-indigo-500 to-purple-500",
+    tagline: "Empower your distribution network",
     features: [
       { name: "Primary Orders", description: "Place and track orders to company" },
       { name: "Inventory Management", description: "Track distributor stock levels" },
@@ -117,9 +133,11 @@ const featureCategories = [
     ]
   },
   {
+    id: "institutional",
     title: "Institutional Sales",
     icon: Building2,
     color: "from-teal-500 to-green-500",
+    tagline: "Win big accounts",
     features: [
       { name: "Lead Management", description: "Capture and nurture sales leads" },
       { name: "Opportunity Tracking", description: "Pipeline and deal management" },
@@ -133,9 +151,11 @@ const featureCategories = [
     ]
   },
   {
+    id: "enterprise",
     title: "Enterprise Features",
     icon: Shield,
-    color: "from-slate-500 to-gray-500",
+    color: "from-slate-500 to-gray-600",
+    tagline: "Built for scale",
     features: [
       { name: "Multi-Language Support", description: "Hindi, Tamil, Telugu, Kannada, Gujarati, English" },
       { name: "Offline-First", description: "Full functionality without internet" },
@@ -149,9 +169,11 @@ const featureCategories = [
     ]
   },
   {
+    id: "integration",
     title: "Integration & Support",
     icon: Settings,
     color: "from-rose-500 to-pink-500",
+    tagline: "Connect everything",
     features: [
       { name: "WhatsApp Integration", description: "Send invoices and notifications via WhatsApp" },
       { name: "SMS Notifications", description: "Configurable SMS alerts" },
@@ -168,6 +190,9 @@ const featureCategories = [
 
 const FeatureListPage = () => {
   const navigate = useNavigate();
+  const [activeCategory, setActiveCategory] = useState(featureCategories[0].id);
+  
+  const currentCategory = featureCategories.find(c => c.id === activeCategory) || featureCategories[0];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#1A1F2C] via-[#1A1F2C] to-[#0F1218]">
@@ -189,87 +214,171 @@ const FeatureListPage = () => {
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="pt-32 pb-16 px-4">
+      {/* Hero Section - Compact */}
+      <section className="pt-28 pb-8 px-4">
         <div className="container mx-auto text-center">
-          <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-full px-4 py-2 mb-6">
+          <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-full px-4 py-2 mb-4">
             <Sparkles className="w-4 h-4 text-amber-400" />
-            <span className="text-amber-400 text-sm font-medium">100+ Features</span>
+            <span className="text-amber-400 text-sm font-medium">100+ Features Across 10 Modules</span>
           </div>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
-            Complete Feature List
+          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-3">
+            Explore Our Platform
           </h1>
-          <p className="text-xl text-white/60 max-w-3xl mx-auto mb-8">
-            Explore all the powerful features that make QuickApp.AI the most comprehensive 
-            field sales automation platform in the market.
+          <p className="text-lg text-white/60 max-w-2xl mx-auto">
+            Click any category to discover powerful features designed to transform your field sales operations.
           </p>
-          <div className="flex flex-wrap justify-center gap-4">
-            <div className="flex items-center gap-2 text-white/60">
-              <Check className="w-5 h-5 text-green-400" />
-              <span>AI-Powered</span>
-            </div>
-            <div className="flex items-center gap-2 text-white/60">
-              <Check className="w-5 h-5 text-green-400" />
-              <span>Offline-First</span>
-            </div>
-            <div className="flex items-center gap-2 text-white/60">
-              <Check className="w-5 h-5 text-green-400" />
-              <span>Multi-Language</span>
-            </div>
-            <div className="flex items-center gap-2 text-white/60">
-              <Check className="w-5 h-5 text-green-400" />
-              <span>Enterprise Ready</span>
-            </div>
-          </div>
         </div>
       </section>
 
-      {/* Feature Categories */}
+      {/* Interactive Feature Explorer */}
       <section className="pb-20 px-4">
         <div className="container mx-auto">
-          {featureCategories.map((category, categoryIndex) => (
-            <div key={categoryIndex} className="mb-16">
-              <div className="flex items-center gap-4 mb-8">
-                <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${category.color} flex items-center justify-center`}>
-                  <category.icon className="w-7 h-7 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-2xl md:text-3xl font-bold text-white">{category.title}</h2>
-                  <p className="text-white/60">{category.features.length} features</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {category.features.map((feature, featureIndex) => (
-                  <div 
-                    key={featureIndex}
-                    className="bg-white/5 border border-white/10 rounded-xl p-5 hover:bg-white/10 hover:border-white/20 transition-all duration-300"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${category.color} flex items-center justify-center flex-shrink-0 mt-0.5`}>
-                        <Check className="w-4 h-4 text-white" />
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* Category Navigation - Sticky on desktop */}
+            <div className="lg:w-80 lg:flex-shrink-0">
+              <div className="lg:sticky lg:top-24 space-y-2">
+                <p className="text-white/40 text-xs uppercase tracking-wider mb-3 px-2">Categories</p>
+                {featureCategories.map((category) => {
+                  const isActive = activeCategory === category.id;
+                  return (
+                    <button
+                      key={category.id}
+                      onClick={() => setActiveCategory(category.id)}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 text-left group",
+                        isActive 
+                          ? "bg-white/10 border border-white/20" 
+                          : "hover:bg-white/5 border border-transparent"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-300",
+                        isActive 
+                          ? `bg-gradient-to-br ${category.color}` 
+                          : "bg-white/10 group-hover:bg-white/15"
+                      )}>
+                        <category.icon className={cn(
+                          "w-5 h-5 transition-colors",
+                          isActive ? "text-white" : "text-white/60 group-hover:text-white/80"
+                        )} />
                       </div>
-                      <div>
-                        <h3 className="text-white font-semibold mb-1">{feature.name}</h3>
-                        <p className="text-white/60 text-sm">{feature.description}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className={cn(
+                          "font-medium truncate transition-colors",
+                          isActive ? "text-white" : "text-white/70 group-hover:text-white/90"
+                        )}>
+                          {category.title}
+                        </p>
+                        <p className="text-xs text-white/40 truncate">{category.features.length} features</p>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                      <ChevronRight className={cn(
+                        "w-4 h-4 transition-all duration-300",
+                        isActive 
+                          ? "text-white/60 rotate-90" 
+                          : "text-white/30 group-hover:text-white/50"
+                      )} />
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          ))}
+
+            {/* Feature Display Area */}
+            <div className="flex-1 min-w-0">
+              <div 
+                key={activeCategory}
+                className="animate-fade-in"
+              >
+                {/* Category Header */}
+                <div className="mb-8">
+                  <div className="flex items-center gap-4 mb-3">
+                    <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${currentCategory.color} flex items-center justify-center`}>
+                      <currentCategory.icon className="w-7 h-7 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl md:text-3xl font-bold text-white">{currentCategory.title}</h2>
+                      <p className="text-white/60">{currentCategory.tagline}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Features Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {currentCategory.features.map((feature, index) => (
+                    <div 
+                      key={feature.name}
+                      className="bg-white/5 border border-white/10 rounded-xl p-5 hover:bg-white/10 hover:border-white/20 transition-all duration-300 hover:scale-[1.02] group"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${currentCategory.color} flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform`}>
+                          <Check className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-white font-semibold mb-1 group-hover:text-amber-300 transition-colors">{feature.name}</h3>
+                          <p className="text-white/60 text-sm leading-relaxed">{feature.description}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Quick Stats */}
+                <div className="mt-8 p-6 bg-gradient-to-r from-white/5 to-white/[0.02] rounded-xl border border-white/10">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <p className="text-white/40 text-sm">This module includes</p>
+                      <p className="text-2xl font-bold text-white">{currentCategory.features.length} powerful features</p>
+                    </div>
+                    <Button 
+                      className={`bg-gradient-to-r ${currentCategory.color} hover:opacity-90 text-white`}
+                      onClick={() => navigate("/auth")}
+                    >
+                      Try {currentCategory.title}
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
+      {/* Quick Navigation Pills - Mobile friendly */}
+      <div className="lg:hidden fixed bottom-4 left-4 right-4 z-40">
+        <div className="bg-[#1A1F2C]/95 backdrop-blur-md rounded-2xl border border-white/10 p-2 overflow-x-auto">
+          <div className="flex gap-2 min-w-max">
+            {featureCategories.map((category) => {
+              const isActive = activeCategory === category.id;
+              return (
+                <button
+                  key={category.id}
+                  onClick={() => setActiveCategory(category.id)}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 rounded-xl transition-all whitespace-nowrap",
+                    isActive 
+                      ? `bg-gradient-to-r ${category.color} text-white` 
+                      : "text-white/60 hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  <category.icon className="w-4 h-4" />
+                  <span className="text-sm font-medium">{category.title}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       {/* CTA Section */}
-      <section className="py-20 px-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-t border-white/10">
+      <section className="py-16 px-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-t border-white/10">
         <div className="container mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Ready to Transform Your Sales Operations?
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
+            Ready to Experience All Features?
           </h2>
-          <p className="text-xl text-white/60 mb-8 max-w-2xl mx-auto">
-            Join leading FMCG and beverage companies using QuickApp.AI to boost their field sales productivity.
+          <p className="text-lg text-white/60 mb-6 max-w-xl mx-auto">
+            Start your free trial and explore every feature with your team.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Button 
@@ -283,16 +392,16 @@ const FeatureListPage = () => {
               size="lg"
               variant="outline"
               className="border-white/20 text-white hover:bg-white/10 px-8"
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/roi-calculator")}
             >
-              Back to Home
+              Calculate ROI
             </Button>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-8 px-4 border-t border-white/10">
+      <footer className="py-8 px-4 border-t border-white/10 mb-20 lg:mb-0">
         <div className="container mx-auto text-center text-white/40 text-sm">
           © 2024 QuickApp.AI by KVP Business Solutions. All rights reserved.
         </div>
