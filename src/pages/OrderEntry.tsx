@@ -2093,9 +2093,17 @@ export const OrderEntry = () => {
                   try {
                     let effectiveVisitId = visitId;
                     
+                    // CRITICAL FIX: If visit ID starts with "offline_" or "temp_", it's not a real UUID
+                    // We need to find or create a real visit in the database
+                    const isOfflineId = effectiveVisitId?.startsWith('offline_') || effectiveVisitId?.startsWith('temp_');
+                    if (isOfflineId) {
+                      console.log('⚠️ NO ORDER: Visit ID is offline-generated, will find/create real visit');
+                      effectiveVisitId = undefined; // Reset to trigger find/create logic below
+                    }
+                    
                     // If no visit ID, try to find or create a visit for today
                     if (!effectiveVisitId) {
-                      console.log('🔴 NO ORDER: No visit ID provided, checking for existing visit today...');
+                      console.log('🔴 NO ORDER: No valid visit ID, checking for existing visit today...');
                       
                       const today = getLocalDateString();
                       
