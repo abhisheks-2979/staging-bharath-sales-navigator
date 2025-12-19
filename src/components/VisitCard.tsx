@@ -1848,12 +1848,65 @@ export const VisitCard = ({
         localStorage.setItem('cached_user_id', currentUserId);
         
         // Ensure visit exists (now fast - uses cache first)
-        const visitId = await ensureVisit(currentUserId, retailerId, today);
+        let visitId = await ensureVisit(currentUserId, retailerId, today);
+        
+        // CRITICAL FIX: If visit ID is offline-generated, we need to find or create a real visit in DB
+        const isOfflineId = visitId?.startsWith('offline_') || visitId?.startsWith('temp_');
+        if (isOfflineId && navigator.onLine) {
+          console.log('⚠️ [NoOrder] Visit ID is offline-generated, finding/creating real visit...');
+          
+          // Try to find existing visit in DB
+          const { data: existingVisit } = await supabase
+            .from('visits')
+            .select('id')
+            .eq('retailer_id', retailerId)
+            .eq('user_id', currentUserId)
+            .eq('planned_date', today)
+            .maybeSingle();
+          
+          if (existingVisit) {
+            console.log('✅ [NoOrder] Found real visit:', existingVisit.id);
+            visitId = existingVisit.id;
+          } else {
+            // Create new visit in DB
+            const { data: newVisit, error: createError } = await supabase
+              .from('visits')
+              .insert({
+                retailer_id: retailerId,
+                user_id: currentUserId,
+                planned_date: today,
+                status: 'unproductive',
+                no_order_reason: reason,
+                check_out_time: checkOutTime
+              })
+              .select('id')
+              .single();
+            
+            if (!createError && newVisit) {
+              console.log('✅ [NoOrder] Created real visit:', newVisit.id);
+              visitId = newVisit.id;
+              
+              // Update cache with real ID
+              await offlineStorage.save(STORES.VISITS, {
+                id: newVisit.id,
+                retailer_id: retailerId,
+                user_id: currentUserId,
+                planned_date: today,
+                status: 'unproductive',
+                no_order_reason: reason,
+                check_out_time: checkOutTime
+              });
+              await visitStatusCache.set(newVisit.id, retailerId, currentUserId, today, 'unproductive', undefined, reason);
+              return; // Already saved, no need to update again
+            }
+          }
+        }
+        
         setCurrentVisitId(visitId);
         
-        // Only attempt network update if online
-        if (!navigator.onLine) {
-          console.log('📵 [NoOrder] Offline - queued for sync');
+        // Only attempt network update if online and have a valid UUID
+        if (!navigator.onLine || isOfflineId) {
+          console.log('📵 [NoOrder] Offline or no valid UUID - queued for sync');
           await offlineStorage.addToSyncQueue('UPDATE_VISIT_NO_ORDER', {
             visitId,
             retailerId,
