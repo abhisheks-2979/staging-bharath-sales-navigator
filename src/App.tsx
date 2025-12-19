@@ -20,6 +20,7 @@ visitStatusCache.init();
 
 // All pages imported directly for instant loading in APK (no lazy loading)
 import { LandingPage } from "./pages/LandingPage";
+import FeatureListPage from "./pages/website/FeatureListPage";
 import Index from "./pages/Index";
 import { MyVisits } from "./pages/MyVisits";
 import { OrderEntry } from "./pages/OrderEntry";
@@ -221,6 +222,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
       <Routes>
         {/* All routes - direct imports, no lazy loading for instant APK page loads */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/features" element={<FeatureListPage />} />
         <Route path="/auth" element={<RoleBasedAuthPage />} />
         <Route path="/auth/complete-profile" element={<CompleteProfile />} />
         <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
