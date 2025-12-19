@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { Star, Wifi, WifiOff, Shield, Zap } from "lucide-react";
+import { Star, Wifi, WifiOff, Shield, Zap, Calculator } from "lucide-react";
 
 export const HeroSection = () => {
   const navigate = useNavigate();
@@ -54,7 +54,7 @@ export const HeroSection = () => {
         </div>
 
         {/* CTAs */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+        <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
           <Button 
             size="lg"
             onClick={() => navigate('/auth')}
@@ -68,6 +68,18 @@ export const HeroSection = () => {
             className="border-white/50 bg-white/10 text-white hover:bg-white/20 px-8 py-6 text-lg backdrop-blur font-medium"
           >
             Watch Demo
+          </Button>
+        </div>
+
+        {/* ROI Calculator CTA */}
+        <div className="mb-12">
+          <Button
+            variant="link"
+            onClick={() => navigate('/roi-calculator')}
+            className="text-accent-gold hover:text-accent-gold/80 gap-2"
+          >
+            <Calculator className="w-4 h-4" />
+            Calculate Your ROI Potential
           </Button>
         </div>
 

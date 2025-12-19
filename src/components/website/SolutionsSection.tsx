@@ -7,7 +7,8 @@ import {
   Briefcase, 
   Truck,
   ArrowRight,
-  CheckCircle
+  CheckCircle,
+  Calculator
 } from "lucide-react";
 
 const solutions = [
@@ -131,8 +132,8 @@ export const SolutionsSection = () => {
           ))}
         </div>
 
-        {/* View All Features Button */}
-        <div className="text-center mt-12">
+        {/* CTAs */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-center mt-12">
           <Button 
             size="lg"
             className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-8"
@@ -140,6 +141,15 @@ export const SolutionsSection = () => {
           >
             View All 100+ Features
             <ArrowRight className="h-4 w-4 ml-2" />
+          </Button>
+          <Button 
+            size="lg"
+            variant="outline"
+            className="gap-2"
+            onClick={() => navigate('/roi-calculator')}
+          >
+            <Calculator className="h-4 w-4" />
+            Calculate Your ROI
           </Button>
         </div>
       </div>
