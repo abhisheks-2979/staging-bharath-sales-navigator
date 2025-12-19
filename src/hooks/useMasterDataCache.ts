@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { useConnectivity } from './useConnectivity';
 import { useAuth } from './useAuth';
+import { getLocalTodayDate } from '@/utils/dateUtils';
 
 // Progress callback type for cache warming UI
 export type CacheProgressCallback = (stepId: string, status: 'loading' | 'done' | 'error') => void;
@@ -250,7 +251,8 @@ export function useMasterDataCache() {
       onProgress?.('visits', 'loading');
       console.log('[Cache] Syncing today\'s visits...');
       
-      const today = new Date().toISOString().split('T')[0];
+      // FIX: Use local date instead of UTC to prevent timezone mismatch
+      const today = getLocalTodayDate();
       
       const { data: visits, error } = await supabase
         .from('visits')
@@ -284,7 +286,8 @@ export function useMasterDataCache() {
       onProgress?.('orders', 'loading');
       console.log('[Cache] Syncing today\'s orders...');
       
-      const today = new Date().toISOString().split('T')[0];
+      // FIX: Use local date instead of UTC to prevent timezone mismatch
+      const today = getLocalTodayDate();
       
       const { data: orders, error } = await supabase
         .from('orders')
@@ -434,17 +437,20 @@ export function useMasterDataCache() {
       onItemCount?.('retailers', summary.retailers);
       onProgress('retailers', 'done');
 
-      // Beat Plans
+      // Beat Plans - FIX: Use local date
       onProgress('beatPlans', 'loading');
-      const today = new Date();
-      const threeDaysLater = new Date(today);
-      threeDaysLater.setDate(today.getDate() + 3);
+      const todayStr = getLocalTodayDate();
+      const todayDate = new Date(todayStr);
+      const threeDaysLater = new Date(todayDate);
+      threeDaysLater.setDate(todayDate.getDate() + 3);
+      const threeDaysStr = threeDaysLater.toISOString().split('T')[0];
+      
       const { data: beatPlans } = await supabase
         .from('beat_plans')
         .select('*')
         .eq('user_id', user.id)
-        .gte('plan_date', today.toISOString().split('T')[0])
-        .lte('plan_date', threeDaysLater.toISOString().split('T')[0]);
+        .gte('plan_date', todayStr)
+        .lte('plan_date', threeDaysStr);
       if (beatPlans) {
         await offlineStorage.clear(STORES.BEAT_PLANS);
         for (const bp of beatPlans) await offlineStorage.save(STORES.BEAT_PLANS, bp);
@@ -467,9 +473,8 @@ export function useMasterDataCache() {
       onItemCount?.('competition', summary.competition);
       onProgress('competition', 'done');
 
-      // Today's Visits
+      // Today's Visits - FIX: Use local date
       onProgress('visits', 'loading');
-      const todayStr = today.toISOString().split('T')[0];
       const { data: visits } = await supabase.from('visits').select('*').eq('user_id', user.id).eq('planned_date', todayStr);
       if (visits) {
         await offlineStorage.clear(STORES.VISITS);
@@ -479,7 +484,7 @@ export function useMasterDataCache() {
       onItemCount?.('visits', summary.visits);
       onProgress('visits', 'done');
 
-      // Today's Orders
+      // Today's Orders - FIX: Use local date
       onProgress('orders', 'loading');
       const { data: orders } = await supabase
         .from('orders')
