@@ -185,6 +185,7 @@ export const OrderEntry = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [noOrderReason, setNoOrderReason] = useState<string>("");
   const [customNoOrderReason, setCustomNoOrderReason] = useState<string>("");
+  const [noOrderSubmitting, setNoOrderSubmitting] = useState(false);
   const [hasCompetitionData, setHasCompetitionData] = useState(false);
   const [categories, setCategories] = useState<string[]>(["All"]);
   const [products, setProducts] = useState<GridProduct[]>([]);
@@ -1898,6 +1899,10 @@ export const OrderEntry = () => {
                 onClick={async (e) => {
                   e.preventDefault();
                   
+                  // Prevent double-click
+                  if (noOrderSubmitting) return;
+                  setNoOrderSubmitting(true);
+                  
                   // Check online status at click time (more reliable than hook state)
                   const isCurrentlyOnline = navigator.onLine;
                   
@@ -2068,6 +2073,7 @@ export const OrderEntry = () => {
                       window.dispatchEvent(new Event('visitDataChanged'));
                       console.log('✅ NO ORDER OFFLINE: Dispatched visitStatusChanged + visitDataChanged');
                       
+                      setNoOrderSubmitting(false);
                       setTimeout(() => {
                         navigate("/visits/retailers");
                       }, 300);
@@ -2085,6 +2091,7 @@ export const OrderEntry = () => {
                         description: error?.message || "Please try again",
                         variant: "destructive"
                       });
+                      setNoOrderSubmitting(false);
                       return;
                     }
                   }
@@ -2194,6 +2201,7 @@ export const OrderEntry = () => {
                         window.dispatchEvent(new Event('visitDataChanged'));
                         console.log('✅ NO ORDER: Dispatched visitStatusChanged + visitDataChanged');
                         
+                        setNoOrderSubmitting(false);
                         setTimeout(() => {
                           navigate("/visits/retailers");
                         }, 300);
@@ -2311,12 +2319,22 @@ export const OrderEntry = () => {
                       description: error?.message || "Please try again",
                       variant: "destructive"
                     });
+                  } finally {
+                    setNoOrderSubmitting(false);
                   }
                 }}
                 className="w-full mt-4"
                 size="lg"
+                disabled={noOrderSubmitting}
               >
-                Submit No Order Reason
+                {noOrderSubmitting ? (
+                  <>
+                    <span className="animate-spin mr-2">⏳</span>
+                    Saving...
+                  </>
+                ) : (
+                  "Submit No Order Reason"
+                )}
               </Button>
             )}
               </CardContent>

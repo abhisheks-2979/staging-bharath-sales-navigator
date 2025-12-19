@@ -12,9 +12,10 @@ interface NoOrderModalProps {
   onClose: () => void;
   onReasonSelect: (reason: string) => void;
   currentReason?: string;
+  isSubmitting?: boolean;
 }
 
-export const NoOrderModal = ({ isOpen, onClose, onReasonSelect, currentReason }: NoOrderModalProps) => {
+export const NoOrderModal = ({ isOpen, onClose, onReasonSelect, currentReason, isSubmitting = false }: NoOrderModalProps) => {
   const [selectedReason, setSelectedReason] = useState<string>(currentReason || "");
   const [otherReason, setOtherReason] = useState<string>("");
 
@@ -137,11 +138,18 @@ export const NoOrderModal = ({ isOpen, onClose, onReasonSelect, currentReason }:
           )}
         </div>
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit}>
-            Submit
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <span className="animate-spin mr-2">⏳</span>
+                Saving...
+              </>
+            ) : (
+              "Submit"
+            )}
           </Button>
         </div>
       </DialogContent>
