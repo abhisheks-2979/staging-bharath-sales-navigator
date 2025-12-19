@@ -942,6 +942,12 @@ export function useOfflineSync() {
       console.log('🌐 Internet connected - starting immediate sync...');
       processSyncQueue();
       
+      // Retry sync after short delay to catch any items added during initial sync
+      const retryTimeout = setTimeout(() => {
+        console.log('🔄 Running follow-up sync check...');
+        processSyncQueue();
+      }, 3000);
+      
       // Clean up old synced items (older than 3 days) after successful sync
       const cleanupOldData = async () => {
         try {
@@ -953,7 +959,12 @@ export function useOfflineSync() {
       };
       
       // Run cleanup after sync completes
-      setTimeout(cleanupOldData, 10000);
+      const cleanupTimeout = setTimeout(cleanupOldData, 10000);
+      
+      return () => {
+        clearTimeout(retryTimeout);
+        clearTimeout(cleanupTimeout);
+      };
     }
   }, [connectivityStatus, processSyncQueue]);
 
