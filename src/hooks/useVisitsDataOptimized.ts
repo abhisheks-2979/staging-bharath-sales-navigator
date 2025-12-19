@@ -350,11 +350,21 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         currentCache.beatPlans = newBeatPlans;
       }
 
-      // Update visits granularly - ALWAYS compare full list
+      // FIX: ALWAYS replace visits with network data - visits are the source of truth for status
+      // This fixes the bug where unproductive visits marked yesterday night weren't showing
       const vChanges = getChangedItems(currentCache.visits, newVisits);
-      if (vChanges.changed.length > 0 || vChanges.added.length > 0 || vChanges.removed.length > 0) {
-        uiUpdated = applyGranularUpdate(setVisits, vChanges) || uiUpdated;
+      const visitsChanged = vChanges.changed.length > 0 || vChanges.added.length > 0 || vChanges.removed.length > 0;
+      
+      // CRITICAL: Even if getChangedItems doesn't detect changes (due to hash issues),
+      // ALWAYS replace visits if network data has different count - this catches missed updates
+      const visitCountDifferent = currentCache.visits?.length !== newVisits.length;
+      
+      if (visitsChanged || visitCountDifferent) {
+        // Full replacement for visits - don't use granular update which can miss items
+        setVisits(newVisits);
         currentCache.visits = newVisits;
+        uiUpdated = true;
+        console.log(`[SmartSync] Visits REPLACED: ${currentCache.visits?.length || 0} → ${newVisits.length}`);
       }
 
       // Update orders granularly - ALWAYS compare full list
@@ -577,8 +587,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           timestamp: Date.now() 
         });
         
-        // Background smart sync
-        if (navigator.onLine && isToday(selectedDate) && shouldSyncNow(selectedDate)) {
+        // CRITICAL FIX: For today's date, ALWAYS sync immediately after loading snapshot
+        // This ensures unproductive visits marked yesterday night (after last sync) show up
+        // Snapshots can be stale - network is the source of truth for visit statuses
+        if (navigator.onLine && isToday(selectedDate)) {
+          // Skip throttle check for today - visit status must always be fresh
+          requestIdleCallback?.(() => smartDeltaSync(userId, selectedDate)) || 
+            setTimeout(() => smartDeltaSync(userId, selectedDate), 50);
+        } else if (navigator.onLine && shouldSyncNow(selectedDate)) {
           requestIdleCallback?.(() => smartDeltaSync(userId, selectedDate)) || 
             setTimeout(() => smartDeltaSync(userId, selectedDate), 100);
         }
@@ -608,8 +624,12 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       
       cacheRef.current.set(selectedDate, offlineData);
       
-      // Background smart sync
-      if (navigator.onLine && shouldSyncNow(selectedDate)) {
+      // CRITICAL FIX: For today's date, ALWAYS sync immediately after loading from offline
+      // This ensures unproductive visits marked yesterday night show up in progress stats
+      if (navigator.onLine && isToday(selectedDate)) {
+        requestIdleCallback?.(() => smartDeltaSync(userId, selectedDate)) || 
+          setTimeout(() => smartDeltaSync(userId, selectedDate), 50);
+      } else if (navigator.onLine && shouldSyncNow(selectedDate)) {
         requestIdleCallback?.(() => smartDeltaSync(userId, selectedDate)) || 
           setTimeout(() => smartDeltaSync(userId, selectedDate), 100);
       }
