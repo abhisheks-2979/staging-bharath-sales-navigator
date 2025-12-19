@@ -34,6 +34,7 @@ import { useVisitsDataOptimized } from "@/hooks/useVisitsDataOptimized";
 import { schedulePrefetch } from "@/utils/backgroundProductPrefetch";
 import { Preferences } from "@capacitor/preferences";
 import { useConnectivity } from "@/hooks/useConnectivity";
+import { getLocalTodayDate, toLocalISODate } from "@/utils/dateUtils";
 
 interface Visit {
   id: string;
@@ -193,7 +194,7 @@ export const MyVisits = () => {
     const restoreCancelledVisits = async () => {
       if (!user?.id) return;
       
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalTodayDate();
       
       // Check if user has ended their day
       const { data: attendance } = await supabase

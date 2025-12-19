@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { toast } from '@/hooks/use-toast';
+import { getLocalTodayDate } from '@/utils/dateUtils';
 
 interface Product {
   id: string;
@@ -225,7 +226,7 @@ export function useOfflineOrderEntry() {
         ...orderData,
         id: orderId,
         created_at: new Date().toISOString(),
-        order_date: new Date().toISOString().split('T')[0]
+        order_date: getLocalTodayDate()
       };
 
       const offlineItems = orderItems.map(item => ({

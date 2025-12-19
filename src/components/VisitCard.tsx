@@ -41,6 +41,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
 import { RetailerDetailModal } from "./RetailerDetailModal";
 import { FeedbackListView } from "./FeedbackListView";
+import { getLocalTodayDate } from "@/utils/dateUtils";
 interface Visit {
   id: string;
   retailerId?: string;
@@ -261,7 +262,7 @@ export const VisitCard = ({
     // PRIORITY 2: Check sync cache
     const retailerId = visit.retailerId || visit.id;
     const cachedUserId = typeof window !== 'undefined' ? localStorage.getItem('cached_user_id') : null;
-    const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
+    const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : getLocalTodayDate();
 
     if (cachedUserId && visitStatusCache.isReady()) {
       const cached = visitStatusCache.getSync(retailerId, cachedUserId, targetDate);
@@ -374,7 +375,7 @@ export const VisitCard = ({
     const { data: { session } } = await supabase.auth.getSession();
     const currentUserId = session?.user?.id || userId;
     const visitRetailerId = visit.retailerId || visit.id;
-    const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
+    const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : getLocalTodayDate();
     
     if (!currentUserId) return;
     
@@ -948,7 +949,7 @@ export const VisitCard = ({
       }
       
       const visitRetailerId = visit.retailerId || visit.id;
-      const targetDate = selectedDate || new Date().toISOString().split('T')[0];
+      const targetDate = selectedDate || getLocalTodayDate();
       
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -1050,7 +1051,7 @@ export const VisitCard = ({
           // Update cache with new status (background - don't block)
           const { data: { session } } = await supabase.auth.getSession();
           const currentUserId = session?.user?.id || userId;
-          const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
+          const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : getLocalTodayDate();
           
           if (currentUserId) {
             visitStatusCache.set(
@@ -2282,7 +2283,7 @@ export const VisitCard = ({
                 });
                 return;
               }
-              const today = new Date().toISOString().split('T')[0];
+              const today = getLocalTodayDate();
               const retailerId = (visit.retailerId || visit.id) as string;
               const visitId = await ensureVisit(user.id, retailerId, today);
               setCurrentVisitId(visitId);
@@ -2389,7 +2390,7 @@ export const VisitCard = ({
                     }
                   } = await supabase.auth.getUser();
                   if (user) {
-                    const today = new Date().toISOString().split('T')[0];
+                    const today = getLocalTodayDate();
                     const retailerId = visit.retailerId || visit.id;
 
                     // Auto check-out any previous in-progress visit before phone order
@@ -2584,7 +2585,7 @@ export const VisitCard = ({
                           }
                         } = await supabase.auth.getUser();
                         if (user) {
-                          const today = new Date().toISOString().split('T')[0];
+                          const today = getLocalTodayDate();
                           const retailerId = visit.retailerId || visit.id;
 
                           // Auto check-out any previous in-progress visit before proceeding
@@ -2912,7 +2913,7 @@ export const VisitCard = ({
             onClose={() => setShowJointSalesFeedbackView(false)}
             retailerId={visit.retailerId || visit.id}
             retailerName={visit.retailerName}
-            feedbackDate={selectedDate || new Date().toISOString().split('T')[0]}
+            feedbackDate={selectedDate || getLocalTodayDate()}
             onEdit={() => {
               setShowJointSalesFeedbackView(false);
               setShowJointSalesFeedback(true);

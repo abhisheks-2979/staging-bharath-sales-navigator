@@ -24,6 +24,7 @@ import { useConnectivity } from "@/hooks/useConnectivity";
 import { retailerStatusRegistry } from "@/lib/retailerStatusRegistry";
 import { visitStatusCache } from "@/lib/visitStatusCache";
 import { syncOrdersToVanStock, getTodayDateString } from "@/utils/vanStockSync";
+import { getLocalTodayDate } from "@/utils/dateUtils";
 interface CartItem {
   id: string;
   name: string;
@@ -459,13 +460,13 @@ export const Cart = () => {
   // Check if the visit date allows order submission
   const canSubmitOrder = () => {
     if (!visitDate) return true; // Allow if no visit date (backwards compatibility)
-    const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+    const today = getLocalTodayDate(); // Get today's date in YYYY-MM-DD format (local timezone)
     console.log('Visit date:', visitDate, 'Today:', today, 'Can submit:', visitDate === today);
     return visitDate === today;
   };
   const getSubmitButtonText = () => {
     if (!visitDate) return "Submit Order";
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalTodayDate();
     if (visitDate === today) return "Submit Order";
     return `Order will be placed on ${new Date(visitDate).toLocaleDateString()}`;
   };

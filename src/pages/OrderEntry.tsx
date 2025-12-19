@@ -24,6 +24,7 @@ import { useOfflineOrderEntry } from "@/hooks/useOfflineOrderEntry";
 import { WifiOff, Wifi, MapPin, CheckCircle2, AlertTriangle } from "lucide-react";
 import { useRetailerVisitTracking } from "@/hooks/useRetailerVisitTracking";
 import { RetailerVisitDetailsModal } from "@/components/RetailerVisitDetailsModal";
+import { getLocalTodayDate } from "@/utils/dateUtils";
 
 interface Product {
   id: string;
@@ -164,10 +165,8 @@ export const OrderEntry = () => {
 
   const isActuallyOnline = connectivity === "online";
 
-  const getLocalDateString = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  };
+  // getLocalDateString is now imported from @/utils/dateUtils as getLocalTodayDate
+  const getLocalDateString = getLocalTodayDate;
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [quantities, setQuantities] = useState<{
