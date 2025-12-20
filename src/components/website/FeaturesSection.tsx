@@ -14,8 +14,8 @@ import {
 const features = [
   {
     icon: Brain,
-    title: "AI Sales Intelligence",
-    description: "AI-powered Sales Coach, smart stock analysis, product recommendations, and predictive insights for every retailer visit.",
+    title: "AI Sales Guidance",
+    description: "Not just data collection — AI-powered coaching that actively guides your team with smart recommendations, predictive insights, and next-best-actions.",
     color: "from-violet-500 to-purple-600"
   },
   {
@@ -56,14 +56,15 @@ export const FeaturesSection = () => {
       <div className="container mx-auto">
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-4">
-            <TrendingUp className="h-4 w-4" />
-            Comprehensive Platform
+            <Brain className="h-4 w-4" />
+            AI-First Platform • Unlimited Users
           </div>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Everything You Need to Win in the Field
+            Intelligent Tools That Guide, Not Just Track
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            A complete suite of tools designed specifically for field sales teams, distributors, and enterprise sales operations.
+          <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+            Built on AI-first architecture, our platform goes beyond data collection. 
+            Every feature is designed to <strong>guide your sales team</strong> with intelligent recommendations and actionable insights.
           </p>
         </div>
 

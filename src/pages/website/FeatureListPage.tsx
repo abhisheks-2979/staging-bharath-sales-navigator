@@ -230,11 +230,14 @@ const FeatureListPage = () => {
         <div className="container mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-full px-4 py-2 mb-4">
             <Sparkles className="w-4 h-4 text-amber-400" />
-            <span className="text-amber-400 text-sm font-medium">100+ Features</span>
+            <span className="text-amber-400 text-sm font-medium">AI-First • Unlimited Users • 100+ Features</span>
           </div>
           <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
-            Explore Our Platform
+            Intelligent Tools That Guide Your Team
           </h1>
+          <p className="text-white/70 max-w-2xl mx-auto mb-2">
+            Built on AI-first architecture — our platform doesn't just collect data, it <strong className="text-white/90">guides your sales team</strong> to success.
+          </p>
           <p className="text-white/60 max-w-xl mx-auto flex items-center justify-center gap-2">
             <span>Select a category below</span>
             <ChevronDown className="w-4 h-4 animate-bounce" />

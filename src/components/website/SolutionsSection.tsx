@@ -79,13 +79,14 @@ export const SolutionsSection = () => {
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 bg-accent-gold/10 text-accent-gold px-4 py-2 rounded-full text-sm font-medium mb-4">
             <Briefcase className="h-4 w-4" />
-            Complete Solutions
+            One Price • Unlimited Users • All Solutions
           </div>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            One Platform, Multiple Solutions
+            Give Your Entire Team the Power of AI
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Whether you're managing field sales, distributors, or institutional accounts — QuickApp.AI has you covered.
+          <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+            With our success-based pricing, everyone in your organization gets access to all solutions — 
+            Field Sales, Distributor Portal, and Institutional CRM. <strong>No per-user fees, no limits.</strong>
           </p>
         </div>
 
