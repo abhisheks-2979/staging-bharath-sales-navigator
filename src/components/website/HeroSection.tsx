@@ -32,10 +32,13 @@ export const HeroSection = () => {
         </h1>
 
         {/* Sub-headline */}
-        <p className="text-lg md:text-xl text-white/90 mb-8 max-w-3xl mx-auto leading-relaxed">
-          We don't charge per user — we charge for the success our platform creates. 
-          Built on AI-first architecture, QuickApp.AI <strong>guides</strong> your sales team with intelligent insights, 
-          not just collects data. Everyone in your organization gets the power of digital and AI.
+        <p className="text-lg md:text-xl text-white/90 mb-6 max-w-3xl mx-auto leading-relaxed">
+          <strong>Field Sales • Distributor Management • Institutional Sales • Van Sales</strong> — 
+          all powered by AI that <em>guides</em> your team, not just collects data.
+        </p>
+        <p className="text-base md:text-lg text-white/70 mb-8 max-w-2xl mx-auto">
+          One price, unlimited users. We charge for the success we create, not per seat — 
+          so everyone in your organization gets the power of digital and AI.
         </p>
 
         {/* Trust Badges */}
