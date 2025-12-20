@@ -36,30 +36,9 @@ export const HeroSection = () => {
           <strong>Field Sales • Distributor Management • Institutional Sales • Van Sales</strong> — 
           all powered by AI that <em>guides</em> your team, not just collects data.
         </p>
-        <p className="text-base md:text-lg text-white/70 mb-8 max-w-2xl mx-auto">
-          One price, unlimited users. We charge for the success we create, not per seat — 
-          so everyone in your organization gets the power of digital and AI.
+        <p className="text-xl md:text-2xl font-semibold text-accent-gold mb-8 max-w-2xl mx-auto">
+          Stop paying per user. Give everyone in your organization the power of digital and AI.
         </p>
-
-        {/* Trust Badges */}
-        <div className="flex flex-wrap justify-center gap-4 mb-8">
-          <div className="flex items-center gap-2 bg-accent-gold/20 backdrop-blur px-4 py-2 rounded-full text-accent-gold text-sm border border-accent-gold/40 font-medium">
-            <Users className="h-4 w-4" />
-            Unlimited Users
-          </div>
-          <div className="flex items-center gap-2 bg-white/10 backdrop-blur px-4 py-2 rounded-full text-white/90 text-sm border border-white/20">
-            <Brain className="h-4 w-4 text-accent-gold" />
-            AI-First Architecture
-          </div>
-          <div className="flex items-center gap-2 bg-white/10 backdrop-blur px-4 py-2 rounded-full text-white/90 text-sm border border-white/20">
-            <WifiOff className="h-4 w-4 text-accent-gold" />
-            Works Offline
-          </div>
-          <div className="flex items-center gap-2 bg-white/10 backdrop-blur px-4 py-2 rounded-full text-white/90 text-sm border border-white/20">
-            <Sparkles className="h-4 w-4 text-accent-gold" />
-            Guides, Not Just Tracks
-          </div>
-        </div>
 
         {/* CTAs */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
@@ -80,7 +59,7 @@ export const HeroSection = () => {
         </div>
 
         {/* ROI Calculator CTA */}
-        <div className="mb-12">
+        <div className="mb-8">
           <Button
             variant="link"
             onClick={() => navigate('/roi-calculator')}
@@ -89,26 +68,6 @@ export const HeroSection = () => {
             <Calculator className="w-4 h-4" />
             Calculate Your ROI Potential
           </Button>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 max-w-4xl mx-auto">
-          <div className="text-center p-4 rounded-xl bg-accent-gold/10 backdrop-blur border border-accent-gold/30">
-            <div className="text-3xl md:text-4xl font-bold text-accent-gold">∞</div>
-            <div className="text-sm text-white/80">Unlimited Users</div>
-          </div>
-          <div className="text-center p-4 rounded-xl bg-white/5 backdrop-blur border border-white/10">
-            <div className="text-3xl md:text-4xl font-bold text-accent-gold">AI</div>
-            <div className="text-sm text-white/80">First Approach</div>
-          </div>
-          <div className="text-center p-4 rounded-xl bg-white/5 backdrop-blur border border-white/10">
-            <div className="text-3xl md:text-4xl font-bold text-accent-gold">100%</div>
-            <div className="text-sm text-white/80">Offline Ready</div>
-          </div>
-          <div className="text-center p-4 rounded-xl bg-white/5 backdrop-blur border border-white/10">
-            <div className="text-3xl md:text-4xl font-bold text-accent-gold">6</div>
-            <div className="text-sm text-white/80">Languages</div>
-          </div>
         </div>
       </div>
     </section>
