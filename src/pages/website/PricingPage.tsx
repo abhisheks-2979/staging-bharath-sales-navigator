@@ -1,4 +1,4 @@
-import { Check, Zap, Building2, Rocket, Crown, Package, RefreshCw, Bolt } from "lucide-react";
+import { Check, Zap, Building2, Rocket, Crown, Package, RefreshCw, Bolt, Users, Brain, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -94,12 +94,20 @@ export const PricingPage = () => {
       
       {/* Hero Section */}
       <section className="pt-32 pb-16 px-4">
-        <div className="container mx-auto text-center max-w-3xl">
+        <div className="container mx-auto text-center max-w-4xl">
+          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-6">
+            <Zap className="w-4 h-4" />
+            One Price • Unlimited Users • Success-Based
+          </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-6">
-            Simple, <span className="text-primary">Value-Based</span> Pricing
+            <span className="text-primary">Success-Based</span> Pricing
           </h1>
-          <p className="text-xl text-muted-foreground">
-            Pay for the value you unlock, not the number of users. All plans include unlimited users.
+          <p className="text-xl text-muted-foreground mb-4">
+            We don't charge per user — we charge for the success our platform creates for your business.
+          </p>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Everyone in your organization deserves the power of digital and AI. That's why all plans include <strong>unlimited users</strong>. 
+            Built on AI-first architecture, our platform <strong>guides your team</strong> — not just collects data.
           </p>
         </div>
       </section>
@@ -337,27 +345,33 @@ export const PricingPage = () => {
           <h2 className="text-2xl font-bold text-center mb-8">Frequently Asked Questions</h2>
           <div className="space-y-6">
             <div>
-              <h3 className="font-semibold mb-2">What happens if I exceed my plan limits?</h3>
+              <h3 className="font-semibold mb-2">Why do you offer unlimited users?</h3>
               <p className="text-muted-foreground text-sm">
-                We'll notify you at 80% and 100% consumption. You can instantly top up with Add-On Packs—no per-transaction penalties, just predictable pricing.
+                We believe everyone in your organization deserves access to the power of digital and AI. Per-user pricing creates barriers that prevent full adoption. With unlimited users, your entire team can benefit from intelligent sales guidance.
               </p>
             </div>
             <div>
-              <h3 className="font-semibold mb-2">Can I change plans anytime?</h3>
+              <h3 className="font-semibold mb-2">What does "success-based pricing" mean?</h3>
               <p className="text-muted-foreground text-sm">
-                Yes, you can upgrade or downgrade your plan at any time. Changes take effect from the next billing cycle.
+                Our pricing is tied to the value we create — measured by orders, retailers, and visits. We're invested in your success, not in charging for empty seats. When your business grows, we grow together.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-2">How is QuickApp.AI different from other SFAs?</h3>
+              <p className="text-muted-foreground text-sm">
+                We're built on AI-first architecture. That means our platform doesn't just collect data — it actively <strong>guides</strong> your sales team with intelligent recommendations, predictive insights, and coaching. It's like having an AI sales coach for every rep.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-2">What happens if I exceed my plan limits?</h3>
+              <p className="text-muted-foreground text-sm">
+                We'll notify you at 80% and 100% consumption. You can instantly top up with Add-On Packs — no per-transaction penalties, just predictable pricing.
               </p>
             </div>
             <div>
               <h3 className="font-semibold mb-2">Is there a free trial?</h3>
               <p className="text-muted-foreground text-sm">
-                Yes! All paid plans come with a 14-day free trial. No credit card required.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-2">Do you offer annual discounts?</h3>
-              <p className="text-muted-foreground text-sm">
-                Yes, annual billing comes with a 20% discount. Contact our sales team for more details.
+                Yes! All paid plans come with a 14-day free trial. No credit card required. Experience the full power of AI-guided sales.
               </p>
             </div>
           </div>

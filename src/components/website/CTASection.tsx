@@ -1,15 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, CheckCircle } from "lucide-react";
+import { ArrowRight, CheckCircle, Users, Brain, Sparkles } from "lucide-react";
 
 export const CTASection = () => {
   const navigate = useNavigate();
 
   const benefits = [
-    "14-day free trial",
-    "No credit card required",
-    "Full feature access",
-    "Dedicated onboarding support"
+    "Unlimited users included",
+    "Success-based pricing",
+    "AI-powered guidance",
+    "Full feature access"
   ];
 
   return (
@@ -23,22 +23,28 @@ export const CTASection = () => {
       </div>
 
       <div className="container mx-auto text-center relative z-10">
+        {/* AI Badge */}
+        <div className="inline-flex items-center gap-2 bg-accent-gold/20 text-accent-gold px-4 py-2 rounded-full text-sm font-medium mb-6 backdrop-blur border border-accent-gold/30">
+          <Brain className="h-4 w-4" />
+          AI-First • Guides Your Team to Success
+        </div>
+
         <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6">
-          Ready to Transform Your <br className="hidden md:block" />
+          One Price. Unlimited Users. <br className="hidden md:block" />
           <span className="bg-gradient-to-r from-accent-gold to-accent-bronze bg-clip-text text-transparent">
-            Field Sales Operations?
+            Unlimited Potential.
           </span>
         </h2>
         
         <p className="text-lg md:text-xl text-white/90 mb-8 max-w-2xl mx-auto">
-          Join hundreds of companies using QuickApp.AI to boost sales productivity, 
-          improve retailer relationships, and drive revenue growth.
+          Stop paying per user. Give everyone in your organization the power of digital and AI. 
+          Our platform doesn't just collect data — it <strong>guides your team</strong> with intelligent insights.
         </p>
 
         {/* Benefits */}
         <div className="flex flex-wrap justify-center gap-4 mb-10">
           {benefits.map((benefit, index) => (
-            <div key={index} className="flex items-center gap-2 text-white/90 text-sm">
+            <div key={index} className="flex items-center gap-2 text-white/90 text-sm bg-white/10 px-4 py-2 rounded-full backdrop-blur">
               <CheckCircle className="h-4 w-4 text-accent-gold" />
               {benefit}
             </div>

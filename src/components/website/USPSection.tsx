@@ -1,24 +1,36 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Check, X, Zap, WifiOff, Trophy, Building2 } from "lucide-react";
+import { Check, X, Zap, WifiOff, Trophy, Building2, Users, Brain, DollarSign, Sparkles } from "lucide-react";
 
 const uspItems = [
   {
+    icon: Users,
+    title: "One Price, Unlimited Users",
+    description: "Unlike others who charge per user, we believe everyone in your organization deserves the power of digital and AI. Pay one price, add as many users as you need.",
+    highlight: "No per-user fees"
+  },
+  {
+    icon: DollarSign,
+    title: "Success-Based Pricing",
+    description: "We're invested in your success. Our pricing is tied to the value we create for your business, not the number of seats. Your growth is our growth.",
+    highlight: "Pay for results"
+  },
+  {
+    icon: Brain,
+    title: "AI-First Architecture",
+    description: "Built from the ground up with AI at its core. Not just data collection — our platform actively guides your sales team with intelligent recommendations, coaching, and predictive insights.",
+    highlight: "Guides, not just tracks"
+  },
+  {
+    icon: Sparkles,
+    title: "Intelligent Sales Guidance",
+    description: "AI Sales Coach, smart product recommendations, credit scoring, and predictive analytics guide every decision. Your team gets smarter with every interaction.",
+    highlight: "Beyond data collection"
+  },
+  {
     icon: WifiOff,
     title: "True Offline-First Architecture",
-    description: "Unlike competitors who offer limited offline, QuickApp.AI works 100% offline. Take orders, capture photos, record visits — everything works without internet and syncs automatically.",
+    description: "Unlike competitors who offer limited offline, QuickApp.AI works 100% offline. Take orders, capture photos, record visits — everything works without internet.",
     highlight: "100% functionality offline"
-  },
-  {
-    icon: Zap,
-    title: "Built-in AI Intelligence",
-    description: "AI Sales Coach, smart product recommendations, credit scoring, and predictive analytics come standard — no extra cost or integration needed.",
-    highlight: "AI included, not add-on"
-  },
-  {
-    icon: Trophy,
-    title: "Native Gamification Engine",
-    description: "Leaderboards, badges, points, and team competitions built directly into the platform. Boost motivation without third-party tools.",
-    highlight: "Gamification built-in"
   },
   {
     icon: Building2,
@@ -29,14 +41,14 @@ const uspItems = [
 ];
 
 const comparisonData = [
+  { feature: "Unlimited Users", quickapp: true, others: "Per User $$" },
+  { feature: "Success-Based Pricing", quickapp: true, others: false },
+  { feature: "AI-First Architecture", quickapp: true, others: "Add-on" },
+  { feature: "Intelligent Guidance", quickapp: true, others: false },
   { feature: "True Offline Mode", quickapp: true, others: "Limited" },
-  { feature: "Built-in AI Intelligence", quickapp: true, others: "Add-on" },
   { feature: "Native Gamification", quickapp: true, others: false },
   { feature: "Distributor Portal", quickapp: true, others: "Separate" },
-  { feature: "Institutional CRM", quickapp: true, others: false },
   { feature: "Multi-Language (6+)", quickapp: true, others: "2-3" },
-  { feature: "AI Credit Scoring", quickapp: true, others: false },
-  { feature: "Van Sales Module", quickapp: true, others: "Add-on" },
 ];
 
 export const USPSection = () => {
@@ -49,15 +61,32 @@ export const USPSection = () => {
             Why Choose QuickApp.AI
           </div>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            What Makes Us Different
+            Not Just Another SFA — An Intelligent Sales Partner
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            We're not just another SFA tool. Here's why leading brands choose QuickApp.AI over traditional solutions.
+          <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+            We built QuickApp.AI with a revolutionary approach: <strong>one price, unlimited users</strong>, 
+            powered by <strong>AI-first architecture</strong> that guides your team to success — not just collects data.
           </p>
         </div>
 
+        {/* Pricing Philosophy Banner */}
+        <div className="mb-12 p-6 md:p-8 rounded-2xl bg-gradient-to-r from-accent-gold/10 to-accent-bronze/10 border border-accent-gold/20">
+          <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-accent-gold to-accent-bronze flex items-center justify-center flex-shrink-0">
+              <DollarSign className="h-8 w-8 text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold text-foreground mb-2">Our Pricing Philosophy</h3>
+              <p className="text-muted-foreground">
+                We don't believe in charging per user. Everyone in your firm should have access to the power of digital and AI. 
+                Our success-based model means we're partners in your growth — when you succeed, we succeed.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* USP Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
           {uspItems.map((item, index) => (
             <Card key={index} className="border-border/40 bg-card shadow-card overflow-hidden group hover:shadow-hero transition-all duration-300">
               <CardContent className="p-6">
