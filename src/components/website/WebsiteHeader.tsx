@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import quickappLogo from "@/assets/quickapp-logo-icon.png";
+import quickappLogo from "@/assets/quickapp-logo-full.png";
 
 const solutionLinks = [
   { label: "Field Sales Automation", href: "/solutions/field-sales" },
