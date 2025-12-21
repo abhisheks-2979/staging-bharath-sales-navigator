@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
-import quickappLogo from "@/assets/quickapp-logo-new.jpeg";
+import quickappLogo from "@/assets/quickapp-logo-icon.png";
 
 export const WebsiteHeader = () => {
   const navigate = useNavigate();
@@ -54,7 +54,7 @@ export const WebsiteHeader = () => {
           <img 
             src={quickappLogo} 
             alt="QuickApp.AI" 
-            className="h-10 w-10 rounded-lg bg-white p-1"
+            className="h-12 w-12 rounded-xl shadow-lg"
           />
           <div>
             <h1 className="text-xl font-bold text-foreground">
