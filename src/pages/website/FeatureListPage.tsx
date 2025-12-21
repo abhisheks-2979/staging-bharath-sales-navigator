@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Check, Sparkles, Target, Brain, BarChart3, Users, Trophy, Truck, Building2, Shield, Settings, ArrowRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import quickappLogo from "@/assets/quickapp-logo.png";
 import { cn } from "@/lib/utils";
+import { WebsiteHeader } from "@/components/website/WebsiteHeader";
 
 const featureCategories = [
   {
@@ -205,28 +205,18 @@ const FeatureListPage = () => {
   const currentCategory = featureCategories.find(c => c.id === activeCategory) || featureCategories[0];
   const currentIndex = featureCategories.findIndex(c => c.id === activeCategory);
 
+  // Scroll to top on mount
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#1A1F2C] via-[#1A1F2C] to-[#0F1218]">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#1A1F2C]/95 backdrop-blur-sm border-b border-white/10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")}>
-            <img src={quickappLogo} alt="QuickApp.AI" className="h-10 w-10 rounded-lg" />
-            <span className="text-xl font-bold text-white">QuickApp.AI</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" className="text-white/80 hover:text-white hidden sm:flex" onClick={() => navigate("/")}>
-              Back to Home
-            </Button>
-            <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white" onClick={() => navigate("/auth")}>
-              Get Started
-            </Button>
-          </div>
-        </div>
-      </header>
+      {/* Website Header */}
+      <WebsiteHeader />
 
       {/* Hero Section - Compact */}
-      <section className="pt-28 pb-6 px-4">
+      <section className="pt-8 pb-6 px-4">
         <div className="container mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-full px-4 py-2 mb-4">
             <Sparkles className="w-4 h-4 text-amber-400" />
@@ -246,7 +236,7 @@ const FeatureListPage = () => {
       </section>
 
       {/* Category Tabs - Prominent and Clear */}
-      <section className="px-4 pb-4 sticky top-[73px] z-40 bg-gradient-to-b from-[#1A1F2C] to-[#1A1F2C]/95 backdrop-blur-sm">
+      <section className="px-4 pb-4 sticky top-[60px] z-40 bg-gradient-to-b from-[#1A1F2C] to-[#1A1F2C]/95 backdrop-blur-sm">
         <div className="container mx-auto">
           {/* Scrollable tabs */}
           <div className="overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
