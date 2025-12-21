@@ -169,7 +169,7 @@ export const PricingPage = () => {
                         ? "bg-primary hover:bg-primary/90"
                         : "bg-secondary hover:bg-secondary/80"
                     }`}
-                    onClick={() => navigate("/demo")}
+                    onClick={() => navigate("/request-demo")}
                   >
                     {tier.cta}
                   </Button>
@@ -219,7 +219,7 @@ export const PricingPage = () => {
               </div>
               <div className="text-center">
                 <p className="text-sm text-muted-foreground mb-2">Custom pricing</p>
-                <Button size="lg" onClick={() => navigate("/demo")}>
+                <Button size="lg" onClick={() => navigate("/request-demo")}>
                   Contact Sales
                 </Button>
               </div>
