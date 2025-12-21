@@ -10,7 +10,7 @@ export const WebsiteHeader = () => {
 
   const navItems = [
     { label: "Solutions", href: "#solutions" },
-    { label: "Platform", href: "#platform" },
+    { label: "Technology", href: "/technology" },
     { label: "Industries", href: "#industries" },
     { label: "Pricing", href: "/pricing" },
   ];

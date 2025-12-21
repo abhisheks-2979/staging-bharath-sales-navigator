@@ -22,6 +22,7 @@ visitStatusCache.init();
 // All pages imported directly for instant loading in APK (no lazy loading)
 import { LandingPage } from "./pages/LandingPage";
 import FeatureListPage from "./pages/website/FeatureListPage";
+import TechnologyPage from "./pages/website/TechnologyPage";
 import FieldSalesSolution from "./pages/website/solutions/FieldSalesSolution";
 import DistributorPortalSolution from "./pages/website/solutions/DistributorPortalSolution";
 import InstitutionalSalesSolution from "./pages/website/solutions/InstitutionalSalesSolution";
@@ -229,6 +230,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         {/* All routes - direct imports, no lazy loading for instant APK page loads */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/features" element={<FeatureListPage />} />
+        <Route path="/technology" element={<TechnologyPage />} />
         <Route path="/solutions/field-sales" element={<FieldSalesSolution />} />
         <Route path="/solutions/distributor-portal" element={<DistributorPortalSolution />} />
         <Route path="/solutions/institutional-sales" element={<InstitutionalSalesSolution />} />
