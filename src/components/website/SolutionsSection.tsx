@@ -138,7 +138,7 @@ export const SolutionsSection = () => {
           <Button 
             size="lg"
             className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-8"
-            onClick={() => navigate('/features')}
+            onClick={() => { navigate('/features'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
           >
             View All 100+ Features
             <ArrowRight className="h-4 w-4 ml-2" />

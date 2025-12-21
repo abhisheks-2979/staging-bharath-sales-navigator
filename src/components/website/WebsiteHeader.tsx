@@ -12,6 +12,7 @@ export const WebsiteHeader = () => {
 
   const navItems = [
     { label: "Solutions", href: "#solutions" },
+    { label: "AI Features", href: "/features" },
     { label: "Technology", href: "/technology" },
     { label: "Industries", href: "#industries" },
     { label: "Pricing", href: "/pricing" },
