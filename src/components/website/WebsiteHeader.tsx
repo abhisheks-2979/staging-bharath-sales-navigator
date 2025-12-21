@@ -55,6 +55,8 @@ export const WebsiteHeader = () => {
       return;
     }
     
+    setMobileMenuOpen(false);
+    
     if (href.startsWith('#')) {
       if (isLandingPage) {
         // Scroll to section on landing page
@@ -65,16 +67,17 @@ export const WebsiteHeader = () => {
         navigate('/' + href);
       }
     } else {
-      // For page routes, navigate and scroll to top
+      // For page routes, navigate and scroll to top instantly
       navigate(href);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: 'instant' });
     }
   };
 
   const handleSolutionClick = (href: string) => {
     setSolutionsOpen(false);
+    setMobileMenuOpen(false);
     navigate(href);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   return (
@@ -89,7 +92,7 @@ export const WebsiteHeader = () => {
           />
           <div>
             <h1 className="text-xl font-bold text-foreground">
-              Quickapp<span className="text-primary">.ai</span>
+              Quickapp<span className="text-accent-gold">.ai</span>
             </h1>
             <p className="text-[10px] text-muted-foreground tracking-wide">AI-FORWARD COMMERCE</p>
           </div>
