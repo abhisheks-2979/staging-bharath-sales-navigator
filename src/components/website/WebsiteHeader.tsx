@@ -1,12 +1,14 @@
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import quickappLogo from "@/assets/quickapp-logo.png";
 
 export const WebsiteHeader = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const isLandingPage = location.pathname === '/';
 
   const navItems = [
     { label: "Solutions", href: "#solutions" },
@@ -14,6 +16,21 @@ export const WebsiteHeader = () => {
     { label: "Industries", href: "#industries" },
     { label: "Pricing", href: "/pricing" },
   ];
+
+  const handleNavClick = (href: string) => {
+    if (href.startsWith('#')) {
+      if (isLandingPage) {
+        // Scroll to section on landing page
+        const element = document.querySelector(href);
+        element?.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        // Navigate to landing page with hash
+        navigate('/' + href);
+      }
+    } else {
+      navigate(href);
+    }
+  };
 
   return (
     <header className="border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
@@ -34,23 +51,13 @@ export const WebsiteHeader = () => {
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-8">
           {navItems.map((item) => (
-            item.href.startsWith('/') ? (
-              <button
-                key={item.label}
-                onClick={() => navigate(item.href)}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {item.label}
-              </button>
-            ) : (
-              <a
-                key={item.label}
-                href={item.href}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {item.label}
-              </a>
-            )
+            <button
+              key={item.label}
+              onClick={() => handleNavClick(item.href)}
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {item.label}
+            </button>
           ))}
         </nav>
 
@@ -84,24 +91,13 @@ export const WebsiteHeader = () => {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-border/40 bg-background px-4 py-4 space-y-4">
           {navItems.map((item) => (
-            item.href.startsWith('/') ? (
-              <button
-                key={item.label}
-                onClick={() => { navigate(item.href); setMobileMenuOpen(false); }}
-                className="block text-sm font-medium text-muted-foreground hover:text-foreground text-left w-full"
-              >
-                {item.label}
-              </button>
-            ) : (
-              <a
-                key={item.label}
-                href={item.href}
-                className="block text-sm font-medium text-muted-foreground hover:text-foreground"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                {item.label}
-              </a>
-            )
+            <button
+              key={item.label}
+              onClick={() => { handleNavClick(item.href); setMobileMenuOpen(false); }}
+              className="block text-sm font-medium text-muted-foreground hover:text-foreground text-left w-full"
+            >
+              {item.label}
+            </button>
           ))}
           <div className="flex flex-col gap-2 pt-4 border-t border-border/40">
             <Button 
