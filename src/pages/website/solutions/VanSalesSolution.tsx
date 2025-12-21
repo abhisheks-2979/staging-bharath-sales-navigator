@@ -1,3 +1,4 @@
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { WebsiteHeader } from "@/components/website";
@@ -69,6 +70,11 @@ const relatedFeatures = [
 export default function VanSalesSolution() {
   const navigate = useNavigate();
 
+  // Scroll to top on mount
+  React.useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <WebsiteHeader />
@@ -92,7 +98,7 @@ export default function VanSalesSolution() {
                 <Button 
                   size="lg" 
                   className="bg-primary text-primary-foreground hover:bg-primary/90"
-                  onClick={() => navigate('/demo')}
+                  onClick={() => navigate('/request-demo')}
                 >
                   Request Demo
                 </Button>
@@ -107,11 +113,9 @@ export default function VanSalesSolution() {
             </div>
             <div className="relative">
               <div className="bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl p-8 border border-primary/20">
-                <img 
-                  src="/lovable-uploads/a31df152-1128-4f69-95cc-ef500b50331d.png" 
-                  alt="Van Sales App Dashboard" 
-                  className="rounded-lg shadow-2xl"
-                />
+                <div className="aspect-video bg-gradient-to-br from-primary/30 to-primary/10 rounded-lg flex items-center justify-center">
+                  <Truck className="w-16 h-16 text-primary/50" />
+                </div>
               </div>
             </div>
           </div>
@@ -224,14 +228,14 @@ export default function VanSalesSolution() {
             <Button 
               size="lg" 
               className="bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => navigate('/demo')}
+              onClick={() => navigate('/request-demo')}
             >
               Schedule Free Demo
             </Button>
             <Button 
               size="lg" 
               variant="outline"
-              onClick={() => navigate('/contact')}
+              onClick={() => navigate('/request-demo')}
             >
               Contact Sales
             </Button>

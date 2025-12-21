@@ -64,6 +64,7 @@ export const CTASection = () => {
           <Button 
             variant="outline"
             size="lg"
+            onClick={() => navigate('/request-demo')}
             className="border-white/30 text-white hover:bg-white/10 px-10 py-6 text-lg backdrop-blur"
           >
             Schedule Demo

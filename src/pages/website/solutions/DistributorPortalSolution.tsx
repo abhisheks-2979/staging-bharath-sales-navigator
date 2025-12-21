@@ -1,3 +1,4 @@
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { WebsiteHeader } from "@/components/website";
@@ -69,6 +70,11 @@ const relatedFeatures = [
 export default function DistributorPortalSolution() {
   const navigate = useNavigate();
 
+  // Scroll to top on mount
+  React.useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <WebsiteHeader />
@@ -93,7 +99,7 @@ export default function DistributorPortalSolution() {
                 <Button 
                   size="lg" 
                   className="bg-primary text-primary-foreground hover:bg-primary/90"
-                  onClick={() => navigate('/demo')}
+                  onClick={() => navigate('/request-demo')}
                 >
                   Request Demo
                 </Button>
@@ -108,11 +114,9 @@ export default function DistributorPortalSolution() {
             </div>
             <div className="relative">
               <div className="bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl p-8 border border-primary/20">
-                <img 
-                  src="/lovable-uploads/4c36505f-db4e-43df-a38e-80e7d29ff090.png" 
-                  alt="Distributor Portal Dashboard" 
-                  className="rounded-lg shadow-2xl"
-                />
+                <div className="aspect-video bg-gradient-to-br from-primary/30 to-primary/10 rounded-lg flex items-center justify-center">
+                  <Package className="w-16 h-16 text-primary/50" />
+                </div>
               </div>
             </div>
           </div>
@@ -225,14 +229,14 @@ export default function DistributorPortalSolution() {
             <Button 
               size="lg" 
               className="bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => navigate('/demo')}
+              onClick={() => navigate('/request-demo')}
             >
               Schedule Free Demo
             </Button>
             <Button 
               size="lg" 
               variant="outline"
-              onClick={() => navigate('/contact')}
+              onClick={() => navigate('/request-demo')}
             >
               Contact Sales
             </Button>

@@ -87,7 +87,7 @@ export const WebsiteHeader = () => {
             Login
           </Button>
           <Button 
-            onClick={() => navigate('/auth')}
+            onClick={() => navigate('/request-demo')}
             className="bg-accent-gold hover:bg-accent-gold/90 text-accent-gold-foreground shadow-button"
           >
             Request Demo
@@ -124,7 +124,7 @@ export const WebsiteHeader = () => {
               Login
             </Button>
             <Button 
-              onClick={() => navigate('/auth')}
+              onClick={() => navigate('/request-demo')}
               className="w-full bg-accent-gold hover:bg-accent-gold/90 text-accent-gold-foreground"
             >
               Request Demo

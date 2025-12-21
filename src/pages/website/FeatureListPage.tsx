@@ -350,7 +350,7 @@ const FeatureListPage = () => {
               
               <Button 
                 className={cn("bg-gradient-to-r text-white", currentCategory.color)}
-                onClick={() => navigate("/auth")}
+                onClick={() => navigate("/request-demo")}
               >
                 Try {currentCategory.shortTitle}
                 <ArrowRight className="w-4 h-4 ml-2" />
@@ -384,9 +384,9 @@ const FeatureListPage = () => {
             <Button 
               size="lg"
               className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-8"
-              onClick={() => navigate("/auth")}
+              onClick={() => navigate("/request-demo")}
             >
-              Start Free Trial
+              Request Demo
             </Button>
             <Button 
               size="lg"
