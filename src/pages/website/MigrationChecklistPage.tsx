@@ -151,16 +151,14 @@ export default function MigrationChecklistPage() {
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-3">
             <Button
-              variant="outline"
-              className="border-white/20 text-white hover:bg-white/10"
+              className="bg-white text-gray-900 hover:bg-gray-100 font-medium"
               onClick={() => window.print()}
             >
               <Printer className="w-4 h-4 mr-2" />
               Print Checklist
             </Button>
             <Button
-              variant="outline"
-              className="border-white/20 text-white hover:bg-white/10"
+              className="bg-amber-500 hover:bg-amber-600 text-white font-medium"
             >
               <Download className="w-4 h-4 mr-2" />
               Download PDF
