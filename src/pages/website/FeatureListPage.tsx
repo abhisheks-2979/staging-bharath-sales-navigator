@@ -403,7 +403,7 @@ const FeatureListPage = () => {
       {/* Footer */}
       <footer className="py-8 px-4 border-t border-white/10">
         <div className="container mx-auto text-center text-white/40 text-sm">
-          © 2024 QuickApp.AI by KVP Business Solutions. All rights reserved.
+          © 2024 QuickApp.AI. All rights reserved.
         </div>
       </footer>
     </div>
