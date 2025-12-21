@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Menu, X } from "lucide-react";
-import { useState } from "react";
-import quickappLogo from "@/assets/quickapp-logo.png";
+import { useState, useEffect } from "react";
+import quickappLogo from "@/assets/quickapp-logo-new.jpeg";
 
 export const WebsiteHeader = () => {
   const navigate = useNavigate();
@@ -17,6 +17,16 @@ export const WebsiteHeader = () => {
     { label: "Pricing", href: "/pricing" },
   ];
 
+  // Handle hash navigation after page load
+  useEffect(() => {
+    if (location.hash) {
+      setTimeout(() => {
+        const element = document.querySelector(location.hash);
+        element?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [location]);
+
   const handleNavClick = (href: string) => {
     if (href.startsWith('#')) {
       if (isLandingPage) {
@@ -28,7 +38,9 @@ export const WebsiteHeader = () => {
         navigate('/' + href);
       }
     } else {
+      // For page routes, navigate and scroll to top
       navigate(href);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -40,11 +52,13 @@ export const WebsiteHeader = () => {
           <img 
             src={quickappLogo} 
             alt="QuickApp.AI" 
-            className="h-10 w-10 rounded-lg"
+            className="h-10 w-10 rounded-lg bg-white p-1"
           />
           <div>
-            <h1 className="text-xl font-bold text-foreground">QuickApp.AI</h1>
-            <p className="text-[10px] text-muted-foreground">AI-Powered Field Sales Platform</p>
+            <h1 className="text-xl font-bold text-foreground">
+              Quickapp<span className="text-primary">.ai</span>
+            </h1>
+            <p className="text-[10px] text-muted-foreground tracking-wide">AI-FORWARD COMMERCE</p>
           </div>
         </div>
 
