@@ -1,10 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Users, UserCheck, Database, TrendingUp, Heart, Shield } from "lucide-react";
+import { useEffect } from "react";
+import { Users, Database, TrendingUp, Heart, Shield } from "lucide-react";
+import { WebsiteHeader } from "@/components/website/WebsiteHeader";
 
 export const RetailerManagementFeature = () => {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
 
   const features = [
     {
@@ -31,27 +37,10 @@ export const RetailerManagementFeature = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      {/* Header */}
-      <header className="border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => navigate('/')}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Home
-          </Button>
-          <div className="flex items-center space-x-2">
-            <Users className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold text-foreground">Retailer Management</h1>
-          </div>
-        </div>
-      </header>
+      <WebsiteHeader />
 
       {/* Hero Section */}
-      <section className="py-16 px-4">
+      <section className="pt-24 pb-16 px-4">
         <div className="container mx-auto text-center">
           <Users className="h-16 w-16 text-primary mx-auto mb-6" />
           <h2 className="text-4xl font-bold text-foreground mb-6">
@@ -63,31 +52,11 @@ export const RetailerManagementFeature = () => {
           </p>
           <Button 
             size="lg"
-            onClick={() => navigate('/auth')}
+            onClick={() => navigate('/request-demo')}
             className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-4 text-lg"
           >
             Start Managing Retailers
           </Button>
-        </div>
-      </section>
-
-      {/* Screenshot Section */}
-      <section className="py-16 px-4 bg-background/50">
-        <div className="container mx-auto">
-          <div className="max-w-4xl mx-auto">
-            <Card className="shadow-xl">
-              <CardContent className="p-8">
-                <img 
-                  src="/lovable-uploads/9f7ffcf1-9bd9-472a-b8c1-c50198c85075.png" 
-                  alt="Retailer Management Dashboard"
-                  className="w-full rounded-lg shadow-lg"
-                />
-              </CardContent>
-            </Card>
-            <p className="text-center text-muted-foreground mt-4 text-sm">
-              Comprehensive retailer database with search, filtering, and detailed profiles
-            </p>
-          </div>
         </div>
       </section>
 
@@ -150,7 +119,7 @@ export const RetailerManagementFeature = () => {
           </h3>
           <Button 
             size="lg"
-            onClick={() => navigate('/auth')}
+            onClick={() => navigate('/request-demo')}
             className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-4"
           >
             Get Started with Retailer Management

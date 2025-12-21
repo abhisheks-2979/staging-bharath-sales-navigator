@@ -1,10 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, TrendingUp, Zap, Eye, Lightbulb, BarChart2 } from "lucide-react";
+import { useEffect } from "react";
+import { TrendingUp, Zap, Eye, Lightbulb, BarChart2 } from "lucide-react";
+import { WebsiteHeader } from "@/components/website/WebsiteHeader";
 
 export const GrowthAnalyticsFeature = () => {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
 
   const features = [
     {
@@ -31,27 +37,10 @@ export const GrowthAnalyticsFeature = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      {/* Header */}
-      <header className="border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => navigate('/')}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Home
-          </Button>
-          <div className="flex items-center space-x-2">
-            <TrendingUp className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold text-foreground">Growth Analytics</h1>
-          </div>
-        </div>
-      </header>
+      <WebsiteHeader />
 
       {/* Hero Section */}
-      <section className="py-16 px-4">
+      <section className="pt-24 pb-16 px-4">
         <div className="container mx-auto text-center">
           <TrendingUp className="h-16 w-16 text-primary mx-auto mb-6" />
           <h2 className="text-4xl font-bold text-foreground mb-6">
@@ -63,31 +52,11 @@ export const GrowthAnalyticsFeature = () => {
           </p>
           <Button 
             size="lg"
-            onClick={() => navigate('/auth')}
+            onClick={() => navigate('/request-demo')}
             className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-4 text-lg"
           >
             Unlock Growth Insights
           </Button>
-        </div>
-      </section>
-
-      {/* Screenshot Section */}
-      <section className="py-16 px-4 bg-background/50">
-        <div className="container mx-auto">
-          <div className="max-w-4xl mx-auto">
-            <Card className="shadow-xl">
-              <CardContent className="p-8">
-                <img 
-                  src="/lovable-uploads/f1a677a5-6652-4477-972d-8c634cd05cd0.png" 
-                  alt="Growth Analytics Dashboard"
-                  className="w-full rounded-lg shadow-lg"
-                />
-              </CardContent>
-            </Card>
-            <p className="text-center text-muted-foreground mt-4 text-sm">
-              Growth analytics dashboard with trend analysis and expansion opportunities
-            </p>
-          </div>
         </div>
       </section>
 
@@ -150,7 +119,7 @@ export const GrowthAnalyticsFeature = () => {
           </h3>
           <Button 
             size="lg"
-            onClick={() => navigate('/auth')}
+            onClick={() => navigate('/request-demo')}
             className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-4"
           >
             Get Started with Growth Analytics

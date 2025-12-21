@@ -1,17 +1,26 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Menu, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Menu, X, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import quickappLogo from "@/assets/quickapp-logo-icon.png";
+
+const solutionLinks = [
+  { label: "Field Sales Automation", href: "/solutions/field-sales" },
+  { label: "Distributor Portal", href: "/solutions/distributor-portal" },
+  { label: "Institutional Sales CRM", href: "/solutions/institutional-sales" },
+  { label: "Van Sales", href: "/solutions/van-sales" },
+];
 
 export const WebsiteHeader = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [solutionsOpen, setSolutionsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const isLandingPage = location.pathname === '/';
 
   const navItems = [
-    { label: "Solutions", href: "#solutions" },
+    { label: "Solutions", href: "#solutions", hasDropdown: true },
     { label: "AI Features", href: "/features" },
     { label: "Technology", href: "/technology" },
     { label: "Industries", href: "#industries" },
@@ -29,7 +38,23 @@ export const WebsiteHeader = () => {
     }
   }, [location]);
 
-  const handleNavClick = (href: string) => {
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setSolutionsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleNavClick = (href: string, hasDropdown?: boolean) => {
+    if (hasDropdown) {
+      setSolutionsOpen(!solutionsOpen);
+      return;
+    }
+    
     if (href.startsWith('#')) {
       if (isLandingPage) {
         // Scroll to section on landing page
@@ -44,6 +69,12 @@ export const WebsiteHeader = () => {
       navigate(href);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+  };
+
+  const handleSolutionClick = (href: string) => {
+    setSolutionsOpen(false);
+    navigate(href);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -67,13 +98,32 @@ export const WebsiteHeader = () => {
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-8">
           {navItems.map((item) => (
-            <button
-              key={item.label}
-              onClick={() => handleNavClick(item.href)}
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {item.label}
-            </button>
+            <div key={item.label} className="relative" ref={item.hasDropdown ? dropdownRef : undefined}>
+              <button
+                onClick={() => handleNavClick(item.href, item.hasDropdown)}
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+              >
+                {item.label}
+                {item.hasDropdown && <ChevronDown className={`h-4 w-4 transition-transform ${solutionsOpen ? 'rotate-180' : ''}`} />}
+              </button>
+              
+              {/* Solutions Dropdown */}
+              {item.hasDropdown && solutionsOpen && (
+                <div className="absolute top-full left-0 mt-2 w-56 rounded-lg shadow-lg bg-background border border-border z-50">
+                  <div className="py-2">
+                    {solutionLinks.map((solution) => (
+                      <button
+                        key={solution.href}
+                        onClick={() => handleSolutionClick(solution.href)}
+                        className="block w-full text-left px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      >
+                        {solution.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           ))}
         </nav>
 
@@ -107,13 +157,39 @@ export const WebsiteHeader = () => {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-border/40 bg-background px-4 py-4 space-y-4">
           {navItems.map((item) => (
-            <button
-              key={item.label}
-              onClick={() => { handleNavClick(item.href); setMobileMenuOpen(false); }}
-              className="block text-sm font-medium text-muted-foreground hover:text-foreground text-left w-full"
-            >
-              {item.label}
-            </button>
+            <div key={item.label}>
+              {item.hasDropdown ? (
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setSolutionsOpen(!solutionsOpen)}
+                    className="flex items-center justify-between w-full text-sm font-medium text-muted-foreground hover:text-foreground text-left"
+                  >
+                    {item.label}
+                    <ChevronDown className={`h-4 w-4 transition-transform ${solutionsOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {solutionsOpen && (
+                    <div className="pl-4 space-y-2 border-l border-border">
+                      {solutionLinks.map((solution) => (
+                        <button
+                          key={solution.href}
+                          onClick={() => { handleSolutionClick(solution.href); setMobileMenuOpen(false); }}
+                          className="block text-sm text-muted-foreground hover:text-foreground"
+                        >
+                          {solution.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  onClick={() => { handleNavClick(item.href); setMobileMenuOpen(false); }}
+                  className="block text-sm font-medium text-muted-foreground hover:text-foreground text-left w-full"
+                >
+                  {item.label}
+                </button>
+              )}
+            </div>
           ))}
           <div className="flex flex-col gap-2 pt-4 border-t border-border/40">
             <Button 
