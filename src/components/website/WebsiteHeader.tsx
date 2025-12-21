@@ -97,7 +97,7 @@ export const WebsiteHeader = () => {
           />
           <div>
             <h1 className="text-xl font-bold text-foreground">
-              Quickapp<span className="text-accent-gold">.ai</span>
+              QuickApp<span className="text-accent-gold">.ai</span>
             </h1>
             <p className="text-[10px] text-muted-foreground tracking-wide">AI-FORWARD COMMERCE</p>
           </div>

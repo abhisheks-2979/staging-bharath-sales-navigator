@@ -27,7 +27,7 @@ export const WebsiteFooter = () => {
     company: [
       { label: "About Us", href: "#" },
       { label: "Careers", href: "#" },
-      { label: "Contact", href: "#" },
+      { label: "Contact", href: "/contact" },
       { label: "Blog", href: "#" },
     ]
   };
@@ -45,8 +45,8 @@ export const WebsiteFooter = () => {
                 alt="QuickApp.AI" 
                 className="h-10 w-10 rounded-lg"
               />
-              <div>
-                <h3 className="text-lg font-bold text-foreground">QuickApp.AI</h3>
+            <div>
+                <h3 className="text-lg font-bold text-foreground">QuickApp<span className="text-accent-gold">.ai</span></h3>
                 <p className="text-xs text-muted-foreground">AI-Powered Field Sales Platform</p>
               </div>
             </div>
