@@ -52,9 +52,10 @@ export const HeroSection = () => {
           <Button 
             variant="outline" 
             size="lg"
+            onClick={() => navigate('/request-demo')}
             className="border-white/50 bg-white/10 text-white hover:bg-white/20 px-8 py-6 text-lg backdrop-blur font-medium"
           >
-            Watch Demo
+            Request Demo
           </Button>
         </div>
 

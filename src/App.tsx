@@ -31,6 +31,7 @@ import ROICalculator from "./pages/website/ROICalculator";
 import InsightsPage from "./pages/website/InsightsPage";
 import MigrationPlanPage from "./pages/website/MigrationPlanPage";
 import MigrationChecklistPage from "./pages/website/MigrationChecklistPage";
+import DemoRequestPage from "./pages/website/DemoRequestPage";
 import Index from "./pages/Index";
 import { MyVisits } from "./pages/MyVisits";
 import { OrderEntry } from "./pages/OrderEntry";
@@ -243,6 +244,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         <Route path="/insights" element={<InsightsPage />} />
         <Route path="/insights/migration-plan" element={<MigrationPlanPage />} />
         <Route path="/insights/migration-checklist" element={<MigrationChecklistPage />} />
+        <Route path="/request-demo" element={<DemoRequestPage />} />
         <Route path="/auth" element={<RoleBasedAuthPage />} />
         <Route path="/auth/complete-profile" element={<CompleteProfile />} />
         <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
