@@ -17,6 +17,7 @@ import {
   DollarSign,
   LineChart
 } from "lucide-react";
+import solutionImage from "@/assets/solution-institutional-sales.png";
 
 const features = [
   {
@@ -113,10 +114,12 @@ export default function InstitutionalSalesSolution() {
               </div>
             </div>
             <div className="relative">
-              <div className="bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl p-8 border border-primary/20">
-                <div className="aspect-video bg-gradient-to-br from-primary/30 to-primary/10 rounded-lg flex items-center justify-center">
-                  <Building2 className="w-16 h-16 text-primary/50" />
-                </div>
+              <div className="bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl p-4 border border-primary/20 shadow-xl">
+                <img 
+                  src={solutionImage} 
+                  alt="Institutional Sales CRM Dashboard" 
+                  className="w-full rounded-lg shadow-lg"
+                />
               </div>
             </div>
           </div>
