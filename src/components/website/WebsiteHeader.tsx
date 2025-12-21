@@ -15,6 +15,7 @@ export const WebsiteHeader = () => {
     { label: "AI Features", href: "/features" },
     { label: "Technology", href: "/technology" },
     { label: "Industries", href: "#industries" },
+    { label: "Insights", href: "/insights" },
     { label: "Pricing", href: "/pricing" },
   ];
 
