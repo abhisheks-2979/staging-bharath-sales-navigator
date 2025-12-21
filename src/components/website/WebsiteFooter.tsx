@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { CheckCircle, Award, Shield, Mail, Phone, MapPin } from "lucide-react";
-import quickappLogo from "@/assets/quickapp-logo.png";
+import quickappLogo from "@/assets/quickapp-logo-full-yellow-black.png";
 
 export const WebsiteFooter = () => {
   const navigate = useNavigate();
@@ -61,7 +61,7 @@ export const WebsiteFooter = () => {
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4" />
-                <span>+91 98765 43210</span>
+                <span>+91 63616 80976</span>
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4" />
