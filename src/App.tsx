@@ -28,6 +28,9 @@ import DistributorPortalSolution from "./pages/website/solutions/DistributorPort
 import InstitutionalSalesSolution from "./pages/website/solutions/InstitutionalSalesSolution";
 import VanSalesSolution from "./pages/website/solutions/VanSalesSolution";
 import ROICalculator from "./pages/website/ROICalculator";
+import InsightsPage from "./pages/website/InsightsPage";
+import MigrationPlanPage from "./pages/website/MigrationPlanPage";
+import MigrationChecklistPage from "./pages/website/MigrationChecklistPage";
 import Index from "./pages/Index";
 import { MyVisits } from "./pages/MyVisits";
 import { OrderEntry } from "./pages/OrderEntry";
@@ -237,6 +240,9 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         <Route path="/solutions/van-sales" element={<VanSalesSolution />} />
         <Route path="/pricing" element={<PricingPage />} />
         <Route path="/roi-calculator" element={<ROICalculator />} />
+        <Route path="/insights" element={<InsightsPage />} />
+        <Route path="/insights/migration-plan" element={<MigrationPlanPage />} />
+        <Route path="/insights/migration-checklist" element={<MigrationChecklistPage />} />
         <Route path="/auth" element={<RoleBasedAuthPage />} />
         <Route path="/auth/complete-profile" element={<CompleteProfile />} />
         <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
