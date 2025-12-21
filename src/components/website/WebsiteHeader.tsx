@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import quickappLogo from "@/assets/quickapp-logo-full.png";
+import quickappLogo from "@/assets/quickapp-logo-full-yellow-black.png";
 
 const solutionLinks = [
   { label: "Field Sales Automation", href: "/solutions/field-sales" },
@@ -38,25 +38,30 @@ export const WebsiteHeader = () => {
     }
   }, [location]);
 
-  // Close dropdown when clicking outside
+  // Close desktop dropdown when clicking outside
+  // (On mobile, the outside-click handler can fire before the button click,
+  // unmounting the menu and preventing navigation.)
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    if (mobileMenuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setSolutionsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [mobileMenuOpen]);
 
   const handleNavClick = (href: string, hasDropdown?: boolean) => {
     if (hasDropdown) {
       setSolutionsOpen(!solutionsOpen);
       return;
     }
-    
+
     setMobileMenuOpen(false);
-    
+
     if (href.startsWith('#')) {
       if (isLandingPage) {
         // Scroll to section on landing page
@@ -67,9 +72,9 @@ export const WebsiteHeader = () => {
         navigate('/' + href);
       }
     } else {
-      // For page routes, navigate and scroll to top instantly
+      // For page routes, navigate and scroll to top
       navigate(href);
-      window.scrollTo({ top: 0, behavior: 'instant' });
+      window.scrollTo({ top: 0, behavior: 'auto' });
     }
   };
 
@@ -77,7 +82,7 @@ export const WebsiteHeader = () => {
     setSolutionsOpen(false);
     setMobileMenuOpen(false);
     navigate(href);
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
   };
 
   return (
