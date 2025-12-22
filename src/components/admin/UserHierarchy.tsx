@@ -104,12 +104,19 @@ const UserHierarchy: React.FC<UserHierarchyProps> = ({ className }) => {
       
       if (empError) throw empError;
 
-      // Fetch user_profiles with security_profiles for role names
+      // Fetch user_profiles
       const { data: userProfiles, error: upError } = await supabase
         .from('user_profiles')
-        .select('user_id, profile_id, security_profiles(name)');
+        .select('user_id, profile_id');
       
       if (upError) throw upError;
+
+      // Fetch security_profiles separately
+      const { data: securityProfiles, error: spError } = await supabase
+        .from('security_profiles')
+        .select('id, name');
+      
+      if (spError) throw spError;
 
       // Build hierarchy map - include all users who have a role assigned
       const userMap = new Map<string, HierarchyUser>();
@@ -121,7 +128,8 @@ const UserHierarchy: React.FC<UserHierarchyProps> = ({ className }) => {
         if (!profile) return;
         
         const emp = employees?.find(e => e.user_id === up.user_id);
-        const roleName = (up.security_profiles as any)?.name;
+        const secProfile = securityProfiles?.find(sp => sp.id === up.profile_id);
+        const roleName = secProfile?.name;
         
         userMap.set(up.user_id, {
           id: up.user_id,
