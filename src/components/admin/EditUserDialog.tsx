@@ -156,7 +156,38 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({ user, open, onOpenChang
 
       if (profileError) throw profileError;
 
-      // Update employee data
+      // If a manager is selected, ensure the manager has an employee record
+      if (employeeData.manager_id) {
+        const { data: managerEmp } = await supabase
+          .from('employees')
+          .select('user_id')
+          .eq('user_id', employeeData.manager_id)
+          .single();
+        
+        // Create employee record for manager if it doesn't exist
+        if (!managerEmp) {
+          await supabase
+            .from('employees')
+            .insert({ user_id: employeeData.manager_id });
+        }
+      }
+
+      // If secondary manager is selected, ensure they have an employee record
+      if (employeeData.secondary_manager_id) {
+        const { data: secondaryManagerEmp } = await supabase
+          .from('employees')
+          .select('user_id')
+          .eq('user_id', employeeData.secondary_manager_id)
+          .single();
+        
+        if (!secondaryManagerEmp) {
+          await supabase
+            .from('employees')
+            .insert({ user_id: employeeData.secondary_manager_id });
+        }
+      }
+
+      // Update employee data for the current user
       const { error: empError } = await supabase
         .from('employees')
         .upsert({

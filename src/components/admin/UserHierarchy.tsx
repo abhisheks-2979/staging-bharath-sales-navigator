@@ -84,13 +84,28 @@ const UserHierarchy: React.FC<UserHierarchyProps> = ({ className }) => {
 
   useEffect(() => {
     fetchHierarchy();
+    
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel('hierarchy-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, () => {
+        fetchHierarchy();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_profiles' }, () => {
+        fetchHierarchy();
+      })
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchHierarchy = async () => {
     try {
       setLoading(true);
       
-      // Fetch profiles
+      // Fetch all profiles
       const { data: profiles, error: profileError } = await supabase
         .from('profiles')
         .select('id, full_name, username, profile_picture_url');
@@ -104,14 +119,14 @@ const UserHierarchy: React.FC<UserHierarchyProps> = ({ className }) => {
       
       if (empError) throw empError;
 
-      // Fetch user_profiles
+      // Fetch user_profiles (users with security profiles/roles)
       const { data: userProfiles, error: upError } = await supabase
         .from('user_profiles')
         .select('user_id, profile_id');
       
       if (upError) throw upError;
 
-      // Fetch security_profiles separately
+      // Fetch security_profiles
       const { data: securityProfiles, error: spError } = await supabase
         .from('security_profiles')
         .select('id, name');
@@ -121,9 +136,11 @@ const UserHierarchy: React.FC<UserHierarchyProps> = ({ className }) => {
       // Build hierarchy map - include all users who have a role assigned
       const userMap = new Map<string, HierarchyUser>();
       const childToParent = new Map<string, string>();
+      const usersWithRoles = new Set<string>();
 
       // First, add all users who have roles assigned
       userProfiles?.forEach(up => {
+        usersWithRoles.add(up.user_id);
         const profile = profiles?.find(p => p.id === up.user_id);
         if (!profile) return;
         
@@ -147,6 +164,32 @@ const UserHierarchy: React.FC<UserHierarchyProps> = ({ className }) => {
         }
       });
 
+      // Also add managers who might not have a security profile assignment
+      // (This ensures the hierarchy chain is complete)
+      employees?.forEach(emp => {
+        if (emp.manager_id && !userMap.has(emp.manager_id)) {
+          const profile = profiles?.find(p => p.id === emp.manager_id);
+          if (profile) {
+            // Check if manager has a role
+            const managerProfile = userProfiles?.find(up => up.user_id === emp.manager_id);
+            const secProfile = managerProfile 
+              ? securityProfiles?.find(sp => sp.id === managerProfile.profile_id)
+              : null;
+            
+            userMap.set(emp.manager_id, {
+              id: emp.manager_id,
+              full_name: profile.full_name || '',
+              username: profile.username || '',
+              profile_picture_url: profile.profile_picture_url,
+              role_name: secProfile?.name || 'Manager',
+              manager_id: undefined,
+              secondary_manager_id: undefined,
+              directReports: []
+            });
+          }
+        }
+      });
+
       // Build parent-child relationships
       childToParent.forEach((managerId, userId) => {
         const manager = userMap.get(managerId);
@@ -156,16 +199,16 @@ const UserHierarchy: React.FC<UserHierarchyProps> = ({ className }) => {
         }
       });
 
-      // Find root nodes (users without managers)
-      // Prioritize System Administrator (Super Admin) at the top
+      // Find root nodes (users without managers or whose managers aren't in the map)
       const rootNodes: HierarchyUser[] = [];
       const superAdmins: HierarchyUser[] = [];
       
       userMap.forEach((user, userId) => {
         const managerId = childToParent.get(userId);
+        // A user is a root node if they have no manager or their manager isn't in the userMap
         if (!managerId || !userMap.has(managerId)) {
-          // Check if this is a System Administrator (Super Admin)
-          if (user.role_name === 'System Administrator') {
+          // Prioritize System Administrator/Super Admin at the top
+          if (user.role_name === 'System Administrator' || user.role_name === 'Super Admin') {
             superAdmins.push(user);
           } else {
             rootNodes.push(user);
@@ -180,6 +223,7 @@ const UserHierarchy: React.FC<UserHierarchyProps> = ({ className }) => {
 
       // Sort root nodes by name
       rootNodes.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+      superAdmins.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
       
       // Super Admins first, then other root nodes
       setHierarchy([...superAdmins, ...rootNodes]);

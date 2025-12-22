@@ -116,6 +116,13 @@ export const AdminDashboard = () => {
             fetchUsers();
           }
         )
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'employees' },
+          () => {
+            console.log('Employee change detected, refreshing user list...');
+            fetchUsers();
+          }
+        )
         .subscribe();
 
       return () => {
