@@ -2420,7 +2420,7 @@ export type Database = {
           alternate_email: string | null
           certifications: Json | null
           created_at: string
-          daily_da_allowance: number
+          daily_da_allowance: number | null
           date_of_exit: string | null
           date_of_joining: string | null
           education: string | null
@@ -2429,7 +2429,7 @@ export type Database = {
           expertise_areas: string[] | null
           hq: string | null
           manager_id: string | null
-          monthly_salary: number
+          monthly_salary: number | null
           pan_document_url: string | null
           photo_url: string | null
           secondary_manager_id: string | null
@@ -2442,7 +2442,7 @@ export type Database = {
           alternate_email?: string | null
           certifications?: Json | null
           created_at?: string
-          daily_da_allowance?: number
+          daily_da_allowance?: number | null
           date_of_exit?: string | null
           date_of_joining?: string | null
           education?: string | null
@@ -2451,7 +2451,7 @@ export type Database = {
           expertise_areas?: string[] | null
           hq?: string | null
           manager_id?: string | null
-          monthly_salary?: number
+          monthly_salary?: number | null
           pan_document_url?: string | null
           photo_url?: string | null
           secondary_manager_id?: string | null
@@ -2464,7 +2464,7 @@ export type Database = {
           alternate_email?: string | null
           certifications?: Json | null
           created_at?: string
-          daily_da_allowance?: number
+          daily_da_allowance?: number | null
           date_of_exit?: string | null
           date_of_joining?: string | null
           education?: string | null
@@ -2473,7 +2473,7 @@ export type Database = {
           expertise_areas?: string[] | null
           hq?: string | null
           manager_id?: string | null
-          monthly_salary?: number
+          monthly_salary?: number | null
           pan_document_url?: string | null
           photo_url?: string | null
           secondary_manager_id?: string | null
