@@ -166,7 +166,7 @@ const SecurityRolesDisplay: React.FC<SecurityRolesDisplayProps> = ({ className }
           <div
             key={role.id}
             onClick={() => fetchUsersForRole(role)}
-            className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer min-w-[140px] ${getRoleColor(role.name)}`}
+            className={`p-4 rounded-xl border-2 transition-all cursor-pointer min-w-[140px] ${getRoleColor(role.name)}`}
           >
             <div className="flex flex-col h-full">
               <h3 className="font-semibold text-sm mb-1 line-clamp-2">{role.name}</h3>
@@ -174,11 +174,6 @@ const SecurityRolesDisplay: React.FC<SecurityRolesDisplayProps> = ({ className }
                 <Users className="h-4 w-4" />
                 <span>{role.user_count}</span>
               </div>
-              {role.is_system && (
-                <Badge variant="outline" className="absolute top-2 right-2 text-[10px] px-1.5 py-0">
-                  System
-                </Badge>
-              )}
             </div>
           </div>
         ))}
