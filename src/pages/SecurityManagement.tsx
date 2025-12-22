@@ -5,9 +5,8 @@ import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Shield, Users, Lock, Loader2 } from 'lucide-react';
+import { ArrowLeft, Shield, Lock, Loader2 } from 'lucide-react';
 import { ProfileManagement } from '@/components/security/ProfileManagement';
-import { UserProfileAssignment } from '@/components/security/UserProfileAssignment';
 import { ObjectPermissions } from '@/components/security/ObjectPermissions';
 
 export default function SecurityManagement() {
@@ -68,14 +67,10 @@ export default function SecurityManagement() {
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="profiles" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
               Profiles
-            </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              User Assignment
             </TabsTrigger>
             <TabsTrigger value="permissions" className="flex items-center gap-2">
               <Lock className="h-4 w-4" />
@@ -85,10 +80,6 @@ export default function SecurityManagement() {
 
           <TabsContent value="profiles" className="mt-6">
             <ProfileManagement />
-          </TabsContent>
-
-          <TabsContent value="users" className="mt-6">
-            <UserProfileAssignment />
           </TabsContent>
 
           <TabsContent value="permissions" className="mt-6">
