@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Users, UserPlus, Shield, BarChart3, Settings, Database, Calendar, ArrowLeft, Pencil } from 'lucide-react';
+import { Users, UserPlus, Shield, BarChart3, Settings, Database, Calendar, ArrowLeft, Pencil, Search } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import HolidayManagement from '@/components/HolidayManagement';
 import CreateUserForm from '@/components/CreateUserForm';
@@ -57,6 +57,7 @@ export const AdminDashboard = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isRoleChangeOpen, setIsRoleChangeOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
 
   // Form states
   const [newUser, setNewUser] = useState({
@@ -290,6 +291,15 @@ export const AdminDashboard = () => {
                       Refresh
                     </Button>
                   </div>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name, email, username, or role..."
+                      value={userSearchQuery}
+                      onChange={(e) => setUserSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
                 </div>
                 {loadingUsers ? (
                   <div className="flex items-center justify-center py-8">
@@ -312,7 +322,19 @@ export const AdminDashboard = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {users.map((user) => (
+                      {users
+                        .filter(user => {
+                          if (!userSearchQuery.trim()) return true;
+                          const query = userSearchQuery.toLowerCase();
+                          return (
+                            user.email?.toLowerCase().includes(query) ||
+                            user.username?.toLowerCase().includes(query) ||
+                            user.full_name?.toLowerCase().includes(query) ||
+                            user.phone_number?.toLowerCase().includes(query) ||
+                            user.securityProfile?.name?.toLowerCase().includes(query)
+                          );
+                        })
+                        .map((user) => (
                         <TableRow key={user.id}>
                           <TableCell>
                             <Avatar className="w-10 h-10">
