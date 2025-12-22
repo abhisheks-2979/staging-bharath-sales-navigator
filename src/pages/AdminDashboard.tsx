@@ -42,6 +42,10 @@ interface User {
     profile_picture_url?: string;
     user_status?: string;
   };
+  securityProfile?: {
+    id: string;
+    name: string;
+  };
 }
 
 export const AdminDashboard = () => {
@@ -109,6 +113,19 @@ export const AdminDashboard = () => {
         return;
       }
 
+      // Fetch security profile assignments
+      const { data: userProfileAssignments, error: assignmentError } = await supabase
+        .from('user_profiles')
+        .select(`
+          user_id,
+          profile_id,
+          security_profiles:profile_id (id, name)
+        `);
+
+      if (assignmentError) {
+        console.error('Error fetching security profile assignments:', assignmentError);
+      }
+
       // Call the edge function to get user authentication data
       const { data, error } = await supabase.functions.invoke('admin-get-users');
       
@@ -122,6 +139,7 @@ export const AdminDashboard = () => {
       if (data?.users && limitedProfiles) {
         const secureUsers = data.users.map((user: any) => {
           const limitedProfile = limitedProfiles.find((p: any) => p.id === user.id);
+          const securityAssignment = userProfileAssignments?.find((a: any) => a.user_id === user.id);
           return {
             ...user,
             // Override with limited profile data to prevent sensitive data exposure
@@ -130,7 +148,11 @@ export const AdminDashboard = () => {
               username: 'Unknown',
               full_name: 'Unknown User',
               created_at: new Date().toISOString()
-            }
+            },
+            securityProfile: securityAssignment?.security_profiles ? {
+              id: (securityAssignment.security_profiles as any).id,
+              name: (securityAssignment.security_profiles as any).name
+            } : null
           };
         });
         setUsers(secureUsers);
@@ -303,8 +325,8 @@ export const AdminDashboard = () => {
                           <TableCell>{user.full_name}</TableCell>
                           <TableCell>{user.phone_number}</TableCell>
                           <TableCell>
-                            <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                              {user.role}
+                            <Badge variant={user.securityProfile ? 'default' : 'secondary'}>
+                              {user.securityProfile?.name || 'Not Assigned'}
                             </Badge>
                           </TableCell>
                           <TableCell>
