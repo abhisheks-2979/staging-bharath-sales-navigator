@@ -168,7 +168,7 @@ export const Navbar = memo(() => {
                 <SheetTitle 
                   className="text-lg font-bold text-primary-foreground cursor-pointer hover:opacity-80 transition-opacity truncate w-full text-left" 
                   onClick={() => {
-                    navigate('/employee-profile');
+                    navigate('/profile');
                     handleMenuItemClick();
                   }}
                 >

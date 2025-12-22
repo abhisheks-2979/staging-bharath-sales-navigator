@@ -12,12 +12,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Users, UserPlus, Shield, BarChart3, Settings, Database, Calendar, ArrowLeft } from 'lucide-react';
+import { Users, UserPlus, Shield, BarChart3, Settings, Database, Calendar, ArrowLeft, Pencil } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import HolidayManagement from '@/components/HolidayManagement';
 import CreateUserForm from '@/components/CreateUserForm';
 import UserInvitationForm from '@/components/UserInvitationForm';
 import ApproverManagement from '@/components/ApproverManagement';
+import UserHierarchy from '@/components/admin/UserHierarchy';
+import SecurityRolesDisplay from '@/components/admin/SecurityRolesDisplay';
+import EditUserDialog from '@/components/admin/EditUserDialog';
 
 interface User {
   id: string;
@@ -49,6 +52,7 @@ export const AdminDashboard = () => {
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isRoleChangeOpen, setIsRoleChangeOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   // Form states
   const [newUser, setNewUser] = useState({
@@ -200,8 +204,8 @@ export const AdminDashboard = () => {
             <ArrowLeft size={20} />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
-            <p className="text-muted-foreground">Manage users and system settings</p>
+            <h1 className="text-3xl font-bold text-foreground">User Management</h1>
+            <p className="text-muted-foreground">Manage users, roles, and team hierarchy</p>
           </div>
         </div>
 
@@ -281,33 +285,12 @@ export const AdminDashboard = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>System Overview</CardTitle>
-                <CardDescription>
-                  General system statistics and recent activity
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">Recent Signups</p>
-                      <p className="text-2xl font-bold">
-                        {users.filter(u => new Date(u.id).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000).length}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Last 7 days</p>
-                    </div>
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">Active Sessions</p>
-                      <p className="text-2xl font-bold">{users.length}</p>
-                      <p className="text-xs text-muted-foreground">Currently online</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="overview" className="space-y-6">
+            {/* Security Roles Display */}
+            <SecurityRolesDisplay />
+            
+            {/* User Hierarchy */}
+            <UserHierarchy />
           </TabsContent>
 
           <TabsContent value="users" className="space-y-4">
@@ -391,10 +374,11 @@ export const AdminDashboard = () => {
                               size="sm"
                               onClick={() => {
                                 setSelectedUser(user);
-                                setIsRoleChangeOpen(true);
+                                setIsEditDialogOpen(true);
                               }}
                             >
-                              Change Role
+                              <Pencil className="h-4 w-4 mr-1" />
+                              Edit
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -503,6 +487,14 @@ export const AdminDashboard = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Edit User Dialog */}
+        <EditUserDialog
+          user={selectedUser}
+          open={isEditDialogOpen}
+          onOpenChange={setIsEditDialogOpen}
+          onSuccess={fetchUsers}
+        />
       </div>
     </div>
   );
