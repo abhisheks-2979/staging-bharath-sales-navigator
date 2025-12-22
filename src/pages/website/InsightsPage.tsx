@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Filter, ArrowRight, FileText, CheckSquare, Calculator, Sparkles, Users } from "lucide-react";
+import { Search, Filter, ArrowRight, FileText, CheckSquare, Calculator, Sparkles, Users, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
@@ -46,6 +46,16 @@ const insightCards = [
     readTime: "6 min read",
     href: "/insights/professional-services-roi",
     gradient: "from-purple-500 to-pink-500",
+  },
+  {
+    id: "professional-services-checklist",
+    title: "Professional Services Onboarding Checklist",
+    description: "A step-by-step guide to ensure a smooth, high-impact onboarding for every new customer engaging with Quickapp.ai Professional Services.",
+    icon: ClipboardCheck,
+    category: "Best Practices",
+    readTime: "4 min read",
+    href: "/insights/professional-services-checklist",
+    gradient: "from-teal-500 to-cyan-500",
   },
 ];
 
