@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Users } from 'lucide-react';
+import { Users, X } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface SecurityProfile {
   id: string;
@@ -13,22 +19,32 @@ interface SecurityProfile {
   user_count: number;
 }
 
+interface RoleUser {
+  id: string;
+  full_name: string;
+  email: string;
+  avatar_url?: string;
+}
+
 interface SecurityRolesDisplayProps {
   className?: string;
 }
 
 const roleColors: Record<string, string> = {
-  'Super Admin': 'bg-red-500/10 text-red-600 border-red-500/20',
-  'System Administrator': 'bg-red-500/10 text-red-600 border-red-500/20',
-  'Sales Manager': 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-  'Product Manager': 'bg-purple-500/10 text-purple-600 border-purple-500/20',
-  'Field Sales Executive': 'bg-green-500/10 text-green-600 border-green-500/20',
-  'Data Viewer': 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+  'Super Admin': 'bg-red-500/10 text-red-600 border-red-500/20 hover:bg-red-500/20',
+  'System Administrator': 'bg-red-500/10 text-red-600 border-red-500/20 hover:bg-red-500/20',
+  'Sales Manager': 'bg-blue-500/10 text-blue-600 border-blue-500/20 hover:bg-blue-500/20',
+  'Product Manager': 'bg-purple-500/10 text-purple-600 border-purple-500/20 hover:bg-purple-500/20',
+  'Field Sales Executive': 'bg-green-500/10 text-green-600 border-green-500/20 hover:bg-green-500/20',
+  'Data Viewer': 'bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500/20',
 };
 
 const SecurityRolesDisplay: React.FC<SecurityRolesDisplayProps> = ({ className }) => {
   const [roles, setRoles] = useState<SecurityProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedRole, setSelectedRole] = useState<SecurityProfile | null>(null);
+  const [roleUsers, setRoleUsers] = useState<RoleUser[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
 
   useEffect(() => {
     fetchRoles();
@@ -73,73 +89,153 @@ const SecurityRolesDisplay: React.FC<SecurityRolesDisplayProps> = ({ className }
     }
   };
 
-  const getRoleColor = (name: string) => {
-    return roleColors[name] || 'bg-muted text-muted-foreground border-border';
+  const fetchUsersForRole = async (role: SecurityProfile) => {
+    setSelectedRole(role);
+    setLoadingUsers(true);
+    try {
+      // Fetch user_profiles with this role
+      const { data: userProfiles, error } = await supabase
+        .from('user_profiles')
+        .select('user_id')
+        .eq('profile_id', role.id);
+
+      if (error) throw error;
+
+      if (userProfiles && userProfiles.length > 0) {
+        const userIds = userProfiles.map(up => up.user_id);
+        
+        // Fetch profiles for these users
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, username, profile_picture_url')
+          .in('id', userIds);
+
+        if (profilesError) throw profilesError;
+
+        const users: RoleUser[] = (profiles || []).map(p => ({
+          id: p.id,
+          full_name: p.full_name || 'Unknown User',
+          email: p.username || '',
+          avatar_url: p.profile_picture_url || undefined,
+        }));
+
+        setRoleUsers(users);
+      } else {
+        setRoleUsers([]);
+      }
+    } catch (error) {
+      console.error('Error fetching users for role:', error);
+      setRoleUsers([]);
+    } finally {
+      setLoadingUsers(false);
+    }
   };
+
+  const getRoleColor = (name: string) => {
+    return roleColors[name] || 'bg-muted text-muted-foreground border-border hover:bg-muted/80';
+  };
+
+  const totalUsers = roles.reduce((sum, role) => sum + role.user_count, 0);
 
   if (loading) {
     return (
-      <Card className={className}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Security Roles
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} className="h-24 rounded-xl" />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <div className={`flex flex-wrap gap-3 ${className}`}>
+        {[1, 2, 3, 4, 5].map((i) => (
+          <Skeleton key={i} className="h-20 w-40 rounded-xl" />
+        ))}
+      </div>
     );
   }
 
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Shield className="h-5 w-5" />
-          Security Roles
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          {roles.map((role) => (
-            <div
-              key={role.id}
-              className={`relative p-4 rounded-xl border-2 transition-all hover:shadow-md ${getRoleColor(role.name)}`}
-            >
-              <div className="flex flex-col h-full">
-                <h3 className="font-semibold text-sm mb-1 line-clamp-2">{role.name}</h3>
-                {role.description && (
-                  <p className="text-xs opacity-70 mb-2 line-clamp-2">{role.description}</p>
-                )}
-                <div className="mt-auto flex items-center gap-1 text-xs">
-                  <Users className="h-3 w-3" />
-                  <span className="font-medium">{role.user_count} users</span>
-                </div>
-                {role.is_system && (
-                  <Badge variant="outline" className="absolute top-2 right-2 text-[10px] px-1.5 py-0">
-                    System
-                  </Badge>
-                )}
-              </div>
+    <>
+      <div className={`flex flex-wrap gap-3 ${className}`}>
+        {/* Total Users Box */}
+        <div className="p-4 rounded-xl border-2 bg-primary/10 text-primary border-primary/20 min-w-[140px]">
+          <div className="flex flex-col h-full">
+            <h3 className="font-semibold text-sm mb-1">Total Users</h3>
+            <div className="mt-auto flex items-center gap-1 text-lg font-bold">
+              <Users className="h-4 w-4" />
+              <span>{totalUsers}</span>
             </div>
-          ))}
+          </div>
         </div>
-        
+
+        {/* Role Boxes */}
+        {roles.map((role) => (
+          <div
+            key={role.id}
+            onClick={() => fetchUsersForRole(role)}
+            className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer min-w-[140px] ${getRoleColor(role.name)}`}
+          >
+            <div className="flex flex-col h-full">
+              <h3 className="font-semibold text-sm mb-1 line-clamp-2">{role.name}</h3>
+              <div className="mt-auto flex items-center gap-1 text-lg font-bold">
+                <Users className="h-4 w-4" />
+                <span>{role.user_count}</span>
+              </div>
+              {role.is_system && (
+                <Badge variant="outline" className="absolute top-2 right-2 text-[10px] px-1.5 py-0">
+                  System
+                </Badge>
+              )}
+            </div>
+          </div>
+        ))}
+
         {roles.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            <Shield className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p>No security profiles found</p>
-            <p className="text-sm">Create profiles in Security & Access Control</p>
+          <div className="text-center py-8 text-muted-foreground w-full">
+            <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+            <p>No roles found</p>
+            <p className="text-sm">Create roles in Security & Access Control</p>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+
+      {/* Users Dialog */}
+      <Dialog open={!!selectedRole} onOpenChange={() => setSelectedRole(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              {selectedRole?.name} Users
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-3 max-h-[400px] overflow-y-auto">
+            {loadingUsers ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map(i => (
+                  <Skeleton key={i} className="h-14 w-full" />
+                ))}
+              </div>
+            ) : roleUsers.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                <p>No users assigned to this role</p>
+              </div>
+            ) : (
+              roleUsers.map(user => (
+                <div key={user.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={user.avatar_url} />
+                    <AvatarFallback>
+                      {user.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{user.full_name}</p>
+                    {user.email && (
+                      <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
