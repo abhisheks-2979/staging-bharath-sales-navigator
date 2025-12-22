@@ -341,14 +341,14 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({ user, open, onOpenChang
               <div className="space-y-2">
                 <Label>Primary Manager (Reports To)</Label>
                 <Select 
-                  value={employeeData.manager_id} 
-                  onValueChange={(value) => setEmployeeData(prev => ({ ...prev, manager_id: value }))}
+                  value={employeeData.manager_id || "none"} 
+                  onValueChange={(value) => setEmployeeData(prev => ({ ...prev, manager_id: value === "none" ? "" : value }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select primary manager" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No Manager</SelectItem>
+                    <SelectItem value="none">No Manager</SelectItem>
                     {managers.map((manager) => (
                       <SelectItem key={manager.id} value={manager.id}>
                         {manager.full_name || manager.username}
@@ -362,14 +362,14 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({ user, open, onOpenChang
               <div className="space-y-2">
                 <Label>Secondary Manager</Label>
                 <Select 
-                  value={employeeData.secondary_manager_id} 
-                  onValueChange={(value) => setEmployeeData(prev => ({ ...prev, secondary_manager_id: value }))}
+                  value={employeeData.secondary_manager_id || "none"} 
+                  onValueChange={(value) => setEmployeeData(prev => ({ ...prev, secondary_manager_id: value === "none" ? "" : value }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select secondary manager" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No Secondary Manager</SelectItem>
+                    <SelectItem value="none">No Secondary Manager</SelectItem>
                     {managers.map((manager) => (
                       <SelectItem key={manager.id} value={manager.id}>
                         {manager.full_name || manager.username}
