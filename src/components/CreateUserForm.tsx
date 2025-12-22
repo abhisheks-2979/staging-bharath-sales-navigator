@@ -21,10 +21,16 @@ interface FileUpload {
   preview?: string;
 }
 
+interface SecurityProfile {
+  id: string;
+  name: string;
+}
+
 const CreateUserForm = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [managers, setManagers] = useState<Manager[]>([]);
+  const [securityProfiles, setSecurityProfiles] = useState<SecurityProfile[]>([]);
   const [files, setFiles] = useState<FileUpload[]>([]);
   
   const [formData, setFormData] = useState({
@@ -39,6 +45,8 @@ const CreateUserForm = () => {
     monthly_salary: '',
     daily_da_allowance: '',
     manager_id: '',
+    secondary_manager_id: '',
+    security_profile_id: '',
     hq: '',
     date_of_joining: '',
     date_of_exit: '',
@@ -48,20 +56,23 @@ const CreateUserForm = () => {
     emergency_contact_number: ''
   });
 
-  // Fetch managers for the dropdown
+  // Fetch managers and security profiles
   useEffect(() => {
-    const fetchManagers = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, username, full_name')
-        .order('full_name');
+    const fetchData = async () => {
+      const [managersRes, profilesRes] = await Promise.all([
+        supabase.from('profiles').select('id, username, full_name').order('full_name'),
+        supabase.from('security_profiles').select('id, name').order('name')
+      ]);
 
-      if (!error && data) {
-        setManagers(data);
+      if (!managersRes.error && managersRes.data) {
+        setManagers(managersRes.data);
+      }
+      if (!profilesRes.error && profilesRes.data) {
+        setSecurityProfiles(profilesRes.data);
       }
     };
 
-    fetchManagers();
+    fetchData();
   }, []);
 
   const handleInputChange = (field: string, value: string) => {
@@ -177,6 +188,8 @@ const CreateUserForm = () => {
         monthly_salary: '',
         daily_da_allowance: '',
         manager_id: '',
+        secondary_manager_id: '',
+        security_profile_id: '',
         hq: '',
         date_of_joining: '',
         date_of_exit: '',
@@ -292,10 +305,42 @@ const CreateUserForm = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="manager_id">Manager (Reports To)</Label>
+              <Label htmlFor="security_profile_id">Role *</Label>
+              <Select value={formData.security_profile_id} onValueChange={(value) => handleInputChange('security_profile_id', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {securityProfiles.map((profile) => (
+                    <SelectItem key={profile.id} value={profile.id}>
+                      {profile.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="manager_id">Primary Manager (Reports To)</Label>
               <Select value={formData.manager_id} onValueChange={(value) => handleInputChange('manager_id', value)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select manager" />
+                  <SelectValue placeholder="Select primary manager" />
+                </SelectTrigger>
+                <SelectContent>
+                  {managers.map((manager) => (
+                    <SelectItem key={manager.id} value={manager.id}>
+                      {manager.full_name} ({manager.username})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="secondary_manager_id">Secondary Manager</Label>
+              <Select value={formData.secondary_manager_id} onValueChange={(value) => handleInputChange('secondary_manager_id', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select secondary manager" />
                 </SelectTrigger>
                 <SelectContent>
                   {managers.map((manager) => (

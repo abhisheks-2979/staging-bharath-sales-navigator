@@ -1,0 +1,400 @@
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+interface User {
+  id: string;
+  email: string;
+  username: string;
+  full_name: string;
+  phone_number: string;
+  role: 'admin' | 'user';
+}
+
+interface SecurityProfile {
+  id: string;
+  name: string;
+}
+
+interface Manager {
+  id: string;
+  full_name: string;
+  username: string;
+}
+
+interface EmployeeData {
+  hq: string;
+  address: string;
+  education: string;
+  monthly_salary: string;
+  daily_da_allowance: string;
+  date_of_joining: string;
+  date_of_exit: string;
+  emergency_contact_number: string;
+  manager_id: string;
+  secondary_manager_id: string;
+}
+
+interface EditUserDialogProps {
+  user: User | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+}
+
+const EditUserDialog: React.FC<EditUserDialogProps> = ({ user, open, onOpenChange, onSuccess }) => {
+  const [loading, setLoading] = useState(false);
+  const [securityProfiles, setSecurityProfiles] = useState<SecurityProfile[]>([]);
+  const [managers, setManagers] = useState<Manager[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState<string>('');
+  const [formData, setFormData] = useState({
+    full_name: '',
+    username: '',
+    phone_number: '',
+  });
+  const [employeeData, setEmployeeData] = useState<EmployeeData>({
+    hq: '',
+    address: '',
+    education: '',
+    monthly_salary: '',
+    daily_da_allowance: '',
+    date_of_joining: '',
+    date_of_exit: '',
+    emergency_contact_number: '',
+    manager_id: '',
+    secondary_manager_id: '',
+  });
+
+  useEffect(() => {
+    if (open && user) {
+      fetchData();
+    }
+  }, [open, user]);
+
+  const fetchData = async () => {
+    if (!user) return;
+
+    try {
+      // Fetch security profiles
+      const { data: profiles } = await supabase
+        .from('security_profiles')
+        .select('id, name')
+        .order('name');
+      
+      setSecurityProfiles(profiles || []);
+
+      // Fetch managers
+      const { data: managerList } = await supabase
+        .from('profiles')
+        .select('id, full_name, username')
+        .neq('id', user.id)
+        .order('full_name');
+      
+      setManagers(managerList || []);
+
+      // Fetch user's current profile assignment
+      const { data: userProfile } = await supabase
+        .from('user_profiles')
+        .select('profile_id')
+        .eq('user_id', user.id)
+        .single();
+      
+      setSelectedProfileId(userProfile?.profile_id || '');
+
+      // Fetch employee data
+      const { data: empData } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      setFormData({
+        full_name: user.full_name || '',
+        username: user.username || '',
+        phone_number: user.phone_number || '',
+      });
+
+      setEmployeeData({
+        hq: empData?.hq || '',
+        address: empData?.address || '',
+        education: empData?.education || '',
+        monthly_salary: empData?.monthly_salary?.toString() || '',
+        daily_da_allowance: empData?.daily_da_allowance?.toString() || '',
+        date_of_joining: empData?.date_of_joining || '',
+        date_of_exit: empData?.date_of_exit || '',
+        emergency_contact_number: empData?.emergency_contact_number || '',
+        manager_id: empData?.manager_id || '',
+        secondary_manager_id: empData?.secondary_manager_id || '',
+      });
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!user) return;
+
+    setLoading(true);
+    try {
+      // Update profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          full_name: formData.full_name,
+          username: formData.username,
+          phone_number: formData.phone_number,
+        })
+        .eq('id', user.id);
+
+      if (profileError) throw profileError;
+
+      // Update employee data
+      const { error: empError } = await supabase
+        .from('employees')
+        .upsert({
+          user_id: user.id,
+          hq: employeeData.hq || null,
+          address: employeeData.address || null,
+          education: employeeData.education || null,
+          monthly_salary: employeeData.monthly_salary ? parseFloat(employeeData.monthly_salary) : null,
+          daily_da_allowance: employeeData.daily_da_allowance ? parseFloat(employeeData.daily_da_allowance) : null,
+          date_of_joining: employeeData.date_of_joining || null,
+          date_of_exit: employeeData.date_of_exit || null,
+          emergency_contact_number: employeeData.emergency_contact_number || null,
+          manager_id: employeeData.manager_id || null,
+          secondary_manager_id: employeeData.secondary_manager_id || null,
+        }, { onConflict: 'user_id' });
+
+      if (empError) throw empError;
+
+      // Update security profile assignment
+      if (selectedProfileId) {
+        // First delete existing assignment
+        await supabase
+          .from('user_profiles')
+          .delete()
+          .eq('user_id', user.id);
+
+        // Then insert new assignment
+        const { error: upError } = await supabase
+          .from('user_profiles')
+          .insert({
+            user_id: user.id,
+            profile_id: selectedProfileId,
+          });
+
+        if (upError) throw upError;
+      }
+
+      toast.success('User updated successfully');
+      onSuccess();
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error('Error updating user:', error);
+      toast.error(error.message || 'Failed to update user');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!user) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edit User: {user.full_name || user.username}</DialogTitle>
+        </DialogHeader>
+
+        <Tabs defaultValue="basic" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="basic">Basic Info</TabsTrigger>
+            <TabsTrigger value="employment">Employment</TabsTrigger>
+            <TabsTrigger value="managers">Managers</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="basic" className="space-y-4 mt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Full Name</Label>
+                <Input
+                  value={formData.full_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Username</Label>
+                <Input
+                  value={formData.username}
+                  onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Phone Number</Label>
+                <Input
+                  value={formData.phone_number}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone_number: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input value={user.email} disabled className="bg-muted" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Role (Security Profile)</Label>
+              <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {securityProfiles.map((profile) => (
+                    <SelectItem key={profile.id} value={profile.id}>
+                      {profile.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="employment" className="space-y-4 mt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>HQ</Label>
+                <Input
+                  value={employeeData.hq}
+                  onChange={(e) => setEmployeeData(prev => ({ ...prev, hq: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Emergency Contact</Label>
+                <Input
+                  value={employeeData.emergency_contact_number}
+                  onChange={(e) => setEmployeeData(prev => ({ ...prev, emergency_contact_number: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Monthly Salary (₹)</Label>
+                <Input
+                  type="number"
+                  value={employeeData.monthly_salary}
+                  onChange={(e) => setEmployeeData(prev => ({ ...prev, monthly_salary: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Daily DA Allowance (₹)</Label>
+                <Input
+                  type="number"
+                  value={employeeData.daily_da_allowance}
+                  onChange={(e) => setEmployeeData(prev => ({ ...prev, daily_da_allowance: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Date of Joining</Label>
+                <Input
+                  type="date"
+                  value={employeeData.date_of_joining}
+                  onChange={(e) => setEmployeeData(prev => ({ ...prev, date_of_joining: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Date of Exit</Label>
+                <Input
+                  type="date"
+                  value={employeeData.date_of_exit}
+                  onChange={(e) => setEmployeeData(prev => ({ ...prev, date_of_exit: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Address</Label>
+              <Textarea
+                value={employeeData.address}
+                onChange={(e) => setEmployeeData(prev => ({ ...prev, address: e.target.value }))}
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Education</Label>
+              <Textarea
+                value={employeeData.education}
+                onChange={(e) => setEmployeeData(prev => ({ ...prev, education: e.target.value }))}
+                rows={2}
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="managers" className="space-y-4 mt-4">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Primary Manager (Reports To)</Label>
+                <Select 
+                  value={employeeData.manager_id} 
+                  onValueChange={(value) => setEmployeeData(prev => ({ ...prev, manager_id: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select primary manager" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No Manager</SelectItem>
+                    {managers.map((manager) => (
+                      <SelectItem key={manager.id} value={manager.id}>
+                        {manager.full_name || manager.username}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">This determines the user's position in the org hierarchy</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Secondary Manager</Label>
+                <Select 
+                  value={employeeData.secondary_manager_id} 
+                  onValueChange={(value) => setEmployeeData(prev => ({ ...prev, secondary_manager_id: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select secondary manager" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No Secondary Manager</SelectItem>
+                    {managers.map((manager) => (
+                      <SelectItem key={manager.id} value={manager.id}>
+                        {manager.full_name || manager.username}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Optional dotted-line reporting relationship</p>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        <DialogFooter className="mt-6">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={loading}>
+            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default EditUserDialog;
