@@ -24,7 +24,7 @@ import {
   Calendar
 } from "lucide-react";
 
-const ProfessionalServicesSolution = () => {
+export const ProfessionalServicesSolution = () => {
   const navigate = useNavigate();
 
   const supportTiers = [
