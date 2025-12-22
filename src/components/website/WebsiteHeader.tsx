@@ -9,6 +9,7 @@ const solutionLinks = [
   { label: "Distributor Portal", href: "/solutions/distributor-portal" },
   { label: "Institutional Sales CRM", href: "/solutions/institutional-sales" },
   { label: "Van Sales", href: "/solutions/van-sales" },
+  { label: "Professional Services", href: "/solutions/professional-services" },
 ];
 
 export const WebsiteHeader = () => {
