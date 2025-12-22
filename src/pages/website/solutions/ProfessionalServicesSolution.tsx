@@ -162,27 +162,9 @@ export const ProfessionalServicesSolution = () => {
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
                 Tiered Support Proposition
               </h2>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-6">
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
                 Choose the right level of support for your organization's needs
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button 
-                  variant="outline"
-                  onClick={() => navigate('/insights/professional-services-roi')}
-                  className="border-accent-gold/50 hover:bg-accent-gold/10"
-                >
-                  <BookOpen className="h-4 w-4 mr-2" />
-                  Why Professional Services Matter
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={() => navigate('/insights/professional-services-checklist')}
-                  className="border-accent-gold/50 hover:bg-accent-gold/10"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Onboarding Checklist
-                </Button>
-              </div>
             </div>
 
             <div className="grid md:grid-cols-3 gap-8">
@@ -238,9 +220,27 @@ export const ProfessionalServicesSolution = () => {
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
                 What's Included
               </h2>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-6">
                 Comprehensive support features included with your subscription
               </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button 
+                  variant="outline"
+                  onClick={() => navigate('/insights/professional-services-roi')}
+                  className="border-accent-gold/50 hover:bg-accent-gold/10"
+                >
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Why Professional Services Matter
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => navigate('/insights/professional-services-checklist')}
+                  className="border-accent-gold/50 hover:bg-accent-gold/10"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Onboarding Checklist
+                </Button>
+              </div>
             </div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
