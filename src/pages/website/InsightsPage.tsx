@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Filter, ArrowRight, FileText, CheckSquare, Calculator, Sparkles } from "lucide-react";
+import { Search, Filter, ArrowRight, FileText, CheckSquare, Calculator, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
@@ -36,6 +36,16 @@ const insightCards = [
     readTime: "Interactive",
     href: "/roi-calculator",
     gradient: "from-amber-500 to-orange-500",
+  },
+  {
+    id: "professional-services-roi",
+    title: "Why Professional Services are Key to Field Sales Software Adoption & ROI",
+    description: "Discover how professional services bridge the gap between technology and people, ensuring higher adoption, better data quality, and measurable ROI for your field sales software investment.",
+    icon: Users,
+    category: "Best Practices",
+    readTime: "6 min read",
+    href: "/insights/professional-services-roi",
+    gradient: "from-purple-500 to-pink-500",
   },
 ];
 

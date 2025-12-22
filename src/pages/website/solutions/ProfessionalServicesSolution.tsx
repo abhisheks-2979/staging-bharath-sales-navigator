@@ -397,6 +397,15 @@ export const ProfessionalServicesSolution = () => {
                   Contact Us
                 </Button>
               </div>
+              <div className="mt-6">
+                <Button 
+                  variant="link"
+                  onClick={() => navigate('/insights/professional-services-roi')}
+                  className="text-amber-400 hover:text-amber-300"
+                >
+                  Read: Why Professional Services are Key to Field Sales Software Adoption & ROI →
+                </Button>
+              </div>
             </div>
           </div>
         </section>
