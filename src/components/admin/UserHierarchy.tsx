@@ -90,7 +90,7 @@ const UserHierarchy: React.FC<UserHierarchyProps> = ({ className }) => {
     try {
       setLoading(true);
       
-      // Fetch profiles with employee data
+      // Fetch profiles
       const { data: profiles, error: profileError } = await supabase
         .from('profiles')
         .select('id, full_name, username, profile_picture_url');
@@ -111,18 +111,20 @@ const UserHierarchy: React.FC<UserHierarchyProps> = ({ className }) => {
       
       if (upError) throw upError;
 
-      // Build hierarchy map
+      // Build hierarchy map - include all users who have a role assigned
       const userMap = new Map<string, HierarchyUser>();
       const childToParent = new Map<string, string>();
 
-      // Initialize all users
-      profiles?.forEach(profile => {
-        const emp = employees?.find(e => e.user_id === profile.id);
-        const up = userProfiles?.find(u => u.user_id === profile.id);
-        const roleName = (up?.security_profiles as any)?.name;
+      // First, add all users who have roles assigned
+      userProfiles?.forEach(up => {
+        const profile = profiles?.find(p => p.id === up.user_id);
+        if (!profile) return;
         
-        userMap.set(profile.id, {
-          id: profile.id,
+        const emp = employees?.find(e => e.user_id === up.user_id);
+        const roleName = (up.security_profiles as any)?.name;
+        
+        userMap.set(up.user_id, {
+          id: up.user_id,
           full_name: profile.full_name || '',
           username: profile.username || '',
           profile_picture_url: profile.profile_picture_url,
@@ -133,7 +135,7 @@ const UserHierarchy: React.FC<UserHierarchyProps> = ({ className }) => {
         });
 
         if (emp?.manager_id) {
-          childToParent.set(profile.id, emp.manager_id);
+          childToParent.set(up.user_id, emp.manager_id);
         }
       });
 
@@ -146,19 +148,33 @@ const UserHierarchy: React.FC<UserHierarchyProps> = ({ className }) => {
         }
       });
 
-      // Find root nodes (users without managers or with managers not in system)
+      // Find root nodes (users without managers)
+      // Prioritize System Administrator (Super Admin) at the top
       const rootNodes: HierarchyUser[] = [];
+      const superAdmins: HierarchyUser[] = [];
+      
       userMap.forEach((user, userId) => {
         const managerId = childToParent.get(userId);
         if (!managerId || !userMap.has(managerId)) {
-          rootNodes.push(user);
+          // Check if this is a System Administrator (Super Admin)
+          if (user.role_name === 'System Administrator') {
+            superAdmins.push(user);
+          } else {
+            rootNodes.push(user);
+          }
         }
       });
 
-      // Sort by name
+      // Sort direct reports by name for each user
+      userMap.forEach(user => {
+        user.directReports.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+      });
+
+      // Sort root nodes by name
       rootNodes.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
       
-      setHierarchy(rootNodes);
+      // Super Admins first, then other root nodes
+      setHierarchy([...superAdmins, ...rootNodes]);
     } catch (error) {
       console.error('Error fetching hierarchy:', error);
     } finally {
