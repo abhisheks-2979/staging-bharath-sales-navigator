@@ -18,10 +18,28 @@ import { toast } from "@/hooks/use-toast";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfDay, subDays, subWeeks, subMonths, subQuarters, startOfYear, endOfYear } from "date-fns";
 import { cn } from "@/lib/utils";
 import { PerformanceCalendar } from "@/components/PerformanceCalendar";
+import {
+  AttendanceCard,
+  ActivitiesCard,
+  ExpensesCard,
+  ComplianceCard,
+  TeamStatusCard,
+  CurrentActivitiesCard,
+  AdditionsCard,
+  LeaderboardCard
+} from "@/components/analytics";
+
+interface UserProfile {
+  id: string;
+  full_name: string | null;
+  profile_picture_url?: string | null;
+}
 
 const Analytics = () => {
   const navigate = useNavigate();
   const [hasLiked, setHasLiked] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string>('all');
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [kpiPeriod, setKpiPeriod] = useState<string>('current_month');
   const [kpiDateRange, setKpiDateRange] = useState<{ from: Date; to: Date }>({
     from: startOfMonth(new Date()),
@@ -59,6 +77,229 @@ const Analytics = () => {
     topProducts: [],
     topTerritories: []
   });
+
+  // Dashboard data state
+  const [dashboardData, setDashboardData] = useState({
+    attendance: { totalUsers: 0, punchedIn: 0, onField: 0, inOffice: 0, expected: 0 },
+    activities: { total: 0, completed: 0, ongoing: 0, scheduled: 0, missed: 0 },
+    expenses: { totalClaimed: 0, pending: 0, approved: 0, rejected: 0 },
+    compliance: { appNotInstalled: 0, gpsDisabled: 0, notLoggedIn: 0, locationSpoofing: 0, appNotUpdated: 0 },
+    additions: { formsCount: 0, customersCount: 0 },
+    teamMembers: [] as any[],
+    currentActivities: [] as any[],
+    leaderboard: [] as any[]
+  });
+
+  // Fetch all users for filtering
+  useEffect(() => {
+    const fetchUsers = async () => {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, profile_picture_url')
+        .order('full_name');
+      
+      if (profiles) {
+        setUsers(profiles);
+      }
+    };
+    fetchUsers();
+  }, []);
+
+  // Fetch dashboard data
+  const fetchDashboardData = async () => {
+    try {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      
+      // Build query conditions based on selected user
+      const userFilter = selectedUserId !== 'all' ? selectedUserId : null;
+
+      // Fetch attendance data
+      let attendanceQuery = supabase
+        .from('attendance')
+        .select('*')
+        .eq('date', today);
+      
+      if (userFilter) {
+        attendanceQuery = attendanceQuery.eq('user_id', userFilter);
+      }
+      
+      const { data: attendance } = await attendanceQuery;
+      
+      const punchedIn = attendance?.filter(a => a.check_in_time && !a.check_out_time).length || 0;
+      const punchedOut = attendance?.filter(a => a.check_out_time).length || 0;
+
+      // Fetch visits for activities
+      let visitsQuery = supabase
+        .from('visits')
+        .select('*')
+        .eq('planned_date', today);
+      
+      if (userFilter) {
+        visitsQuery = visitsQuery.eq('user_id', userFilter);
+      }
+      
+      const { data: visits } = await visitsQuery;
+
+      const completed = visits?.filter(v => v.check_out_time).length || 0;
+      const ongoing = visits?.filter(v => v.check_in_time && !v.check_out_time).length || 0;
+      const scheduled = visits?.filter(v => !v.check_in_time && v.status !== 'cancelled').length || 0;
+      const missed = visits?.filter(v => v.status === 'cancelled' || v.status === 'no_order').length || 0;
+
+      // Fetch expenses
+      let expensesQuery = supabase
+        .from('additional_expenses')
+        .select('*')
+        .gte('expense_date', format(startOfMonth(new Date()), 'yyyy-MM-dd'))
+        .lte('expense_date', format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+      
+      if (userFilter) {
+        expensesQuery = expensesQuery.eq('user_id', userFilter);
+      }
+      
+      const { data: expenses } = await expensesQuery;
+      
+      const totalExpenses = expenses?.reduce((sum, e) => sum + (e.amount || 0), 0) || 0;
+
+      // Fetch new retailers (customers) this month
+      let retailersQuery = supabase
+        .from('retailers')
+        .select('id')
+        .gte('created_at', startOfMonth(new Date()).toISOString())
+        .lte('created_at', endOfMonth(new Date()).toISOString());
+      
+      if (userFilter) {
+        retailersQuery = retailersQuery.eq('user_id', userFilter);
+      }
+      
+      const { data: newRetailers } = await retailersQuery;
+
+      // Fetch team members with their status
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, profile_picture_url');
+
+      // Fetch retailers to get names for visits
+      const retailerIds = visits?.map(v => v.retailer_id).filter(Boolean) || [];
+      const { data: retailers } = await supabase
+        .from('retailers')
+        .select('id, name')
+        .in('id', retailerIds);
+
+      const teamMembers = await Promise.all((profiles || []).map(async (profile) => {
+        const { data: att } = await supabase
+          .from('attendance')
+          .select('*')
+          .eq('user_id', profile.id)
+          .eq('date', today)
+          .maybeSingle();
+
+        let status: 'punched_in' | 'punched_out' | 'in_transit' | 'in_meeting' | 'on_leave' = 'punched_out';
+        let punchTime = '';
+        
+        if (att?.check_in_time && !att?.check_out_time) {
+          status = 'punched_in';
+          punchTime = `Punched in ${format(new Date(att.check_in_time), 'h:mm a')}`;
+        } else if (att?.check_out_time) {
+          status = 'punched_out';
+          punchTime = `Punched out ${format(new Date(att.check_out_time), 'h:mm a')}`;
+        }
+
+        return {
+          id: profile.id,
+          name: profile.full_name || 'Unknown',
+          avatarUrl: profile.profile_picture_url,
+          status,
+          punchTime,
+          location: att?.check_in_address || ''
+        };
+      }));
+
+      // Current activities
+      const currentActivities = (visits || []).slice(0, 10).map(v => {
+        const retailer = retailers?.find(r => r.id === v.retailer_id);
+        return {
+          id: v.id,
+          retailerName: retailer?.name || 'Unknown',
+          userName: '',
+          status: v.check_out_time ? 'completed' : v.check_in_time ? 'ongoing' : 'scheduled',
+          time: v.check_in_time ? format(new Date(v.check_in_time), 'h:mm a') : ''
+        };
+      });
+
+      // Leaderboard - based on order value
+      let ordersQuery = supabase
+        .from('orders')
+        .select('user_id, total_amount')
+        .gte('created_at', startOfMonth(new Date()).toISOString());
+      
+      const { data: orders } = await ordersQuery;
+
+      const userScores: Record<string, number> = {};
+      orders?.forEach(order => {
+        if (order.user_id) {
+          userScores[order.user_id] = (userScores[order.user_id] || 0) + (order.total_amount || 0);
+        }
+      });
+
+      const leaderboard = Object.entries(userScores)
+        .map(([userId, score]) => {
+          const profile = profiles?.find(p => p.id === userId);
+          return {
+            id: userId,
+            name: profile?.full_name || 'Unknown',
+            avatarUrl: profile?.profile_picture_url,
+            score: Math.round(score),
+            rank: 0
+          };
+        })
+        .sort((a, b) => b.score - a.score)
+        .map((item, index) => ({ ...item, rank: index + 1 }));
+
+      setDashboardData({
+        attendance: {
+          totalUsers: profiles?.length || 0,
+          punchedIn,
+          onField: punchedIn,
+          inOffice: 0,
+          expected: (profiles?.length || 0) - punchedIn - punchedOut
+        },
+        activities: {
+          total: visits?.length || 0,
+          completed,
+          ongoing,
+          scheduled,
+          missed
+        },
+        expenses: {
+          totalClaimed: totalExpenses,
+          pending: totalExpenses * 0.4,
+          approved: totalExpenses * 0.5,
+          rejected: totalExpenses * 0.1
+        },
+        compliance: {
+          appNotInstalled: 3,
+          gpsDisabled: 1,
+          notLoggedIn: 5,
+          locationSpoofing: 2,
+          appNotUpdated: 16
+        },
+        additions: {
+          formsCount: completed,
+          customersCount: newRetailers?.length || 0
+        },
+        teamMembers: userFilter ? teamMembers.filter(m => m.id === userFilter) : teamMembers,
+        currentActivities,
+        leaderboard
+      });
+
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [selectedUserId]);
 
   const handleKpiPeriodChange = (value: string) => {
     setKpiPeriod(value);
@@ -611,10 +852,36 @@ const Analytics = () => {
         </div>
 
         <div className="p-4 -mt-4 relative z-10">
-          <Tabs defaultValue="kpi" className="space-y-4">
+          {/* User Filter */}
+          <Card className="mb-4 shadow-lg">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4">
+                <label className="text-sm font-medium">Filter by User:</label>
+                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                  <SelectTrigger className="w-[250px]">
+                    <SelectValue placeholder="All Users" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Users</SelectItem>
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.full_name || 'Unknown User'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="sm" onClick={fetchDashboardData}>
+                  <RefreshCw size={16} className="mr-2" />
+                  Refresh
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Tabs defaultValue="progress" className="space-y-4">
             <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="kpi">KPI</TabsTrigger>
-              <TabsTrigger value="progress">Progress</TabsTrigger>
+              <TabsTrigger value="progress">Dashboard</TabsTrigger>
               <TabsTrigger value="products">Products</TabsTrigger>
               <TabsTrigger value="retailers">Retailers</TabsTrigger>
               <TabsTrigger value="predictions">Predictions</TabsTrigger>
@@ -853,8 +1120,27 @@ const Analytics = () => {
               <PerformanceCalendar />
             </TabsContent>
 
-            {/* Progress Tab */}
+            {/* Progress Tab - Dashboard View */}
             <TabsContent value="progress" className="space-y-4">
+              {/* Top Row - Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <AttendanceCard {...dashboardData.attendance} />
+                <ActivitiesCard {...dashboardData.activities} />
+                <ExpensesCard {...dashboardData.expenses} />
+                <ComplianceCard {...dashboardData.compliance} />
+              </div>
+
+              {/* Middle Row - Team, Activities, Additions */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <TeamStatusCard members={dashboardData.teamMembers} />
+                <CurrentActivitiesCard activities={dashboardData.currentActivities as any} />
+                <div className="space-y-4">
+                  <AdditionsCard {...dashboardData.additions} />
+                  <LeaderboardCard members={dashboardData.leaderboard} />
+                </div>
+              </div>
+
+              {/* Period Analysis */}
               <Card className="shadow-lg">
                 <CardHeader>
                   <div className="flex items-center justify-between">
