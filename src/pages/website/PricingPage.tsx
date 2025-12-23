@@ -1,4 +1,4 @@
-import { Check, Zap, Building2, Rocket, Crown, Package, RefreshCw, Bolt, Users, Brain, Sparkles } from "lucide-react";
+import { Check, Zap, Building2, Rocket, Crown, Package, RefreshCw, Bolt, Users, Brain, Sparkles, Headphones, Settings, Code } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -38,6 +38,7 @@ const pricingTiers = [
       "Offline capabilities",
       "Secondary sales management",
       "Beat planning & tracking",
+      "AI-powered insights",
       "Basic analytics",
     ],
     cta: "Start Free Trial",
@@ -57,6 +58,7 @@ const pricingTiers = [
       "25 distributor portals",
       "Primary sales management",
       "Product bundles",
+      "API for Integration",
       "Advanced reporting",
     ],
     cta: "Start Free Trial",
@@ -74,7 +76,8 @@ const pricingTiers = [
       "4,000 retailers/month",
       "80,000 visits/month",
       "200 distributor portals",
-      "AI-powered insights",
+      "Institutional sales",
+      "Sales coach",
       "Gamification",
       "Retailer loyalty program",
       "Priority support",
@@ -161,8 +164,8 @@ export const PricingPage = () => {
                   <Button
                     className={`w-full ${
                       tier.featured
-                        ? "bg-primary hover:bg-primary/90"
-                        : "bg-secondary hover:bg-secondary/80"
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                        : "bg-muted text-foreground hover:bg-muted/80 border border-border"
                     }`}
                     onClick={() => navigate("/request-demo")}
                   >
@@ -183,7 +186,7 @@ export const PricingPage = () => {
               <div className="flex-1">
                 <h2 className="text-2xl font-bold mb-2">Enterprise Plus</h2>
                 <p className="text-muted-foreground mb-4">
-                  For large enterprises with 300+ field reps and multi-region operations
+                  For large enterprises with large field reps and multi-region operations
                 </p>
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                   <li className="flex items-center gap-2">
@@ -330,6 +333,153 @@ export const PricingPage = () => {
               <p className="text-sm font-medium">Instant Activation</p>
               <p className="text-xs text-muted-foreground">Start using immediately</p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Professional Services Section */}
+      <section className="py-16 px-4 bg-muted/30">
+        <div className="container mx-auto max-w-5xl">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-4">
+              <Headphones className="w-4 h-4" />
+              Professional Services
+            </div>
+            <h2 className="text-2xl md:text-3xl font-bold mb-3">Enterprise-Grade Support</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Empower your organization with seamless operations, high user adoption, and continuous business value. Our professional services deliver comprehensive, scalable, and outcome-driven support.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 mb-8">
+            {/* L1 Support */}
+            <Card className="p-6 border-border hover:border-primary/50 transition-colors">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Headphones className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <span className="text-xs font-medium text-primary">L1</span>
+                  <h3 className="font-semibold">User Support</h3>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">
+                Helpdesk, Proactive Monitoring & Enablement
+              </p>
+              <ul className="space-y-2 text-sm mb-6">
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <span>First point of contact for all end-users</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <span>Mobile app usage and 'how-to' queries</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <span>Proactive monitoring & training sessions</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <span>Dedicated Customer Success Manager</span>
+                </li>
+              </ul>
+              <div className="border-t border-border pt-4">
+                <p className="text-xs text-muted-foreground mb-1">9 AM to 7 PM IST, Mon-Fri</p>
+                <p className="text-sm font-semibold">25% of annual subscription (Year 1)</p>
+                <p className="text-sm font-semibold">20% from Year 2 onwards</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Fair usage: Max 50 hours/month. Additional support budget may be requested for significant increase in requests.
+                </p>
+              </div>
+            </Card>
+
+            {/* L2 Support */}
+            <Card className="p-6 border-primary bg-primary/5 relative">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <span className="bg-primary text-primary-foreground text-xs font-semibold px-3 py-1 rounded-full">
+                  Most Requested
+                </span>
+              </div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Settings className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <span className="text-xs font-medium text-primary">L2</span>
+                  <h3 className="font-semibold">Configuration Support</h3>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">
+                Configuration & Minor Change Requests
+              </p>
+              <ul className="space-y-2 text-sm mb-6">
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <span>System/process configuration support</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <span>Minor change requests (field additions)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <span>Report tweaks and customizations</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <span>Root cause analysis & solution deployment</span>
+                </li>
+              </ul>
+              <div className="border-t border-border pt-4">
+                <p className="text-sm font-semibold">Estimates provided per request</p>
+                <p className="text-xs text-muted-foreground">Based on scope of work</p>
+              </div>
+            </Card>
+
+            {/* L3 Support */}
+            <Card className="p-6 border-border hover:border-primary/50 transition-colors">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Code className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <span className="text-xs font-medium text-primary">L3</span>
+                  <h3 className="font-semibold">Enhancement Support</h3>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">
+                New Features, Enhancements & Integrations
+              </p>
+              <ul className="space-y-2 text-sm mb-6">
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <span>Custom feature development</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <span>Third-party integrations</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <span>Platform enhancements</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <span>Complex workflow automation</span>
+                </li>
+              </ul>
+              <div className="border-t border-border pt-4">
+                <p className="text-sm font-semibold">Custom project pricing</p>
+                <p className="text-xs text-muted-foreground">Based on requirements & timeline</p>
+              </div>
+            </Card>
+          </div>
+
+          <div className="text-center">
+            <Button onClick={() => navigate("/request-demo")} size="lg">
+              Discuss Your Support Needs
+            </Button>
           </div>
         </div>
       </section>
