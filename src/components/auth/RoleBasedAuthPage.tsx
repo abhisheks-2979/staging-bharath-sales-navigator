@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Shield, User } from 'lucide-react';
+import quickappLogo from "@/assets/quickapp-logo-full-yellow-black.png";
 
 type AuthMode = 'role-selection' | 'admin-signin' | 'user-signin' | 'signup' | 'forgot';
 type UserType = 'admin' | 'user';
@@ -49,16 +50,22 @@ export const RoleBasedAuthPage = () => {
     >
       <Card className="w-full max-w-md shadow-2xl bg-white/95 backdrop-blur-sm border-white/20">
         <CardHeader className="space-y-4 text-center">
-          <div className="mx-auto w-56 h-20 rounded-lg overflow-hidden bg-white p-2 border-2 border-primary/20 shadow-lg">
+          <div className="flex flex-col items-center gap-2">
             <img 
-              src="/lovable-uploads/4c36505f-db4e-43df-a38e-80e7d29ff090.png" 
-              alt="KVP Business Solutions" 
-              className="w-full h-full object-contain"
+              src={quickappLogo} 
+              alt="QuickApp.AI" 
+              className="h-16 w-16 rounded-xl shadow-lg"
             />
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">
+                QuickApp<span className="text-amber-500">.ai</span>
+              </h1>
+              <p className="text-xs text-muted-foreground tracking-widest">AI-FORWARD COMMERCE</p>
+            </div>
           </div>
           <div>
-            <CardTitle className="text-4xl font-bold text-primary mb-2">Welcome</CardTitle>
-            <CardDescription className="text-lg font-medium text-muted-foreground">
+            <CardTitle className="text-3xl font-bold text-primary mb-2">Welcome</CardTitle>
+            <CardDescription className="text-base font-medium text-muted-foreground">
               Sign in to your account
             </CardDescription>
           </div>
