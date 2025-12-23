@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, memo, useCallback, useRef } from "react";
 import { Navbar } from "./Navbar";
 import { ChatWidget } from "./chat/ChatWidget";
+import { CoachAvatar } from "./sales-coach/CoachAvatar";
 import { useMasterDataCache } from "@/hooks/useMasterDataCache";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 
@@ -72,6 +73,7 @@ export const Layout = memo(({ children }: LayoutProps) => {
       />
       
       <ChatWidget />
+      <CoachAvatar />
     </div>
   );
 });
