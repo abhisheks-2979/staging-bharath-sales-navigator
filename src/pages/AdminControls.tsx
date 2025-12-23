@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Shield, Users, Settings, Package, ArrowLeft, CalendarDays, MapPin, DollarSign, BarChart3, MessageSquareText, Navigation, Store, Truck, Flag, Trophy, FileText, CreditCard, Lock, Bell, Target, Trash2 } from 'lucide-react';
@@ -13,9 +14,11 @@ const AdminControls = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <Layout>
+        <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </Layout>
     );
   }
 
@@ -55,8 +58,9 @@ const AdminControls = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-subtle p-4">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <Layout>
+      <div className="min-h-screen bg-gradient-subtle p-4">
+        <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
           <Button 
@@ -108,9 +112,10 @@ const AdminControls = () => {
               <p className="text-muted-foreground">No modules found matching "{searchQuery}"</p>
             </div>
           )}
+          </div>
         </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 
