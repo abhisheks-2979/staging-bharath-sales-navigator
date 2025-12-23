@@ -140,6 +140,41 @@ const calculateStats = (visits: any[], orders: any[], retailers: any[], selected
   };
 };
 
+// Helper to fetch points for a specific date
+const fetchPointsForDate = async (uid: string, date: string): Promise<PointsData> => {
+  const dateStart = new Date(date);
+  dateStart.setHours(0, 0, 0, 0);
+  const dateEnd = new Date(date);
+  dateEnd.setHours(23, 59, 59, 999);
+
+  const { data: pointsRaw } = await supabase
+    .from('gamification_points')
+    .select('points, reference_id, metadata')
+    .eq('user_id', uid)
+    .gte('earned_at', dateStart.toISOString())
+    .lte('earned_at', dateEnd.toISOString());
+
+  const total = pointsRaw?.reduce((sum, p) => sum + (p.points || 0), 0) || 0;
+  const byRetailer = new Map<string, { name: string; points: number; visitId: string | null }>();
+  
+  // Group points by retailer from metadata
+  if (pointsRaw) {
+    for (const p of pointsRaw) {
+      const retailerId = (p.metadata as any)?.retailer_id;
+      if (retailerId) {
+        const existing = byRetailer.get(retailerId) || { name: '', points: 0, visitId: null };
+        byRetailer.set(retailerId, {
+          ...existing,
+          points: existing.points + (p.points || 0),
+          visitId: p.reference_id || existing.visitId
+        });
+      }
+    }
+  }
+
+  return { total, byRetailer };
+};
+
 export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOptimizedProps) => {
   const [beatPlans, setBeatPlans] = useState<any[]>([]);
   const [visits, setVisits] = useState<any[]>([]);
@@ -324,10 +359,11 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
       // FIX #1: ALWAYS fetch ALL visits and orders for the date (no delta filter)
       // This ensures unproductive visits are never missed due to stale delta timestamps
-      const [bpRes, vRes, oRes] = await Promise.all([
+      const [bpRes, vRes, oRes, pointsFetched] = await Promise.all([
         supabase.from('beat_plans').select('*').eq('user_id', uid).eq('plan_date', date),
         supabase.from('visits').select('*').eq('user_id', uid).eq('planned_date', date),
-        supabase.from('orders').select('*').eq('user_id', uid).eq('order_date', date).eq('status', 'confirmed')
+        supabase.from('orders').select('*').eq('user_id', uid).eq('order_date', date).eq('status', 'confirmed'),
+        fetchPointsForDate(uid, date)
       ]);
       clearTimeout(timeoutId);
 
@@ -340,7 +376,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       const newVisits = vRes.data || [];
       const newOrders = oRes.data || [];
 
-      console.log(`[SmartSync] Fetched: ${newBeatPlans.length} beat plans, ${newVisits.length} visits, ${newOrders.length} orders`);
+      console.log(`[SmartSync] Fetched: ${newBeatPlans.length} beat plans, ${newVisits.length} visits, ${newOrders.length} orders, ${pointsFetched.total} points`);
+      
+      // Update points state
+      setPointsData(pointsFetched);
 
       // Get current state from cache
       const currentCache = cacheRef.current.get(date) || { beatPlans: [], visits: [], retailers: [], orders: [] };
@@ -445,7 +484,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         }
       }
 
-      // Update cache with timestamp
+      // Update cache with timestamp and points
+      currentCache.points = { total: pointsFetched.total, byRetailer: Array.from(pointsFetched.byRetailer.entries()) };
       currentCache.timestamp = Date.now();
       cacheRef.current.set(date, currentCache);
 
@@ -688,10 +728,11 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   // Full initial load - only used when no local data exists
   const doFullInitialLoad = useCallback(async (uid: string, date: string) => {
     try {
-      const [bpRes, vRes, oRes] = await Promise.all([
+      const [bpRes, vRes, oRes, pointsFetched] = await Promise.all([
         supabase.from('beat_plans').select('*').eq('user_id', uid).eq('plan_date', date),
         supabase.from('visits').select('*').eq('user_id', uid).eq('planned_date', date),
-        supabase.from('orders').select('*').eq('user_id', uid).eq('order_date', date).eq('status', 'confirmed')
+        supabase.from('orders').select('*').eq('user_id', uid).eq('order_date', date).eq('status', 'confirmed'),
+        fetchPointsForDate(uid, date)
       ]);
 
       const beatPlansData = bpRes.data || [];
@@ -741,6 +782,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       setVisits(visitsData);
       setRetailers(retailersData);
       setOrders(ordersData);
+      setPointsData(pointsFetched);
 
       // Update cache with timestamp for staleness check
       const cacheData = {
@@ -748,6 +790,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         visits: visitsData,
         retailers: retailersData,
         orders: ordersData,
+        points: { total: pointsFetched.total, byRetailer: Array.from(pointsFetched.byRetailer.entries()) },
         timestamp: Date.now()
       };
       cacheRef.current.set(date, cacheData);
