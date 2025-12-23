@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileSpreadsheet, FileText, Download } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
@@ -23,13 +24,31 @@ interface RetailerReportData {
   paymentMode?: string;
 }
 
+interface GeneralReportData {
+  date: string;
+  day: string;
+  beatName: string;
+  plannedVisits: number;
+  actualVisits: number;
+  productiveVisits: number;
+  orderValue: number;
+  firstCheckIn: string;
+  lastCheckOut: string;
+  totalMarketHours: string;
+  newRetailersAdded: number;
+}
+
 interface ReportGeneratorProps {
   data: RetailerReportData[];
   dateRange: string;
+  generalReportData?: GeneralReportData[];
 }
 
-export const ReportGenerator = ({ data, dateRange }: ReportGeneratorProps) => {
+export const ReportGenerator = ({ data, dateRange, generalReportData = [] }: ReportGeneratorProps) => {
   const [open, setOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("general");
+  
+  // Retailer report columns
   const [selectedColumns, setSelectedColumns] = useState({
     invoiceDate: true,
     invoiceNumber: true,
@@ -41,6 +60,21 @@ export const ReportGenerator = ({ data, dateRange }: ReportGeneratorProps) => {
     paymentMode: true,
     orderPerKG: true,
     totalValue: true,
+  });
+
+  // General report columns
+  const [selectedGeneralColumns, setSelectedGeneralColumns] = useState({
+    date: true,
+    day: true,
+    beatName: true,
+    plannedVisits: true,
+    actualVisits: true,
+    productiveVisits: true,
+    orderValue: true,
+    firstCheckIn: true,
+    lastCheckOut: true,
+    totalMarketHours: true,
+    newRetailersAdded: true,
   });
 
   const columnLabels = {
@@ -56,8 +90,29 @@ export const ReportGenerator = ({ data, dateRange }: ReportGeneratorProps) => {
     totalValue: "Total Value (₹)",
   };
 
+  const generalColumnLabels = {
+    date: "Date",
+    day: "Day",
+    beatName: "Beat Name",
+    plannedVisits: "Planned Visit",
+    actualVisits: "Actual Visit",
+    productiveVisits: "Productive Visit",
+    orderValue: "Order Value (₹)",
+    firstCheckIn: "First Check In",
+    lastCheckOut: "Last Check Out",
+    totalMarketHours: "Total Market Hours",
+    newRetailersAdded: "New Retailer Added",
+  };
+
   const handleColumnToggle = (column: keyof typeof selectedColumns) => {
     setSelectedColumns(prev => ({
+      ...prev,
+      [column]: !prev[column]
+    }));
+  };
+
+  const handleGeneralColumnToggle = (column: keyof typeof selectedGeneralColumns) => {
+    setSelectedGeneralColumns(prev => ({
       ...prev,
       [column]: !prev[column]
     }));
@@ -75,9 +130,27 @@ export const ReportGenerator = ({ data, dateRange }: ReportGeneratorProps) => {
     });
   };
 
+  const getSelectedGeneralData = () => {
+    return generalReportData.map(row => {
+      const filteredRow: any = {};
+      Object.entries(selectedGeneralColumns).forEach(([key, isSelected]) => {
+        if (isSelected) {
+          const value = row[key as keyof GeneralReportData];
+          if (key === 'orderValue') {
+            filteredRow[generalColumnLabels[key as keyof typeof generalColumnLabels]] = `₹${Math.round(value as number).toLocaleString('en-IN')}`;
+          } else {
+            filteredRow[generalColumnLabels[key as keyof typeof generalColumnLabels]] = value ?? '-';
+          }
+        }
+      });
+      return filteredRow;
+    });
+  };
+
   const handleExportExcel = () => {
     try {
-      const selectedData = getSelectedData();
+      const isGeneralReport = activeTab === "general";
+      const selectedData = isGeneralReport ? getSelectedGeneralData() : getSelectedData();
       
       if (selectedData.length === 0) {
         toast({
@@ -92,7 +165,8 @@ export const ReportGenerator = ({ data, dateRange }: ReportGeneratorProps) => {
       const workbook = XLSX.utils.book_new();
       
       // Add date header row at the top
-      const headerRow = [`Report Date: ${dateRange}`, '', '', ''];
+      const reportTitle = isGeneralReport ? "General Report" : "Retailer Report";
+      const headerRow = [`${reportTitle} - Date: ${dateRange}`, '', '', ''];
       const emptyRow = [''];
       
       // Convert data to array of arrays for more control
@@ -122,13 +196,17 @@ export const ReportGenerator = ({ data, dateRange }: ReportGeneratorProps) => {
       }));
       worksheet['!cols'] = colWidths;
       
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+      XLSX.utils.book_append_sheet(workbook, worksheet, isGeneralReport ? "General Report" : "Retailer Report");
 
-      XLSX.writeFile(workbook, `Retailer_Report_${dateRange.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`);
+      const fileName = isGeneralReport 
+        ? `General_Report_${dateRange.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`
+        : `Retailer_Report_${dateRange.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
+      
+      XLSX.writeFile(workbook, fileName);
       
       toast({
         title: "Excel Export Successful",
-        description: `Report exported successfully for ${dateRange}`,
+        description: `${reportTitle} exported successfully for ${dateRange}`,
       });
       
       setOpen(false);
@@ -144,7 +222,8 @@ export const ReportGenerator = ({ data, dateRange }: ReportGeneratorProps) => {
 
   const handleExportPDF = async () => {
     try {
-      const selectedData = getSelectedData();
+      const isGeneralReport = activeTab === "general";
+      const selectedData = isGeneralReport ? getSelectedGeneralData() : getSelectedData();
       
       if (selectedData.length === 0) {
         toast({
@@ -156,11 +235,12 @@ export const ReportGenerator = ({ data, dateRange }: ReportGeneratorProps) => {
       }
 
       const doc = new jsPDF('landscape');
+      const reportTitle = isGeneralReport ? "General Report" : "Retailer Report";
       
       // Add title with date prominently displayed
       doc.setFontSize(18);
       doc.setTextColor(41, 128, 185);
-      doc.text("Retailer Report", 14, 15);
+      doc.text(reportTitle, 14, 15);
       
       doc.setFontSize(14);
       doc.setTextColor(60, 60, 60);
@@ -187,12 +267,16 @@ export const ReportGenerator = ({ data, dateRange }: ReportGeneratorProps) => {
         tableWidth: 'auto'
       });
 
+      const fileName = isGeneralReport 
+        ? `General_Report_${dateRange.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+        : `Retailer_Report_${dateRange.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+
       const pdfBlob = doc.output('blob');
-      await downloadPDF(pdfBlob, `Retailer_Report_${dateRange.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
+      await downloadPDF(pdfBlob, fileName);
       
       toast({
         title: "PDF Export Successful",
-        description: `Report exported successfully for ${dateRange}`,
+        description: `${reportTitle} exported successfully for ${dateRange}`,
       });
       
       setOpen(false);
@@ -208,6 +292,8 @@ export const ReportGenerator = ({ data, dateRange }: ReportGeneratorProps) => {
 
   const allSelected = Object.values(selectedColumns).every(val => val);
   const noneSelected = Object.values(selectedColumns).every(val => !val);
+  const allGeneralSelected = Object.values(selectedGeneralColumns).every(val => val);
+  const noneGeneralSelected = Object.values(selectedGeneralColumns).every(val => !val);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -220,83 +306,163 @@ export const ReportGenerator = ({ data, dateRange }: ReportGeneratorProps) => {
       </DialogTrigger>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Generate Retailer Report</DialogTitle>
+          <DialogTitle>Generate Report</DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">
             Report Date: <span className="font-semibold text-foreground">{dateRange}</span>
           </p>
         </DialogHeader>
         
-        <div className="space-y-4">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">Select Columns to Export</Label>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  const newValue = noneSelected;
-                  setSelectedColumns({
-                    invoiceDate: newValue,
-                    invoiceNumber: newValue,
-                    retailerName: newValue,
-                    address: newValue,
-                    phoneNumber: newValue,
-                    productName: newValue,
-                    visitStatus: newValue,
-                    paymentMode: newValue,
-                    orderPerKG: newValue,
-                    totalValue: newValue,
-                  });
-                }}
-              >
-                {allSelected ? "Deselect All" : "Select All"}
-              </Button>
-            </div>
-            
-            {Object.entries(columnLabels).map(([key, label]) => (
-              <div key={key} className="flex items-center space-x-2">
-                <Checkbox
-                  id={key}
-                  checked={selectedColumns[key as keyof typeof selectedColumns]}
-                  onCheckedChange={() => handleColumnToggle(key as keyof typeof selectedColumns)}
-                />
-                <Label
-                  htmlFor={key}
-                  className="text-sm font-normal cursor-pointer"
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="general">General Report</TabsTrigger>
+            <TabsTrigger value="retailer">Retailer Report</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="general" className="space-y-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Select Columns</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const newValue = noneGeneralSelected;
+                    setSelectedGeneralColumns({
+                      date: newValue,
+                      day: newValue,
+                      beatName: newValue,
+                      plannedVisits: newValue,
+                      actualVisits: newValue,
+                      productiveVisits: newValue,
+                      orderValue: newValue,
+                      firstCheckIn: newValue,
+                      lastCheckOut: newValue,
+                      totalMarketHours: newValue,
+                      newRetailersAdded: newValue,
+                    });
+                  }}
                 >
-                  {label}
-                </Label>
+                  {allGeneralSelected ? "Deselect All" : "Select All"}
+                </Button>
               </div>
-            ))}
-          </div>
-
-          <div className="pt-4 border-t space-y-2">
-            <p className="text-xs text-muted-foreground mb-3">
-              {data.length} record(s) • Period: {dateRange}
-            </p>
-            
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                onClick={handleExportExcel}
-                disabled={noneSelected}
-                className="gap-2"
-              >
-                <FileSpreadsheet className="h-4 w-4" />
-                Export Excel
-              </Button>
               
-              <Button
-                onClick={handleExportPDF}
-                disabled={noneSelected}
-                variant="outline"
-                className="gap-2"
-              >
-                <FileText className="h-4 w-4" />
-                Export PDF
-              </Button>
+              {Object.entries(generalColumnLabels).map(([key, label]) => (
+                <div key={key} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`general-${key}`}
+                    checked={selectedGeneralColumns[key as keyof typeof selectedGeneralColumns]}
+                    onCheckedChange={() => handleGeneralColumnToggle(key as keyof typeof selectedGeneralColumns)}
+                  />
+                  <Label
+                    htmlFor={`general-${key}`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    {label}
+                  </Label>
+                </div>
+              ))}
             </div>
-          </div>
-        </div>
+
+            <div className="pt-4 border-t space-y-2">
+              <p className="text-xs text-muted-foreground mb-3">
+                {generalReportData.length} day(s) • Period: {dateRange}
+              </p>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  onClick={handleExportExcel}
+                  disabled={noneGeneralSelected}
+                  className="gap-2"
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Export Excel
+                </Button>
+                
+                <Button
+                  onClick={handleExportPDF}
+                  disabled={noneGeneralSelected}
+                  variant="outline"
+                  className="gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  Export PDF
+                </Button>
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="retailer" className="space-y-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Select Columns</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const newValue = noneSelected;
+                    setSelectedColumns({
+                      invoiceDate: newValue,
+                      invoiceNumber: newValue,
+                      retailerName: newValue,
+                      address: newValue,
+                      phoneNumber: newValue,
+                      productName: newValue,
+                      visitStatus: newValue,
+                      paymentMode: newValue,
+                      orderPerKG: newValue,
+                      totalValue: newValue,
+                    });
+                  }}
+                >
+                  {allSelected ? "Deselect All" : "Select All"}
+                </Button>
+              </div>
+              
+              {Object.entries(columnLabels).map(([key, label]) => (
+                <div key={key} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={key}
+                    checked={selectedColumns[key as keyof typeof selectedColumns]}
+                    onCheckedChange={() => handleColumnToggle(key as keyof typeof selectedColumns)}
+                  />
+                  <Label
+                    htmlFor={key}
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    {label}
+                  </Label>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-4 border-t space-y-2">
+              <p className="text-xs text-muted-foreground mb-3">
+                {data.length} record(s) • Period: {dateRange}
+              </p>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  onClick={handleExportExcel}
+                  disabled={noneSelected}
+                  className="gap-2"
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Export Excel
+                </Button>
+                
+                <Button
+                  onClick={handleExportPDF}
+                  disabled={noneSelected}
+                  variant="outline"
+                  className="gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  Export PDF
+                </Button>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

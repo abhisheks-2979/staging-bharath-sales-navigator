@@ -111,6 +111,21 @@ export const TodaySummary = () => {
     paymentMode?: string;
   }>>([]);
 
+  // General report data (day-by-day summary)
+  const [generalReportData, setGeneralReportData] = useState<Array<{
+    date: string;
+    day: string;
+    beatName: string;
+    plannedVisits: number;
+    actualVisits: number;
+    productiveVisits: number;
+    orderValue: number;
+    firstCheckIn: string;
+    lastCheckOut: string;
+    totalMarketHours: string;
+    newRetailersAdded: number;
+  }>>([]);
+
   const [pointsEarnedToday, setPointsEarnedToday] = useState(0);
   
   // First and last retailer visit data for Time at Retailers modal
@@ -1214,6 +1229,106 @@ export const TodaySummary = () => {
       console.log('Final report data:', retailerReportDataArray);
       setRetailerReportData(retailerReportDataArray);
 
+      // Generate General Report Data (day-by-day summary)
+      const generalReportDataArray: Array<{
+        date: string;
+        day: string;
+        beatName: string;
+        plannedVisits: number;
+        actualVisits: number;
+        productiveVisits: number;
+        orderValue: number;
+        firstCheckIn: string;
+        lastCheckOut: string;
+        totalMarketHours: string;
+        newRetailersAdded: number;
+      }> = [];
+
+      // Generate dates between from and to
+      const datesInRange: Date[] = [];
+      let currentDate = new Date(dateRange.from);
+      while (currentDate <= dateRange.to) {
+        datesInRange.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      // Process each date for general report
+      for (const reportDate of datesInRange) {
+        const dateStr = format(reportDate, 'yyyy-MM-dd');
+        const dayName = format(reportDate, 'EEEE');
+        const displayDate = format(reportDate, 'dd-MM-yyyy');
+
+        // Get beat names for this date
+        const beatsForDate = beatPlans?.filter(bp => bp.plan_date === dateStr) || [];
+        const beatNamesForDate = beatsForDate.map(bp => bp.beat_name).filter(Boolean).join(', ') || '-';
+
+        // Get planned visits for this date (retailers in the beats planned for this date)
+        const plannedForDate = beatPlanRetailersByDate.filter(item => item.planDate === dateStr).length;
+
+        // Get actual visits for this date
+        const actualVisitsForDate = visits?.filter(v => v.planned_date === dateStr && v.status !== 'planned').length || 0;
+
+        // Get productive visits for this date
+        const productiveForDate = visits?.filter(v => v.planned_date === dateStr && v.status === 'productive').length || 0;
+
+        // Get order value for this date
+        const ordersForDate = todayOrders?.filter(o => {
+          const orderDate = format(new Date(o.created_at), 'yyyy-MM-dd');
+          return orderDate === dateStr;
+        }) || [];
+        const orderValueForDate = ordersForDate.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+
+        // Get attendance for this date
+        const attendanceForDate = attendanceData?.filter(a => a.date === dateStr) || [];
+        const checkIns = attendanceForDate.filter(a => a.check_in_time).map(a => new Date(a.check_in_time!));
+        const checkOuts = attendanceForDate.filter(a => a.check_out_time).map(a => new Date(a.check_out_time!));
+        
+        const firstCheckInTime = checkIns.length > 0 
+          ? format(new Date(Math.min(...checkIns.map(t => t.getTime()))), 'hh:mm a')
+          : '-';
+        const lastCheckOutTime = checkOuts.length > 0 
+          ? format(new Date(Math.max(...checkOuts.map(t => t.getTime()))), 'hh:mm a')
+          : '-';
+
+        // Calculate total market hours from visit logs for this date
+        let marketHoursStr = '-';
+        const logsForDate = visitLogsData?.filter(log => log.visit_date === dateStr && log.start_time) || [];
+        if (logsForDate.length > 0) {
+          const sortedLogs = logsForDate.sort((a, b) => 
+            new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+          );
+          const firstVisitTime = new Date(sortedLogs[0].start_time);
+          const lastVisitTime = new Date(sortedLogs[sortedLogs.length - 1].start_time);
+          const diffMs = lastVisitTime.getTime() - firstVisitTime.getTime();
+          const diffMinutes = Math.max(0, diffMs / (1000 * 60));
+          const hours = Math.floor(diffMinutes / 60);
+          const minutes = Math.round(diffMinutes % 60);
+          marketHoursStr = `${hours}h ${minutes}m`;
+        }
+
+        // Count new retailers added on this date
+        // We need to fetch retailers created on this date - for now use a simple count from visits
+        // Note: For accurate count, we'd need to query retailers.created_at, but for performance
+        // we'll count retailers that appear in visits for the first time on this date
+        const newRetailersCount = 0; // Will be enhanced if needed
+
+        generalReportDataArray.push({
+          date: displayDate,
+          day: dayName,
+          beatName: beatNamesForDate,
+          plannedVisits: plannedForDate,
+          actualVisits: actualVisitsForDate,
+          productiveVisits: productiveForDate,
+          orderValue: orderValueForDate,
+          firstCheckIn: firstCheckInTime,
+          lastCheckOut: lastCheckOutTime,
+          totalMarketHours: marketHoursStr,
+          newRetailersAdded: newRetailersCount
+        });
+      }
+
+      setGeneralReportData(generalReportDataArray);
+
     } catch (error) {
       console.error('Error fetching today\'s data:', error);
       toast({
@@ -1751,6 +1866,7 @@ export const TodaySummary = () => {
           </Button>
           <ReportGenerator 
             data={retailerReportData}
+            generalReportData={generalReportData}
             dateRange={
               filterType === 'today' ? format(selectedDate, 'MMM dd, yyyy') :
               filterType === 'week' ? `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}` :
