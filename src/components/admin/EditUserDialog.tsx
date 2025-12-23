@@ -7,8 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
+import { moveToRecycleBin } from '@/utils/recycleBinUtils';
 
 interface User {
   id: string;
@@ -52,6 +54,8 @@ interface EditUserDialogProps {
 
 const EditUserDialog: React.FC<EditUserDialogProps> = ({ user, open, onOpenChange, onSuccess }) => {
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [securityProfiles, setSecurityProfiles] = useState<SecurityProfile[]>([]);
   const [managers, setManagers] = useState<Manager[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
@@ -236,6 +240,80 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({ user, open, onOpenChang
     }
   };
 
+  const handleDelete = async () => {
+    if (!user) return;
+
+    setDeleting(true);
+    try {
+      // Fetch full user data for recycle bin
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      const { data: employeeData } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      const { data: userRoleData } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      // Combine all user data for recycle bin
+      const recordData = {
+        profile: profileData,
+        employee: employeeData,
+        user_role: userRoleData,
+        email: user.email,
+      };
+
+      // Move to recycle bin
+      const movedToRecycleBin = await moveToRecycleBin({
+        tableName: 'profiles',
+        recordId: user.id,
+        recordData,
+        moduleName: 'Users & Roles',
+        recordName: user.full_name || user.username || user.email,
+      });
+
+      if (!movedToRecycleBin) {
+        throw new Error('Failed to move user to recycle bin');
+      }
+
+      // Delete from employees table first (if exists)
+      await supabase.from('employees').delete().eq('user_id', user.id);
+
+      // Delete from user_profiles (security profile assignment)
+      await supabase.from('user_profiles').delete().eq('user_id', user.id);
+
+      // Delete from user_roles
+      await supabase.from('user_roles').delete().eq('user_id', user.id);
+
+      // Delete from profiles
+      const { error: profileDeleteError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', user.id);
+
+      if (profileDeleteError) throw profileDeleteError;
+
+      toast.success('User moved to recycle bin');
+      setShowDeleteConfirm(false);
+      onSuccess();
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      toast.error(error.message || 'Failed to delete user');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (!user) return null;
 
   return (
@@ -414,16 +492,36 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({ user, open, onOpenChang
           </TabsContent>
         </Tabs>
 
-        <DialogFooter className="mt-6">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+        <DialogFooter className="mt-6 flex justify-between">
+          <Button 
+            variant="destructive" 
+            onClick={() => setShowDeleteConfirm(true)}
+            disabled={loading || deleting}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete User
           </Button>
-          <Button onClick={handleSave} disabled={loading}>
-            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Save Changes
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={loading || deleting}>
+              {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Save Changes
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
+
+      <DeleteConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        onConfirm={handleDelete}
+        title="Delete User"
+        description={`Are you sure you want to delete "${user.full_name || user.username || user.email}"? The user will be moved to the Recycle Bin and can be restored later.`}
+        confirmText="Yes, Delete"
+        isLoading={deleting}
+      />
     </Dialog>
   );
 };
