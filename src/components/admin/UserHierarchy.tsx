@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Users, User, ChevronDown, ChevronUp } from 'lucide-react';
+import { Users, User, ChevronDown, ChevronUp, List, GitBranch } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface HierarchyUser {
   id: string;
@@ -21,6 +24,8 @@ interface UserHierarchyProps {
   className?: string;
 }
 
+type ViewMode = 'tree' | 'list';
+
 // Color palette for different hierarchy levels
 const levelColors = [
   'bg-pink-500',      // Level 0 - Top (CEO/Admin)
@@ -34,13 +39,6 @@ const levelColors = [
 const getLevelColor = (level: number): string => {
   return levelColors[Math.min(level, levelColors.length - 1)];
 };
-
-interface UserNodeProps {
-  user: HierarchyUser;
-  level?: number;
-  isLast?: boolean;
-  parentHasMoreChildren?: boolean;
-}
 
 const OrgNode = ({ user, level = 0 }: { user: HierarchyUser; level?: number }) => {
   const [isExpanded, setIsExpanded] = useState(true);
@@ -114,7 +112,7 @@ const OrgNode = ({ user, level = 0 }: { user: HierarchyUser; level?: number }) =
             
             {/* Children */}
             <div className="flex gap-2 md:gap-4">
-              {user.directReports.map((report, index) => (
+              {user.directReports.map((report) => (
                 <div key={report.id} className="flex flex-col items-center">
                   {/* Vertical line from horizontal connector to child */}
                   <div className="w-px h-4 bg-border" />
@@ -129,9 +127,92 @@ const OrgNode = ({ user, level = 0 }: { user: HierarchyUser; level?: number }) =
   );
 };
 
+// List view row component with expandable children
+const ListRow = ({ 
+  user, 
+  level = 0, 
+  allUsers 
+}: { 
+  user: HierarchyUser; 
+  level?: number;
+  allUsers: Map<string, HierarchyUser>;
+}) => {
+  const [isExpanded, setIsExpanded] = useState(level < 2);
+  const hasReports = user.directReports.length > 0;
+  const colorClass = getLevelColor(level);
+  
+  // Find manager name
+  const managerName = user.manager_id 
+    ? allUsers.get(user.manager_id)?.full_name || 'Unknown'
+    : '-';
+
+  return (
+    <>
+      <TableRow className="hover:bg-muted/50">
+        <TableCell>
+          <div className="flex items-center gap-3" style={{ paddingLeft: `${level * 24}px` }}>
+            {hasReports && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={() => setIsExpanded(!isExpanded)}
+              >
+                {isExpanded ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+            {!hasReports && <div className="w-6" />}
+            <div className={cn("rounded-full p-0.5", colorClass)}>
+              <Avatar className="h-8 w-8 border-2 border-background">
+                <AvatarImage src={user.profile_picture_url} />
+                <AvatarFallback className="bg-background text-foreground font-semibold text-xs">
+                  {user.full_name?.charAt(0) || 'U'}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+            <div>
+              <p className="font-medium text-sm">{user.full_name || user.username}</p>
+              <p className="text-xs text-muted-foreground">{user.username}</p>
+            </div>
+          </div>
+        </TableCell>
+        <TableCell>
+          <Badge variant="outline" className="text-xs">
+            {user.role_name || 'No Role'}
+          </Badge>
+        </TableCell>
+        <TableCell className="text-sm text-muted-foreground">
+          {managerName}
+        </TableCell>
+        <TableCell className="text-center">
+          <Badge variant="secondary" className="text-xs">
+            {user.directReports.length}
+          </Badge>
+        </TableCell>
+      </TableRow>
+      
+      {/* Render direct reports if expanded */}
+      {hasReports && isExpanded && user.directReports.map((report) => (
+        <ListRow 
+          key={report.id} 
+          user={report} 
+          level={level + 1} 
+          allUsers={allUsers}
+        />
+      ))}
+    </>
+  );
+};
+
 const UserHierarchy: React.FC<UserHierarchyProps> = ({ className }) => {
   const [hierarchy, setHierarchy] = useState<HierarchyUser[]>([]);
+  const [allUsersMap, setAllUsersMap] = useState<Map<string, HierarchyUser>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>('tree');
 
   useEffect(() => {
     fetchHierarchy();
@@ -271,6 +352,7 @@ const UserHierarchy: React.FC<UserHierarchyProps> = ({ className }) => {
       superAdmins.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
       
       setHierarchy([...superAdmins, ...rootNodes]);
+      setAllUsersMap(userMap);
     } catch (error) {
       console.error('Error fetching hierarchy:', error);
     } finally {
@@ -307,10 +389,34 @@ const UserHierarchy: React.FC<UserHierarchyProps> = ({ className }) => {
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Users className="h-5 w-5" />
-          User Hierarchy
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            User Hierarchy
+          </CardTitle>
+          
+          {/* View Toggle Buttons */}
+          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+            <Button
+              variant={viewMode === 'tree' ? 'default' : 'ghost'}
+              size="sm"
+              className="h-8 px-3"
+              onClick={() => setViewMode('tree')}
+            >
+              <GitBranch className="h-4 w-4 mr-1.5" />
+              Tree
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              size="sm"
+              className="h-8 px-3"
+              onClick={() => setViewMode('list')}
+            >
+              <List className="h-4 w-4 mr-1.5" />
+              List
+            </Button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         {hierarchy.length === 0 ? (
@@ -319,7 +425,8 @@ const UserHierarchy: React.FC<UserHierarchyProps> = ({ className }) => {
             <p>No users with hierarchy configured</p>
             <p className="text-sm">Assign managers to users to build the hierarchy</p>
           </div>
-        ) : (
+        ) : viewMode === 'tree' ? (
+          /* Tree View */
           <div className="overflow-x-auto pb-4">
             <div className="flex justify-center min-w-max py-4">
               <div className="flex gap-8">
@@ -328,6 +435,30 @@ const UserHierarchy: React.FC<UserHierarchyProps> = ({ className }) => {
                 ))}
               </div>
             </div>
+          </div>
+        ) : (
+          /* List View */
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[250px]">User</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Reports To</TableHead>
+                  <TableHead className="text-center">Direct Reports</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {hierarchy.map((user) => (
+                  <ListRow 
+                    key={user.id} 
+                    user={user} 
+                    level={0} 
+                    allUsers={allUsersMap}
+                  />
+                ))}
+              </TableBody>
+            </Table>
           </div>
         )}
       </CardContent>
