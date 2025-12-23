@@ -20,11 +20,32 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Authenticate cron job requests using CRON_SECRET
+  const cronSecret = Deno.env.get('CRON_SECRET');
+  const providedSecret = req.headers.get('x-cron-secret');
+  
+  if (!cronSecret) {
+    console.error('CRON_SECRET environment variable is not set');
+    return new Response(
+      JSON.stringify({ error: 'Server configuration error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+  
+  if (providedSecret !== cronSecret) {
+    console.warn('Unauthorized access attempt to generate-scheduled-content');
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
+    console.log('Authenticated request received for scheduled content generation');
     const body = await req.json().catch(() => ({}));
     const { regenerate_post_id } = body;
 
