@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { Layout } from '@/components/Layout';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -273,9 +274,11 @@ export const AdminDashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <Layout>
+        <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </Layout>
     );
   }
 
@@ -284,6 +287,7 @@ export const AdminDashboard = () => {
   }
 
   return (
+    <Layout>
     <div className="min-h-screen bg-gradient-subtle p-4">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
@@ -759,5 +763,6 @@ export const AdminDashboard = () => {
         />
       </div>
     </div>
+    </Layout>
   );
 };
