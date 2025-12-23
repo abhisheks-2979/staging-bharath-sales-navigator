@@ -31,6 +31,7 @@ interface GeneralReportData {
   plannedVisits: number;
   actualVisits: number;
   productiveVisits: number;
+  unproductiveVisits: number;
   orderValue: number;
   firstCheckIn: string;
   lastCheckOut: string;
@@ -70,6 +71,7 @@ export const ReportGenerator = ({ data, dateRange, generalReportData = [] }: Rep
     plannedVisits: true,
     actualVisits: true,
     productiveVisits: true,
+    unproductiveVisits: true,
     orderValue: true,
     firstCheckIn: true,
     lastCheckOut: true,
@@ -97,6 +99,7 @@ export const ReportGenerator = ({ data, dateRange, generalReportData = [] }: Rep
     plannedVisits: "Planned Visit",
     actualVisits: "Actual Visit",
     productiveVisits: "Productive Visit",
+    unproductiveVisits: "Unproductive Visit",
     orderValue: "Order Value (₹)",
     firstCheckIn: "First Check In",
     lastCheckOut: "Last Check Out",
@@ -334,6 +337,7 @@ export const ReportGenerator = ({ data, dateRange, generalReportData = [] }: Rep
                       plannedVisits: newValue,
                       actualVisits: newValue,
                       productiveVisits: newValue,
+                      unproductiveVisits: newValue,
                       orderValue: newValue,
                       firstCheckIn: newValue,
                       lastCheckOut: newValue,
