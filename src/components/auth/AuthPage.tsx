@@ -7,6 +7,7 @@ import { ForgotPasswordForm } from './ForgotPasswordForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Shield, User } from 'lucide-react';
+import quickappLogo from "@/assets/quickapp-logo-full-yellow-black.png";
 
 type AuthMode = 'signin' | 'signup' | 'forgot' | 'admin-signin' | 'user-signin';
 
@@ -180,21 +181,22 @@ export const AuthPage = () => {
       
       <Card className="w-full max-w-md relative z-10 shadow-2xl border-white/20 bg-white/95 backdrop-blur-sm">
         <CardHeader className="space-y-4 text-center">
-          <div className="mx-auto w-40 h-24 rounded-lg overflow-hidden bg-white p-3 border-2 border-primary/20 shadow-lg">
+          <div className="flex flex-col items-center gap-2">
             <img 
-              src="/lovable-uploads/f1a677a5-6652-4477-972d-8c634cd05cd0.png" 
-              alt="Bharath Beverages" 
-              className="w-full h-full object-contain"
-              onError={(e) => {
-                console.error('Image failed to load:', e);
-                e.currentTarget.style.display = 'none';
-              }}
-              onLoad={() => console.log('Image loaded successfully')}
+              src={quickappLogo} 
+              alt="QuickApp.AI" 
+              className="h-16 w-16 rounded-xl shadow-lg"
             />
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">
+                QuickApp<span className="text-amber-500">.ai</span>
+              </h1>
+              <p className="text-xs text-muted-foreground tracking-widest">AI-FORWARD COMMERCE</p>
+            </div>
           </div>
           <div>
-            <CardTitle className="text-4xl font-bold text-primary mb-2">Welcome</CardTitle>
-            <CardDescription className="text-lg font-medium text-muted-foreground">
+            <CardTitle className="text-3xl font-bold text-primary mb-2">Welcome</CardTitle>
+            <CardDescription className="text-base font-medium text-muted-foreground">
               Select your role to continue
             </CardDescription>
           </div>
