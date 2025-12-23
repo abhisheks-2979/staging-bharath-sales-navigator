@@ -679,6 +679,652 @@ export type Database = {
           },
         ]
       }
+      coach_badges: {
+        Row: {
+          badge_color: string | null
+          created_at: string
+          criteria_competency_id: string | null
+          criteria_type: string
+          criteria_value: number
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          points_awarded: number | null
+        }
+        Insert: {
+          badge_color?: string | null
+          created_at?: string
+          criteria_competency_id?: string | null
+          criteria_type: string
+          criteria_value: number
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          points_awarded?: number | null
+        }
+        Update: {
+          badge_color?: string | null
+          created_at?: string
+          criteria_competency_id?: string | null
+          criteria_type?: string
+          criteria_value?: number
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          points_awarded?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_badges_criteria_competency_id_fkey"
+            columns: ["criteria_competency_id"]
+            isOneToOne: false
+            referencedRelation: "coach_competencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_chat_messages: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          message_type: string | null
+          metadata: Json | null
+          role: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          message_type?: string | null
+          metadata?: Json | null
+          role: string
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          message_type?: string | null
+          metadata?: Json | null
+          role?: string
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      coach_competencies: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      coach_daily_nudges: {
+        Row: {
+          created_at: string
+          delivered_at: string | null
+          id: string
+          is_delivered: boolean | null
+          is_interacted: boolean | null
+          message: string | null
+          nudge_type: string
+          reference_id: string | null
+          scheduled_for: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          delivered_at?: string | null
+          id?: string
+          is_delivered?: boolean | null
+          is_interacted?: boolean | null
+          message?: string | null
+          nudge_type: string
+          reference_id?: string | null
+          scheduled_for?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          delivered_at?: string | null
+          id?: string
+          is_delivered?: boolean | null
+          is_interacted?: boolean | null
+          message?: string | null
+          nudge_type?: string
+          reference_id?: string | null
+          scheduled_for?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      coach_feedback: {
+        Row: {
+          created_at: string
+          feedback_text: string | null
+          id: string
+          is_helpful: boolean | null
+          rating: number | null
+          reference_id: string | null
+          reference_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          feedback_text?: string | null
+          id?: string
+          is_helpful?: boolean | null
+          rating?: number | null
+          reference_id?: string | null
+          reference_type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          feedback_text?: string | null
+          id?: string
+          is_helpful?: boolean | null
+          rating?: number | null
+          reference_id?: string | null
+          reference_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      coach_learning_content: {
+        Row: {
+          competency_id: string | null
+          content_body: string | null
+          content_type: string
+          content_url: string | null
+          created_at: string
+          description: string | null
+          difficulty_level: string | null
+          duration_minutes: number | null
+          id: string
+          is_active: boolean | null
+          points_on_completion: number | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          competency_id?: string | null
+          content_body?: string | null
+          content_type: string
+          content_url?: string | null
+          created_at?: string
+          description?: string | null
+          difficulty_level?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_active?: boolean | null
+          points_on_completion?: number | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          competency_id?: string | null
+          content_body?: string | null
+          content_type?: string
+          content_url?: string | null
+          created_at?: string
+          description?: string | null
+          difficulty_level?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_active?: boolean | null
+          points_on_completion?: number | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_learning_content_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "coach_competencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_quiz_attempts: {
+        Row: {
+          answered_at: string
+          id: string
+          is_correct: boolean | null
+          points_earned: number | null
+          question_id: string | null
+          user_answer: string | null
+          user_id: string
+        }
+        Insert: {
+          answered_at?: string
+          id?: string
+          is_correct?: boolean | null
+          points_earned?: number | null
+          question_id?: string | null
+          user_answer?: string | null
+          user_id: string
+        }
+        Update: {
+          answered_at?: string
+          id?: string
+          is_correct?: boolean | null
+          points_earned?: number | null
+          question_id?: string | null
+          user_answer?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_quiz_attempts_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "coach_quiz_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_quiz_questions: {
+        Row: {
+          competency_id: string | null
+          correct_answer: string
+          created_at: string
+          difficulty_level: string | null
+          explanation: string | null
+          id: string
+          is_active: boolean | null
+          learning_content_id: string | null
+          options: Json | null
+          points: number | null
+          question: string
+          question_type: string | null
+        }
+        Insert: {
+          competency_id?: string | null
+          correct_answer: string
+          created_at?: string
+          difficulty_level?: string | null
+          explanation?: string | null
+          id?: string
+          is_active?: boolean | null
+          learning_content_id?: string | null
+          options?: Json | null
+          points?: number | null
+          question: string
+          question_type?: string | null
+        }
+        Update: {
+          competency_id?: string | null
+          correct_answer?: string
+          created_at?: string
+          difficulty_level?: string | null
+          explanation?: string | null
+          id?: string
+          is_active?: boolean | null
+          learning_content_id?: string | null
+          options?: Json | null
+          points?: number | null
+          question?: string
+          question_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_quiz_questions_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "coach_competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_quiz_questions_learning_content_id_fkey"
+            columns: ["learning_content_id"]
+            isOneToOne: false
+            referencedRelation: "coach_learning_content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_scenario_attempts: {
+        Row: {
+          answered_at: string
+          id: string
+          is_best_choice: boolean | null
+          points_earned: number | null
+          scenario_id: string | null
+          selected_option: string | null
+          user_id: string
+        }
+        Insert: {
+          answered_at?: string
+          id?: string
+          is_best_choice?: boolean | null
+          points_earned?: number | null
+          scenario_id?: string | null
+          selected_option?: string | null
+          user_id: string
+        }
+        Update: {
+          answered_at?: string
+          id?: string
+          is_best_choice?: boolean | null
+          points_earned?: number | null
+          scenario_id?: string | null
+          selected_option?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_scenario_attempts_scenario_id_fkey"
+            columns: ["scenario_id"]
+            isOneToOne: false
+            referencedRelation: "coach_scenarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_scenarios: {
+        Row: {
+          best_option: string
+          competency_id: string | null
+          created_at: string
+          difficulty_level: string | null
+          feedback: Json | null
+          id: string
+          is_active: boolean | null
+          options: Json | null
+          points: number | null
+          scenario_text: string
+          scenario_type: string | null
+          title: string
+        }
+        Insert: {
+          best_option: string
+          competency_id?: string | null
+          created_at?: string
+          difficulty_level?: string | null
+          feedback?: Json | null
+          id?: string
+          is_active?: boolean | null
+          options?: Json | null
+          points?: number | null
+          scenario_text: string
+          scenario_type?: string | null
+          title: string
+        }
+        Update: {
+          best_option?: string
+          competency_id?: string | null
+          created_at?: string
+          difficulty_level?: string | null
+          feedback?: Json | null
+          id?: string
+          is_active?: boolean | null
+          options?: Json | null
+          points?: number | null
+          scenario_text?: string
+          scenario_type?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_scenarios_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "coach_competencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_user_badges: {
+        Row: {
+          badge_id: string | null
+          earned_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          badge_id?: string | null
+          earned_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          badge_id?: string | null
+          earned_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_user_badges_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "coach_badges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_user_competency_scores: {
+        Row: {
+          competency_id: string | null
+          created_at: string
+          current_score: number | null
+          id: string
+          last_calculated_at: string
+          learning_engagement_score: number | null
+          practical_score: number | null
+          previous_score: number | null
+          quiz_score: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          competency_id?: string | null
+          created_at?: string
+          current_score?: number | null
+          id?: string
+          last_calculated_at?: string
+          learning_engagement_score?: number | null
+          practical_score?: number | null
+          previous_score?: number | null
+          quiz_score?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          competency_id?: string | null
+          created_at?: string
+          current_score?: number | null
+          id?: string
+          last_calculated_at?: string
+          learning_engagement_score?: number | null
+          practical_score?: number | null
+          previous_score?: number | null
+          quiz_score?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_user_competency_scores_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "coach_competencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_user_overall_scores: {
+        Row: {
+          created_at: string
+          id: string
+          last_calculated_at: string
+          overall_competency_score: number | null
+          overall_learning_score: number | null
+          rank_percentile: number | null
+          total_content_completed: number | null
+          total_correct_answers: number | null
+          total_points_earned: number | null
+          total_quizzes_attempted: number | null
+          total_scenarios_completed: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_calculated_at?: string
+          overall_competency_score?: number | null
+          overall_learning_score?: number | null
+          rank_percentile?: number | null
+          total_content_completed?: number | null
+          total_correct_answers?: number | null
+          total_points_earned?: number | null
+          total_quizzes_attempted?: number | null
+          total_scenarios_completed?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_calculated_at?: string
+          overall_competency_score?: number | null
+          overall_learning_score?: number | null
+          rank_percentile?: number | null
+          total_content_completed?: number | null
+          total_correct_answers?: number | null
+          total_points_earned?: number | null
+          total_quizzes_attempted?: number | null
+          total_scenarios_completed?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      coach_user_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          learning_content_id: string | null
+          progress_percent: number | null
+          started_at: string | null
+          status: string | null
+          time_spent_seconds: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          learning_content_id?: string | null
+          progress_percent?: number | null
+          started_at?: string | null
+          status?: string | null
+          time_spent_seconds?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          learning_content_id?: string | null
+          progress_percent?: number | null
+          started_at?: string | null
+          status?: string | null
+          time_spent_seconds?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_user_progress_learning_content_id_fkey"
+            columns: ["learning_content_id"]
+            isOneToOne: false
+            referencedRelation: "coach_learning_content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_user_streaks: {
+        Row: {
+          created_at: string
+          current_streak: number | null
+          id: string
+          last_activity_date: string | null
+          longest_streak: number | null
+          total_learning_days: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_streak?: number | null
+          id?: string
+          last_activity_date?: string | null
+          longest_streak?: number | null
+          total_learning_days?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_streak?: number | null
+          id?: string
+          last_activity_date?: string | null
+          longest_streak?: number | null
+          total_learning_days?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           account_holder_name: string | null
