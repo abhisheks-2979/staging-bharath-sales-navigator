@@ -438,8 +438,8 @@ export const TodaySummary = () => {
       const beatPlan = beatPlans && beatPlans.length > 0 ? beatPlans[0] : null;
 
       // Get all retailer IDs from beat plans
-      // CRITICAL: For Performance Summary "Planned" count, we need ALL retailers from the beat
-      // This is different from My Visits which shows only explicitly selected retailers
+      // For date range views (week/month), count each retailer-date combo as a separate planned visit
+      // For single day views, just count unique retailers
       const beatPlanRetailerIds: string[] = [];
       const beatPlanRetailersByDate: Array<{ retailerId: string; planDate: string; beatName: string }> = [];
       
@@ -458,8 +458,17 @@ export const TodaySummary = () => {
           beatPlans?.forEach(bp => {
             const retailersForBeat = beatRetailers.filter(r => r.beat_id === bp.beat_id);
             retailersForBeat.forEach(r => {
-              if (!beatPlanRetailerIds.includes(r.id)) {
-                beatPlanRetailerIds.push(r.id);
+              // For date range views, include each retailer-date combination
+              // For single day views, deduplicate by retailer ID
+              const key = `${r.id}_${bp.plan_date}`;
+              const alreadyExists = beatPlanRetailersByDate.some(
+                item => item.retailerId === r.id && item.planDate === bp.plan_date
+              );
+              
+              if (!alreadyExists) {
+                if (!beatPlanRetailerIds.includes(r.id)) {
+                  beatPlanRetailerIds.push(r.id);
+                }
                 beatPlanRetailersByDate.push({
                   retailerId: r.id,
                   planDate: bp.plan_date,
@@ -692,6 +701,20 @@ export const TodaySummary = () => {
       // This ensures: Planned = Productive + Unproductive + Pending
       const totalPendingCount = Math.max(0, totalPlannedFromBeatPlans - productiveCount - unproductiveCount);
       const totalPlanned = totalPlannedFromBeatPlans;
+      
+      console.log('🎯 [USER FILTER DEBUG]', {
+        targetUserIds,
+        filterType,
+        dateRange: { from: format(dateRange.from, 'yyyy-MM-dd'), to: format(dateRange.to, 'yyyy-MM-dd') },
+        beatPlansCount: beatPlans?.length || 0,
+        beatIds,
+        beatPlanRetailersCount: beatPlanRetailersByDate.length,
+        visitsCount: visits?.length || 0,
+        ordersCount: todayOrders?.length || 0,
+        productiveCount,
+        unproductiveCount,
+        totalPlanned
+      });
 
       // Get attendance start/end times from attendance table
       const allAttendanceCheckIns = attendanceData?.filter(a => a.check_in_time).map(a => new Date(a.check_in_time!)) || [];
@@ -1836,13 +1859,23 @@ export const TodaySummary = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Performance Summary</CardTitle>
+            {selectedUserIds.length === 1 && (
+              <p className="text-xs text-muted-foreground">
+                Showing data for: {allUsers.find(u => u.id === selectedUserIds[0])?.name}
+              </p>
+            )}
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {loading ? (
                 <div className="text-center text-muted-foreground">Loading visit data...</div>
-              ) : visitBreakdown.length === 0 ? (
-                <div className="text-center text-muted-foreground">No visits planned for today</div>
+              ) : visitBreakdown.length === 0 || visitBreakdown[0]?.count === 0 ? (
+                <div className="text-center text-muted-foreground py-4">
+                  <p>No visits planned for this period</p>
+                  {selectedUserIds.length > 0 && (
+                    <p className="text-xs mt-1">Try selecting a different user or date range</p>
+                  )}
+                </div>
               ) : (
                 visitBreakdown.map((item) => (
                 <div
@@ -1863,7 +1896,9 @@ export const TodaySummary = () => {
                     >
                       {item.status}
                     </Badge>
-                    <span className="text-sm">{item.count} {item.status === "Planned" ? "retailers" : "visits"}</span>
+                    <span className="text-sm">
+                      {item.count} {item.status === "Planned" ? (filterType === 'today' || filterType === 'custom' ? "retailers" : "planned visits") : "visits"}
+                    </span>
                   </div>
                   <div className="text-sm font-medium">
                     {item.status === "Planned" 
