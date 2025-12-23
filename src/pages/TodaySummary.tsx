@@ -119,6 +119,7 @@ export const TodaySummary = () => {
     plannedVisits: number;
     actualVisits: number;
     productiveVisits: number;
+    unproductiveVisits: number;
     orderValue: number;
     firstCheckIn: string;
     lastCheckOut: string;
@@ -1237,6 +1238,7 @@ export const TodaySummary = () => {
         plannedVisits: number;
         actualVisits: number;
         productiveVisits: number;
+        unproductiveVisits: number;
         orderValue: number;
         firstCheckIn: string;
         lastCheckOut: string;
@@ -1265,11 +1267,20 @@ export const TodaySummary = () => {
         // Get planned visits for this date (retailers in the beats planned for this date)
         const plannedForDate = beatPlanRetailersByDate.filter(item => item.planDate === dateStr).length;
 
-        // Get actual visits for this date
-        const actualVisitsForDate = visits?.filter(v => v.planned_date === dateStr && v.status !== 'planned').length || 0;
-
         // Get productive visits for this date
         const productiveForDate = visits?.filter(v => v.planned_date === dateStr && v.status === 'productive').length || 0;
+
+        // Get unproductive visits for this date (includes store_closed, unproductive, canceled)
+        const unproductiveForDate = visits?.filter(v => 
+          v.planned_date === dateStr && 
+          (v.status === 'unproductive' || v.status === 'store_closed' || v.status === 'canceled')
+        ).length || 0;
+
+        // Actual visits = productive + unproductive (completed visits)
+        const actualVisitsForDate = productiveForDate + unproductiveForDate;
+
+        // Planned visits = total count from beat plan (should equal productive + unproductive + pending)
+        const totalPlannedForDate = plannedForDate;
 
         // Get order value for this date
         const ordersForDate = todayOrders?.filter(o => {
@@ -1307,18 +1318,16 @@ export const TodaySummary = () => {
         }
 
         // Count new retailers added on this date
-        // We need to fetch retailers created on this date - for now use a simple count from visits
-        // Note: For accurate count, we'd need to query retailers.created_at, but for performance
-        // we'll count retailers that appear in visits for the first time on this date
         const newRetailersCount = 0; // Will be enhanced if needed
 
         generalReportDataArray.push({
           date: displayDate,
           day: dayName,
           beatName: beatNamesForDate,
-          plannedVisits: plannedForDate,
+          plannedVisits: totalPlannedForDate,
           actualVisits: actualVisitsForDate,
           productiveVisits: productiveForDate,
+          unproductiveVisits: unproductiveForDate,
           orderValue: orderValueForDate,
           firstCheckIn: firstCheckInTime,
           lastCheckOut: lastCheckOutTime,
