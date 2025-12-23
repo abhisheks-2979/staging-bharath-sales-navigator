@@ -48,7 +48,8 @@ export const ProfessionalServicesSolution = () => {
         "Documentation and escalation to L2"
       ],
       supportHours: "9 AM to 7 PM IST, Monday to Friday",
-      pricing: "10% of annual subscription value"
+      pricing: "25% of annual subscription (Year 1), 20% from Year 2 onwards",
+      fairUsage: "Max 50 hours/month. Additional support budget may be requested for significant increase in requests."
     },
     {
       level: "L2",
@@ -205,6 +206,9 @@ export const ProfessionalServicesSolution = () => {
                     <div className="pt-4 border-t border-border/50">
                       <p className="text-sm font-medium text-foreground">Pricing</p>
                       <p className="text-sm text-accent-gold font-semibold">{tier.pricing}</p>
+                      {tier.fairUsage && (
+                        <p className="text-xs text-muted-foreground mt-1">Fair usage: {tier.fairUsage}</p>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -359,9 +363,10 @@ export const ProfessionalServicesSolution = () => {
                   <div className="grid md:grid-cols-3 gap-8">
                     <div className="text-center p-6 rounded-xl bg-background border border-border/50">
                       <Badge className="mb-4 bg-blue-500">L1 Support</Badge>
-                      <p className="text-3xl font-bold text-foreground mb-2">10%</p>
-                      <p className="text-sm text-muted-foreground">of annual subscription value</p>
-                      <p className="text-xs text-muted-foreground mt-2">Billed annually</p>
+                      <p className="text-2xl font-bold text-foreground mb-1">25% (Year 1)</p>
+                      <p className="text-xl font-bold text-foreground mb-2">20% (Year 2+)</p>
+                      <p className="text-sm text-muted-foreground">of annual subscription</p>
+                      <p className="text-xs text-muted-foreground mt-2">Fair usage: Max 50 hrs/month</p>
                     </div>
                     <div className="text-center p-6 rounded-xl bg-background border border-border/50">
                       <Badge className="mb-4 bg-purple-500">L2 Support</Badge>
@@ -380,6 +385,12 @@ export const ProfessionalServicesSolution = () => {
                   <div className="mt-8 p-4 rounded-lg bg-green-500/10 border border-green-500/20 text-center">
                     <p className="text-green-600 dark:text-green-400 font-medium">
                       ✓ No charges for standard warranty or quarterly feature releases
+                    </p>
+                  </div>
+
+                  <div className="mt-4 p-4 rounded-lg bg-muted/50 border border-border/50 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      Tax (GST) applicable as per government rules at the time of purchase.
                     </p>
                   </div>
                 </CardContent>
