@@ -108,10 +108,6 @@ export const ForgotPasswordForm = () => {
 
   return (
     <div className="space-y-4">
-      <div className="text-center">
-        <h3 className="text-lg font-semibold text-foreground">Reset Your Password</h3>
-      </div>
-
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'email' | 'phone')} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="email" className="flex items-center gap-2">
