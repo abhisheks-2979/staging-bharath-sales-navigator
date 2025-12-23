@@ -1774,41 +1774,6 @@ export const TodaySummary = () => {
             <CardTitle className="text-lg">Key Metrics</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Top Row: Retailers Summary */}
-            <div className="grid grid-cols-3 gap-3">
-              <div
-                role="button"
-                onClick={() => openVisitsDialog("Planned")}
-                className="text-center p-3 bg-blue-500/10 rounded-lg cursor-pointer hover:bg-blue-500/20 transition"
-              >
-                <div className="text-2xl font-bold text-blue-600">
-                  {loading ? "..." : summaryData.totalRetailers}
-                </div>
-                <div className="text-xs text-muted-foreground">Total Retailers</div>
-              </div>
-              <div
-                role="button"
-                onClick={() => openVisitsDialog("Productive")}
-                className="text-center p-3 bg-success/10 rounded-lg cursor-pointer hover:bg-success/20 transition"
-              >
-                <div className="text-2xl font-bold text-success">
-                  {loading ? "..." : summaryData.productiveVisits}
-                </div>
-                <div className="text-xs text-muted-foreground">Productive</div>
-              </div>
-              <div
-                role="button"
-                onClick={() => openVisitsDialog("Unproductive")}
-                className="text-center p-3 bg-destructive/10 rounded-lg cursor-pointer hover:bg-destructive/20 transition"
-              >
-                <div className="text-2xl font-bold text-destructive">
-                  {loading ? "..." : summaryData.unproductiveVisits}
-                </div>
-                <div className="text-xs text-muted-foreground">Unproductive</div>
-              </div>
-            </div>
-            
-            {/* Second Row: Order Value & Orders Count */}
             <div className="grid grid-cols-2 gap-4">
               <div
                 role="button"
@@ -1832,7 +1797,6 @@ export const TodaySummary = () => {
               </div>
             </div>
 
-            {/* Third Row: KG Sold & Avg Order Value */}
             <div className="grid grid-cols-2 gap-4">
               <div
                 role="button"
@@ -1852,7 +1816,6 @@ export const TodaySummary = () => {
               </div>
             </div>
 
-            {/* Fourth Row: Points */}
             <div className="grid grid-cols-1 gap-4">
               <div
                 role="button"
