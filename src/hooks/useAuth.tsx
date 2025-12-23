@@ -14,7 +14,7 @@ interface AuthContextType {
   signUp: (data: SignUpData) => Promise<void>;
   signIn: (email: string, password: string, role?: 'admin' | 'user') => Promise<void>;
   signOut: () => Promise<void>;
-  resetPassword: (email: string, hintAnswer: string, newPassword: string) => Promise<{ error: any }>;
+  resetPasswordByEmail: (email: string) => Promise<{ error: any }>;
 }
 
 interface SignUpData {
@@ -352,68 +352,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     window.location.replace(cleanUrl);
   };
 
-  const resetPassword = async (email: string, hintAnswer: string, newPassword: string) => {
+  const resetPasswordByEmail = async (email: string) => {
     try {
-      // Use the new rate-limited verification function
-      const { data: verifyResult, error: verifyError } = await supabase
-        .rpc('verify_hint_answer_with_rate_limit', {
-          user_email: email,
-          submitted_answer: hintAnswer
-        });
-
-      if (verifyError) {
-        console.error('Error verifying hint answer:', verifyError);
-        return { error: verifyError };
-      }
-
-      if (!verifyResult || verifyResult.length === 0) {
-        const error = new Error('Verification failed') as AuthError;
-        return { error };
-      }
-
-      const result = verifyResult[0];
-
-      // Check if account is locked
-      if (result.is_locked) {
-        const error = new Error('Account locked due to too many failed attempts. Please contact an administrator to unlock your account.') as AuthError;
-        return { error };
-      }
-
-      // Check if answer is valid
-      if (!result.is_valid) {
-        const remainingText = result.attempts_remaining > 0 
-          ? ` ${result.attempts_remaining} attempt(s) remaining before account lockout.`
-          : ' Account will be locked on next failed attempt.';
-        const error = new Error('Invalid security answer.' + remainingText) as AuthError;
-        return { error };
-      }
-
-      // If hint answer is correct, get the user ID and update password
-      const { data: userData, error: userError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('recovery_email', email)
-        .single();
-
-      if (userError || !userData) {
-        // Try with primary email if recovery email doesn't work
-        const { data: authData, error: authError } = await supabase
-          .from('profiles')
-          .select('id')
-          .limit(1000);
-        
-        if (authError) {
-          return { error: authError };
-        }
-
-        // Skip this search since we can't properly find by recovery email
-        const error = new Error('User not found') as any;
-        return { error };
-      }
-
-      // For security, we'll use a simplified password reset
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
-      return { error: resetError };
+      const redirectUrl = `${window.location.origin}/reset-password`;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl,
+      });
+      return { error };
     } catch (error) {
       devError('Reset password error:', error);
       return { error: error as any };
@@ -430,7 +375,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       signUp,
       signIn,
       signOut,
-      resetPassword,
+      resetPasswordByEmail,
     }}>
       {children}
     </AuthContext.Provider>

@@ -41,3 +41,9 @@ verify_jwt = false
 
 [functions.send-distributor-portal-invite]
 verify_jwt = true
+
+[functions.send-password-reset-sms]
+verify_jwt = false
+
+[functions.reset-password-with-token]
+verify_jwt = false
