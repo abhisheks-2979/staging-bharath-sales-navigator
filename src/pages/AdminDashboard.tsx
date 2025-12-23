@@ -21,6 +21,7 @@ import ApproverManagement from '@/components/ApproverManagement';
 import UserHierarchy from '@/components/admin/UserHierarchy';
 import SecurityRolesDisplay from '@/components/admin/SecurityRolesDisplay';
 import EditUserDialog from '@/components/admin/EditUserDialog';
+import UserPhotoDialog from '@/components/admin/UserPhotoDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -76,6 +77,8 @@ export const AdminDashboard = () => {
   const [isRoleChangeOpen, setIsRoleChangeOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isUserDetailOpen, setIsUserDetailOpen] = useState(false);
+  const [isPhotoDialogOpen, setIsPhotoDialogOpen] = useState(false);
+  const [selectedPhotoUser, setSelectedPhotoUser] = useState<{ photoUrl?: string; name: string } | null>(null);
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [visibleColumns, setVisibleColumns] = useState<string[]>(
     allColumns.filter(c => c.default).map(c => c.key)
@@ -448,7 +451,16 @@ export const AdminDashboard = () => {
                           <TableRow key={user.id}>
                             {visibleColumns.includes('photo') && (
                               <TableCell>
-                                <Avatar className="w-10 h-10">
+                                <Avatar 
+                                  className="w-10 h-10 cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                                  onClick={() => {
+                                    setSelectedPhotoUser({
+                                      photoUrl: user.profile?.profile_picture_url,
+                                      name: user.profile?.full_name || user.username || 'User'
+                                    });
+                                    setIsPhotoDialogOpen(true);
+                                  }}
+                                >
                                   <AvatarImage src={user.profile?.profile_picture_url} />
                                   <AvatarFallback>{user.profile?.full_name?.charAt(0) || 'U'}</AvatarFallback>
                                 </Avatar>
@@ -737,6 +749,14 @@ export const AdminDashboard = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Photo Full View Dialog */}
+        <UserPhotoDialog
+          open={isPhotoDialogOpen}
+          onOpenChange={setIsPhotoDialogOpen}
+          photoUrl={selectedPhotoUser?.photoUrl}
+          userName={selectedPhotoUser?.name}
+        />
       </div>
     </div>
   );
