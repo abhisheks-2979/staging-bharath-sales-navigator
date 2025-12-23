@@ -110,9 +110,6 @@ export const ForgotPasswordForm = () => {
     <div className="space-y-4">
       <div className="text-center">
         <h3 className="text-lg font-semibold text-foreground">Reset Your Password</h3>
-        <p className="text-sm text-muted-foreground">
-          Enter your email or phone number to receive a reset link
-        </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'email' | 'phone')} className="w-full">
