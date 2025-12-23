@@ -30,7 +30,6 @@ const pricingTiers = [
     description: "For small teams starting digital transformation",
     icon: Rocket,
     featured: false,
-    target: "10-30 field reps",
     features: [
       "Unlimited users",
       "5,000 orders/month",
@@ -50,13 +49,12 @@ const pricingTiers = [
     description: "For growing teams with distributor needs",
     icon: Building2,
     featured: true,
-    target: "30-100 field reps",
     features: [
       "Everything in Starter, plus:",
       "15,000 orders/month",
       "1,500 retailers/month",
       "30,000 visits/month",
-      "5 distributor portals",
+      "25 distributor portals",
       "Primary sales management",
       "Product bundles",
       "Advanced reporting",
@@ -70,14 +68,14 @@ const pricingTiers = [
     description: "For large teams with complex operations",
     icon: Crown,
     featured: false,
-    target: "100-300 field reps",
     features: [
       "Everything in Professional, plus:",
       "40,000 orders/month",
       "4,000 retailers/month",
       "80,000 visits/month",
-      "20 distributor portals",
+      "200 distributor portals",
       "AI-powered insights",
+      "Gamification",
       "Retailer loyalty program",
       "Priority support",
     ],
@@ -140,9 +138,6 @@ export const PricingPage = () => {
                       <Icon className="w-6 h-6 text-primary" />
                     </div>
                     <h3 className="text-xl font-bold">{tier.name}</h3>
-                    {tier.target && (
-                      <p className="text-xs text-muted-foreground mt-1">{tier.target}</p>
-                    )}
                   </div>
 
                   <div className="mb-4">
