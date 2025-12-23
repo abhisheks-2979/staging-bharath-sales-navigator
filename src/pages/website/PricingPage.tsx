@@ -476,9 +476,16 @@ export const PricingPage = () => {
             </Card>
           </div>
 
-          <div className="text-center mb-6">
+          <div className="text-center mb-6 flex flex-col sm:flex-row gap-4 justify-center">
             <Button onClick={() => navigate("/request-demo")} size="lg">
               Discuss Your Support Needs
+            </Button>
+            <Button 
+              onClick={() => navigate("/solutions/professional-services")} 
+              size="lg" 
+              variant="outline"
+            >
+              Learn More About Professional Services
             </Button>
           </div>
 

@@ -139,17 +139,17 @@ export const ProfessionalServicesSolution = () => {
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button 
                   size="lg"
-                  onClick={() => navigate('/request-demo')}
+                  onClick={() => document.getElementById('why-professional-services')?.scrollIntoView({ behavior: 'smooth' })}
                   className="bg-accent-gold hover:bg-accent-gold/90 text-accent-gold-foreground shadow-button"
                 >
-                  Get Started
+                  Why Professional Services Matter
                 </Button>
                 <Button 
                   size="lg" 
                   variant="outline"
-                  onClick={() => navigate('/contact')}
+                  onClick={() => document.getElementById('onboarding-checklist')?.scrollIntoView({ behavior: 'smooth' })}
                 >
-                  Contact Sales
+                  Onboarding Checklist
                 </Button>
               </div>
             </div>
