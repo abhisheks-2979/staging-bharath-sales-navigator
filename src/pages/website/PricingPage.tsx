@@ -476,10 +476,16 @@ export const PricingPage = () => {
             </Card>
           </div>
 
-          <div className="text-center">
+          <div className="text-center mb-6">
             <Button onClick={() => navigate("/request-demo")} size="lg">
               Discuss Your Support Needs
             </Button>
+          </div>
+
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">
+              Tax (GST) applicable as per government rules at the time of purchase.
+            </p>
           </div>
         </div>
       </section>
