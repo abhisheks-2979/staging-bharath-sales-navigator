@@ -12,8 +12,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, parse } from "date-fns";
 import jsPDF from "jspdf";
@@ -38,8 +36,6 @@ export const TodaySummary = () => {
   // Admin user filter state
   const [allUsers, setAllUsers] = useState<Array<{ id: string; name: string; email: string }>>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  const [userFilterOpen, setUserFilterOpen] = useState(false);
-  const [userSearchQuery, setUserSearchQuery] = useState('');
   
   // Date filtering state
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -65,6 +61,8 @@ export const TodaySummary = () => {
     plannedVisits: 0,
     completedVisits: 0,
     productiveVisits: 0,
+    unproductiveVisits: 0,
+    totalRetailers: 0,
     totalOrders: 0,
     totalOrderValue: 0,
     avgOrderValue: 0,
@@ -348,8 +346,8 @@ export const TodaySummary = () => {
       // Fetch van_stock for distance (start_km and end_km)
       let vanStockQuery = supabase
         .from('van_stock')
-        .select('start_km, end_km, total_km, stock_date')
-        .eq('user_id', user.id);
+        .select('start_km, end_km, total_km, stock_date, user_id')
+        .in('user_id', targetUserIds);
 
       if (filterType === 'today' || filterType === 'custom') {
         const targetDate = format(dateRange.from, 'yyyy-MM-dd');
@@ -365,8 +363,8 @@ export const TodaySummary = () => {
       // Fetch retailer_visit_logs for time at retailers (first to last visit time)
       let visitLogsQuery = supabase
         .from('retailer_visit_logs')
-        .select('time_spent_seconds, retailer_id, visit_date, start_time, end_time')
-        .eq('user_id', user.id)
+        .select('time_spent_seconds, retailer_id, visit_date, start_time, end_time, user_id')
+        .in('user_id', targetUserIds)
         .order('start_time', { ascending: true });
 
       if (filterType === 'today' || filterType === 'custom') {
@@ -384,7 +382,7 @@ export const TodaySummary = () => {
       let visitsQuery = supabase
         .from('visits')
         .select('*')
-        .eq('user_id', user.id);
+        .in('user_id', targetUserIds);
 
       if (filterType === 'today' || filterType === 'custom') {
         const targetDate = format(dateRange.from, 'yyyy-MM-dd');
@@ -414,7 +412,7 @@ export const TodaySummary = () => {
           *,
           order_items(*)
         `)
-        .eq('user_id', user.id)
+        .in('user_id', targetUserIds)
         .eq('status', 'confirmed')
         .gte('created_at', orderFromDate.toISOString())
         .lte('created_at', orderToDate.toISOString());
@@ -425,7 +423,7 @@ export const TodaySummary = () => {
       let beatPlansQuery = supabase
         .from('beat_plans')
         .select('*')
-        .eq('user_id', user.id);
+        .in('user_id', targetUserIds);
 
       if (filterType === 'today' || filterType === 'custom') {
         const targetDate = format(dateRange.from, 'yyyy-MM-dd');
@@ -452,8 +450,8 @@ export const TodaySummary = () => {
         // Fetch ALL retailers that belong to these beats
         const { data: beatRetailers } = await supabase
           .from('retailers')
-          .select('id, name, beat_id')
-          .eq('user_id', user.id)
+          .select('id, name, beat_id, user_id')
+          .in('user_id', targetUserIds)
           .in('beat_id', beatIds);
         
         if (beatRetailers && beatRetailers.length > 0) {
@@ -497,7 +495,7 @@ export const TodaySummary = () => {
       const { data: pointsData, error: pointsError } = await supabase
         .from('gamification_points')
         .select('points, earned_at')
-        .eq('user_id', user.id)
+        .in('user_id', targetUserIds)
         .gte('earned_at', pointsFromDate.toISOString())
         .lte('earned_at', pointsToDate.toISOString());
       
@@ -518,7 +516,7 @@ export const TodaySummary = () => {
       const { data: jointSalesFeedback } = await supabase
         .from('joint_sales_feedback')
         .select('*, retailers(name)')
-        .eq('fse_user_id', user.id)
+        .in('fse_user_id', targetUserIds)
         .gte('feedback_date', jointFromDate)
         .lte('feedback_date', jointToDate);
       
@@ -866,14 +864,16 @@ export const TodaySummary = () => {
         endTime: lastCheckOut ? formatTime(lastCheckOut) : (firstCheckIn ? "In Progress" : "Not started"),
         plannedVisits: totalPlanned,
         completedVisits: completedVisits.length,
-        productiveVisits: productiveVisits.length,
+        productiveVisits: productiveCount,
+        unproductiveVisits: unproductiveCount,
+        totalRetailers: totalPlannedFromBeatPlans,
         totalOrders: totalOrdersCount,
         totalOrderValue,
         avgOrderValue,
         totalKgSold: totalKgFromOrders,
         totalKgSoldFormatted,
         visitEfficiency: totalPlanned > 0 ? Math.round((completedVisits.length / totalPlanned) * 100) : 0,
-        orderConversionRate: completedVisits.length > 0 ? Math.round((productiveVisits.length / completedVisits.length) * 100) : 0,
+        orderConversionRate: completedVisits.length > 0 ? Math.round((productiveCount / completedVisits.length) * 100) : 0,
         distanceCovered: totalDistance > 0 ? Math.round(totalDistance * 10) / 10 : 0,
         travelTime: timeAtRetailersStr
       });
@@ -1302,6 +1302,9 @@ export const TodaySummary = () => {
       yPosition += 8;
       
       const metricsData = [
+        ['Total Retailers', summaryData.totalRetailers.toString()],
+        ['Productive', summaryData.productiveVisits.toString()],
+        ['Unproductive', summaryData.unproductiveVisits.toString()],
         ['Total Order Value', `Rs. ${Math.round(summaryData.totalOrderValue).toLocaleString('en-IN')}`],
         ['Orders Placed', summaryData.totalOrders.toString()],
         ['Total KG Sold (Unit)', summaryData.totalKgSoldFormatted],
@@ -1663,7 +1666,7 @@ export const TodaySummary = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Users size={16} className="text-primary" />
-                    <span className="font-medium text-sm">Filter by Users</span>
+                    <span className="font-medium text-sm">Filter by User</span>
                   </div>
                   {selectedUserIds.length > 0 && (
                     <Button
@@ -1672,73 +1675,40 @@ export const TodaySummary = () => {
                       onClick={() => setSelectedUserIds([])}
                       className="h-6 text-xs"
                     >
-                      Clear All
+                      Clear
                     </Button>
                   )}
                 </div>
                 
-                <Popover open={userFilterOpen} onOpenChange={setUserFilterOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left h-auto min-h-9 py-2">
-                      {selectedUserIds.length === 0 ? (
-                        <span className="text-muted-foreground">All Users (showing your data)</span>
-                      ) : (
-                        <span>{selectedUserIds.length} user(s) selected</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-72 p-2" align="start">
-                    <div className="space-y-2">
-                      <Input
-                        placeholder="Search users..."
-                        value={userSearchQuery}
-                        onChange={(e) => setUserSearchQuery(e.target.value)}
-                        className="h-8"
-                      />
-                      <ScrollArea className="h-48">
-                        <div className="space-y-1">
-                          {allUsers
-                            .filter(u => u.name.toLowerCase().includes(userSearchQuery.toLowerCase()))
-                            .map(u => (
-                              <div
-                                key={u.id}
-                                className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer"
-                                onClick={() => {
-                                  setSelectedUserIds(prev =>
-                                    prev.includes(u.id)
-                                      ? prev.filter(id => id !== u.id)
-                                      : [...prev, u.id]
-                                  );
-                                }}
-                              >
-                                <Checkbox checked={selectedUserIds.includes(u.id)} />
-                                <span className="text-sm truncate">{u.name}</span>
-                              </div>
-                            ))}
-                        </div>
-                      </ScrollArea>
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                <Select
+                  value={selectedUserIds.length === 1 ? selectedUserIds[0] : "all"}
+                  onValueChange={(value) => {
+                    if (value === "all") {
+                      setSelectedUserIds([]);
+                    } else {
+                      setSelectedUserIds([value]);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All Users (showing your data)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Users (showing your data)</SelectItem>
+                    {allUsers.map(u => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 
-                {selectedUserIds.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {selectedUserIds.slice(0, 3).map(id => {
-                      const u = allUsers.find(u => u.id === id);
-                      return u ? (
-                        <Badge key={id} variant="secondary" className="text-xs">
-                          {u.name}
-                          <X
-                            size={12}
-                            className="ml-1 cursor-pointer"
-                            onClick={() => setSelectedUserIds(prev => prev.filter(uid => uid !== id))}
-                          />
-                        </Badge>
-                      ) : null;
-                    })}
-                    {selectedUserIds.length > 3 && (
-                      <Badge variant="secondary" className="text-xs">+{selectedUserIds.length - 3} more</Badge>
-                    )}
+                {selectedUserIds.length === 1 && (
+                  <div className="flex items-center gap-2 p-2 bg-primary/10 rounded-lg">
+                    <Users size={14} className="text-primary" />
+                    <span className="text-sm font-medium">
+                      Showing data for: {allUsers.find(u => u.id === selectedUserIds[0])?.name || 'Unknown'}
+                    </span>
                   </div>
                 )}
               </div>
@@ -1804,6 +1774,41 @@ export const TodaySummary = () => {
             <CardTitle className="text-lg">Key Metrics</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Top Row: Retailers Summary */}
+            <div className="grid grid-cols-3 gap-3">
+              <div
+                role="button"
+                onClick={() => openVisitsDialog("Planned")}
+                className="text-center p-3 bg-blue-500/10 rounded-lg cursor-pointer hover:bg-blue-500/20 transition"
+              >
+                <div className="text-2xl font-bold text-blue-600">
+                  {loading ? "..." : summaryData.totalRetailers}
+                </div>
+                <div className="text-xs text-muted-foreground">Total Retailers</div>
+              </div>
+              <div
+                role="button"
+                onClick={() => openVisitsDialog("Productive")}
+                className="text-center p-3 bg-success/10 rounded-lg cursor-pointer hover:bg-success/20 transition"
+              >
+                <div className="text-2xl font-bold text-success">
+                  {loading ? "..." : summaryData.productiveVisits}
+                </div>
+                <div className="text-xs text-muted-foreground">Productive</div>
+              </div>
+              <div
+                role="button"
+                onClick={() => openVisitsDialog("Unproductive")}
+                className="text-center p-3 bg-destructive/10 rounded-lg cursor-pointer hover:bg-destructive/20 transition"
+              >
+                <div className="text-2xl font-bold text-destructive">
+                  {loading ? "..." : summaryData.unproductiveVisits}
+                </div>
+                <div className="text-xs text-muted-foreground">Unproductive</div>
+              </div>
+            </div>
+            
+            {/* Second Row: Order Value & Orders Count */}
             <div className="grid grid-cols-2 gap-4">
               <div
                 role="button"
@@ -1827,6 +1832,7 @@ export const TodaySummary = () => {
               </div>
             </div>
 
+            {/* Third Row: KG Sold & Avg Order Value */}
             <div className="grid grid-cols-2 gap-4">
               <div
                 role="button"
@@ -1846,6 +1852,7 @@ export const TodaySummary = () => {
               </div>
             </div>
 
+            {/* Fourth Row: Points */}
             <div className="grid grid-cols-1 gap-4">
               <div
                 role="button"
@@ -1855,8 +1862,8 @@ export const TodaySummary = () => {
                 <div className="text-2xl font-bold text-amber-600">
                   {loading ? "Loading..." : pointsEarnedToday}
                 </div>
-                <div className="text-sm text-amber-600/80 font-medium">Points Earned Today</div>
-                <div className="text-xs text-muted-foreground mt-1">Tap to view details in Leaderboard</div>
+                <div className="text-sm text-amber-600/80 font-medium">Points Earned</div>
+                <div className="text-xs text-muted-foreground mt-1">Tap to view Leaderboard</div>
               </div>
             </div>
           </CardContent>
