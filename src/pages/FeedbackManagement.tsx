@@ -5,57 +5,77 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, MessageSquare, Trophy, Image } from "lucide-react";
+import { ArrowLeft, MessageSquare, Trophy, Image, Users, Calendar, Filter, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { format, subDays, startOfDay, endOfDay } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-interface RetailerFeedback {
+interface EnrichedFeedback {
   id: string;
-  feedback_type: string;
-  comments: string;
-  rating: number;
+  feedback_type: string | null;
+  comments: string | null;
+  rating: number | null;
   created_at: string;
-  retailer_id: string;
-  retailers: {
-    name: string;
-  };
+  retailer_name: string;
+  submitted_by: string;
 }
 
-interface CompetitionInsight {
+interface EnrichedCompetitionData {
   id: string;
   competitor_name: string;
-  product_category: string;
-  insight_type: string;
-  description: string;
-  impact_level: string;
-  action_required: boolean;
+  sku_name: string;
+  selling_price: number | null;
+  stock_quantity: number | null;
+  impact_level: string | null;
+  insight: string | null;
   created_at: string;
-  retailer_id: string;
-  retailers: {
-    name: string;
-  };
+  retailer_name: string;
+  submitted_by: string;
 }
 
-interface BrandingRequest {
+interface EnrichedBrandingRequest {
   id: string;
-  title: string;
-  description: string;
+  title: string | null;
+  description: string | null;
   status: string;
-  requested_assets: string;
+  requested_assets: string | null;
   created_at: string;
-  retailer_id: string;
-  retailers: {
-    name: string;
-  };
+  retailer_name: string;
+  submitted_by: string;
+}
+
+interface EnrichedJointSalesFeedback {
+  id: string;
+  retailer_name: string;
+  fse_name: string;
+  manager_name: string;
+  product_feedback_rating: number | null;
+  branding_rating: number | null;
+  competition_rating: number | null;
+  schemes_rating: number | null;
+  future_growth_rating: number | null;
+  action_items: string | null;
+  feedback_date: string;
+  created_at: string | null;
 }
 
 export default function FeedbackManagement() {
   const navigate = useNavigate();
   const { userRole } = useAuth();
-  const [retailerFeedback, setRetailerFeedback] = useState<any[]>([]);
-  const [brandingRequests, setBrandingRequests] = useState<any[]>([]);
+  const [retailerFeedback, setRetailerFeedback] = useState<EnrichedFeedback[]>([]);
+  const [competitionData, setCompetitionData] = useState<EnrichedCompetitionData[]>([]);
+  const [brandingRequests, setBrandingRequests] = useState<EnrichedBrandingRequest[]>([]);
+  const [jointSalesFeedback, setJointSalesFeedback] = useState<EnrichedJointSalesFeedback[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Date filter state
+  const [dateRange, setDateRange] = useState<string>("7days");
+  const [startDate, setStartDate] = useState<Date | undefined>(subDays(new Date(), 7));
+  const [endDate, setEndDate] = useState<Date | undefined>(new Date());
 
   useEffect(() => {
     if (userRole !== 'admin') {
@@ -65,54 +85,61 @@ export default function FeedbackManagement() {
     fetchAllFeedback();
   }, [userRole, navigate]);
 
+  useEffect(() => {
+    if (userRole === 'admin') {
+      fetchAllFeedback();
+    }
+  }, [startDate, endDate]);
+
+  const handleDateRangeChange = (value: string) => {
+    setDateRange(value);
+    const now = new Date();
+    switch (value) {
+      case "7days":
+        setStartDate(subDays(now, 7));
+        setEndDate(now);
+        break;
+      case "30days":
+        setStartDate(subDays(now, 30));
+        setEndDate(now);
+        break;
+      case "90days":
+        setStartDate(subDays(now, 90));
+        setEndDate(now);
+        break;
+      case "all":
+        setStartDate(undefined);
+        setEndDate(undefined);
+        break;
+      case "custom":
+        // Keep current dates for custom selection
+        break;
+    }
+  };
+
   const fetchAllFeedback = async () => {
     try {
       setLoading(true);
 
-      // Fetch retailer feedback
-      const { data: feedbackData, error: feedbackError } = await supabase
-        .from('retailer_feedback')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const dateFilter = startDate && endDate 
+        ? { 
+            gte: startOfDay(startDate).toISOString(),
+            lte: endOfDay(endDate).toISOString()
+          }
+        : null;
 
-      if (feedbackError) throw feedbackError;
+      // Fetch all data in parallel
+      const [feedbackResult, competitionResult, brandingResult, jointSalesResult] = await Promise.all([
+        fetchRetailerFeedback(dateFilter),
+        fetchCompetitionData(dateFilter),
+        fetchBrandingRequests(dateFilter),
+        fetchJointSalesFeedback(dateFilter)
+      ]);
 
-      // Fetch retailer names separately
-      const retailerIds = [...new Set(feedbackData?.map(f => f.retailer_id) || [])];
-      const { data: retailers } = await supabase
-        .from('retailers')
-        .select('id, name')
-        .in('id', retailerIds);
-
-      const retailerMap = new Map(retailers?.map(r => [r.id, r.name]));
-      const enrichedFeedback = feedbackData?.map(f => ({
-        ...f,
-        retailer_name: retailerMap.get(f.retailer_id) || 'Unknown'
-      })) || [];
-
-      setRetailerFeedback(enrichedFeedback);
-
-      // Fetch branding requests
-      const { data: brandingData, error: brandingError } = await supabase
-        .from('branding_requests')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (brandingError) throw brandingError;
-
-      const brandingRetailerIds = [...new Set(brandingData?.map(b => b.retailer_id) || [])];
-      const { data: brandingRetailers } = await supabase
-        .from('retailers')
-        .select('id, name')
-        .in('id', brandingRetailerIds);
-
-      const brandingRetailerMap = new Map(brandingRetailers?.map(r => [r.id, r.name]));
-      const enrichedBranding = brandingData?.map(b => ({
-        ...b,
-        retailer_name: brandingRetailerMap.get(b.retailer_id) || 'Unknown'
-      })) || [];
-
-      setBrandingRequests(enrichedBranding);
+      setRetailerFeedback(feedbackResult);
+      setCompetitionData(competitionResult);
+      setBrandingRequests(brandingResult);
+      setJointSalesFeedback(jointSalesResult);
 
     } catch (error) {
       console.error('Error fetching feedback:', error);
@@ -126,58 +153,366 @@ export default function FeedbackManagement() {
     }
   };
 
-  const getImpactBadge = (level: string) => {
-    const colors = {
+  const fetchRetailerFeedback = async (dateFilter: { gte: string; lte: string } | null): Promise<EnrichedFeedback[]> => {
+    let query = supabase
+      .from('retailer_feedback')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (dateFilter) {
+      query = query.gte('created_at', dateFilter.gte).lte('created_at', dateFilter.lte);
+    }
+
+    const { data: feedbackData, error } = await query;
+    if (error) throw error;
+
+    if (!feedbackData || feedbackData.length === 0) return [];
+
+    // Get unique retailer and user IDs
+    const retailerIds = [...new Set(feedbackData.map(f => f.retailer_id).filter(Boolean))];
+    const userIds = [...new Set(feedbackData.map(f => f.user_id).filter(Boolean))];
+
+    // Fetch retailer names and user profiles in parallel
+    const [retailersResult, profilesResult] = await Promise.all([
+      retailerIds.length > 0 
+        ? supabase.from('retailers').select('id, name').in('id', retailerIds)
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      userIds.length > 0 
+        ? supabase.from('profiles').select('id, full_name').in('id', userIds)
+        : Promise.resolve({ data: [] as { id: string; full_name: string }[] })
+    ]);
+
+    const retailerMap = new Map<string, string>(
+      (retailersResult.data || []).map(r => [r.id, r.name])
+    );
+    const profileMap = new Map<string, string>(
+      (profilesResult.data || []).map(p => [p.id, p.full_name])
+    );
+
+    return feedbackData.map(f => ({
+      id: f.id,
+      feedback_type: f.feedback_type,
+      comments: f.comments,
+      rating: f.rating,
+      created_at: f.created_at,
+      retailer_name: retailerMap.get(f.retailer_id) || 'Unknown',
+      submitted_by: profileMap.get(f.user_id) || 'Unknown'
+    }));
+  };
+
+  const fetchCompetitionData = async (dateFilter: { gte: string; lte: string } | null): Promise<EnrichedCompetitionData[]> => {
+    let query = supabase
+      .from('competition_data')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (dateFilter) {
+      query = query.gte('created_at', dateFilter.gte).lte('created_at', dateFilter.lte);
+    }
+
+    const { data: compData, error } = await query;
+    if (error) throw error;
+
+    if (!compData || compData.length === 0) return [];
+
+    // Get unique IDs
+    const retailerIds = [...new Set(compData.map(c => c.retailer_id).filter(Boolean))];
+    const userIds = [...new Set(compData.map(c => c.user_id).filter(Boolean))];
+    const competitorIds = [...new Set(compData.map(c => c.competitor_id).filter(Boolean))];
+    const skuIds = [...new Set(compData.map(c => c.sku_id).filter(Boolean))] as string[];
+
+    // Fetch related data in parallel
+    const [retailersResult, profilesResult, competitorsResult, skusResult] = await Promise.all([
+      retailerIds.length > 0 
+        ? supabase.from('retailers').select('id, name').in('id', retailerIds)
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      userIds.length > 0 
+        ? supabase.from('profiles').select('id, full_name').in('id', userIds)
+        : Promise.resolve({ data: [] as { id: string; full_name: string }[] }),
+      competitorIds.length > 0 
+        ? supabase.from('competition_master').select('id, competitor_name').in('id', competitorIds)
+        : Promise.resolve({ data: [] as { id: string; competitor_name: string }[] }),
+      skuIds.length > 0 
+        ? supabase.from('competition_skus').select('id, sku_name').in('id', skuIds)
+        : Promise.resolve({ data: [] as { id: string; sku_name: string }[] })
+    ]);
+
+    const retailerMap = new Map<string, string>(
+      (retailersResult.data || []).map(r => [r.id, r.name])
+    );
+    const profileMap = new Map<string, string>(
+      (profilesResult.data || []).map(p => [p.id, p.full_name])
+    );
+    const competitorMap = new Map<string, string>(
+      (competitorsResult.data || []).map(c => [c.id, c.competitor_name])
+    );
+    const skuMap = new Map<string, string>(
+      (skusResult.data || []).map(s => [s.id, s.sku_name])
+    );
+
+    return compData.map(c => ({
+      id: c.id,
+      competitor_name: competitorMap.get(c.competitor_id) || 'Unknown',
+      sku_name: c.sku_id ? (skuMap.get(c.sku_id) || 'N/A') : 'N/A',
+      selling_price: c.selling_price,
+      stock_quantity: c.stock_quantity,
+      impact_level: c.impact_level,
+      insight: c.insight,
+      created_at: c.created_at,
+      retailer_name: retailerMap.get(c.retailer_id) || 'Unknown',
+      submitted_by: profileMap.get(c.user_id) || 'Unknown'
+    }));
+  };
+
+  const fetchBrandingRequests = async (dateFilter: { gte: string; lte: string } | null): Promise<EnrichedBrandingRequest[]> => {
+    let query = supabase
+      .from('branding_requests')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (dateFilter) {
+      query = query.gte('created_at', dateFilter.gte).lte('created_at', dateFilter.lte);
+    }
+
+    const { data: brandingData, error } = await query;
+    if (error) throw error;
+
+    if (!brandingData || brandingData.length === 0) return [];
+
+    // Get unique IDs
+    const retailerIds = [...new Set(brandingData.map(b => b.retailer_id).filter(Boolean))];
+    const userIds = [...new Set(brandingData.map(b => b.user_id).filter(Boolean))];
+
+    // Fetch related data in parallel
+    const [retailersResult, profilesResult] = await Promise.all([
+      retailerIds.length > 0 
+        ? supabase.from('retailers').select('id, name').in('id', retailerIds)
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      userIds.length > 0 
+        ? supabase.from('profiles').select('id, full_name').in('id', userIds)
+        : Promise.resolve({ data: [] as { id: string; full_name: string }[] })
+    ]);
+
+    const retailerMap = new Map<string, string>(
+      (retailersResult.data || []).map(r => [r.id, r.name])
+    );
+    const profileMap = new Map<string, string>(
+      (profilesResult.data || []).map(p => [p.id, p.full_name])
+    );
+
+    return brandingData.map(b => ({
+      id: b.id,
+      title: b.title,
+      description: b.description,
+      status: b.status,
+      requested_assets: b.requested_assets,
+      created_at: b.created_at,
+      retailer_name: retailerMap.get(b.retailer_id) || 'Unknown',
+      submitted_by: profileMap.get(b.user_id) || 'Unknown'
+    }));
+  };
+
+  const fetchJointSalesFeedback = async (dateFilter: { gte: string; lte: string } | null): Promise<EnrichedJointSalesFeedback[]> => {
+    let query = supabase
+      .from('joint_sales_feedback')
+      .select('*')
+      .order('feedback_date', { ascending: false });
+
+    if (dateFilter) {
+      query = query.gte('feedback_date', dateFilter.gte.split('T')[0]).lte('feedback_date', dateFilter.lte.split('T')[0]);
+    }
+
+    const { data: jsData, error } = await query;
+    if (error) throw error;
+
+    if (!jsData || jsData.length === 0) return [];
+
+    // Get unique IDs
+    const retailerIds = [...new Set(jsData.map(j => j.retailer_id).filter(Boolean))];
+    const fseIds = [...new Set(jsData.map(j => j.fse_user_id).filter(Boolean))];
+    const managerIds = [...new Set(jsData.map(j => j.manager_id).filter(Boolean))];
+    const allUserIds = [...new Set([...fseIds, ...managerIds])];
+
+    // Fetch related data in parallel
+    const [retailersResult, profilesResult] = await Promise.all([
+      retailerIds.length > 0 
+        ? supabase.from('retailers').select('id, name').in('id', retailerIds)
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      allUserIds.length > 0 
+        ? supabase.from('profiles').select('id, full_name').in('id', allUserIds)
+        : Promise.resolve({ data: [] as { id: string; full_name: string }[] })
+    ]);
+
+    const retailerMap = new Map<string, string>(
+      (retailersResult.data || []).map(r => [r.id, r.name])
+    );
+    const profileMap = new Map<string, string>(
+      (profilesResult.data || []).map(p => [p.id, p.full_name])
+    );
+
+    return jsData.map(j => ({
+      id: j.id,
+      retailer_name: retailerMap.get(j.retailer_id) || 'Unknown',
+      fse_name: profileMap.get(j.fse_user_id) || 'Unknown',
+      manager_name: profileMap.get(j.manager_id) || 'Unknown',
+      product_feedback_rating: j.product_feedback_rating,
+      branding_rating: j.branding_rating,
+      competition_rating: j.competition_rating,
+      schemes_rating: j.schemes_rating,
+      future_growth_rating: j.future_growth_rating,
+      action_items: j.action_items,
+      feedback_date: j.feedback_date,
+      created_at: j.created_at
+    }));
+  };
+
+  const getImpactBadge = (level: string | null) => {
+    if (!level) return "bg-muted text-muted-foreground";
+    const colors: Record<string, string> = {
       high: "bg-destructive text-destructive-foreground",
       medium: "bg-warning text-warning-foreground",
       low: "bg-muted text-muted-foreground"
     };
-    return colors[level as keyof typeof colors] || colors.low;
+    return colors[level.toLowerCase()] || colors.low;
   };
 
   const getStatusBadge = (status: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       submitted: "bg-blue-500 text-white",
       approved: "bg-green-500 text-white",
       rejected: "bg-red-500 text-white",
       in_progress: "bg-yellow-500 text-white",
       completed: "bg-green-600 text-white"
     };
-    return colors[status as keyof typeof colors] || "bg-gray-500 text-white";
+    return colors[status] || "bg-gray-500 text-white";
+  };
+
+  const getScoreColor = (score: number | null) => {
+    if (score === null) return "text-muted-foreground";
+    if (score >= 4) return "text-green-600";
+    if (score >= 3) return "text-yellow-600";
+    return "text-red-600";
   };
 
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/admin')}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Feedback Management</h1>
-            <p className="text-muted-foreground">View and manage all feedback from field teams</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/admin')}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">Feedback Management</h1>
+              <p className="text-muted-foreground">View and manage all feedback from field teams</p>
+            </div>
           </div>
+          <Button 
+            variant="outline" 
+            onClick={fetchAllFeedback}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
+
+        {/* Date Filter */}
+        <Card className="p-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Filter by Date:</span>
+            </div>
+            
+            <Select value={dateRange} onValueChange={handleDateRangeChange}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Select range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7days">Last 7 days</SelectItem>
+                <SelectItem value="30days">Last 30 days</SelectItem>
+                <SelectItem value="90days">Last 90 days</SelectItem>
+                <SelectItem value="all">All time</SelectItem>
+                <SelectItem value="custom">Custom range</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {dateRange === "custom" && (
+              <div className="flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      {startDate ? format(startDate, "MMM dd, yyyy") : "Start date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={startDate}
+                      onSelect={setStartDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <span className="text-muted-foreground">to</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      {endDate ? format(endDate, "MMM dd, yyyy") : "End date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={endDate}
+                      onSelect={setEndDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
+
+            {/* Stats Summary */}
+            <div className="flex items-center gap-4 ml-auto text-sm text-muted-foreground">
+              <span>Retailer: {retailerFeedback.length}</span>
+              <span>Competition: {competitionData.length}</span>
+              <span>Branding: {brandingRequests.length}</span>
+              <span>Joint Sales: {jointSalesFeedback.length}</span>
+            </div>
+          </div>
+        </Card>
 
         {/* Tabs */}
         <Tabs defaultValue="retailer" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="retailer" className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
-              Retailer Feedback
+              <span className="hidden sm:inline">Retailer</span>
+              <Badge variant="secondary" className="ml-1">{retailerFeedback.length}</Badge>
             </TabsTrigger>
             <TabsTrigger value="competition" className="flex items-center gap-2">
               <Trophy className="h-4 w-4" />
-              Competition Insights
+              <span className="hidden sm:inline">Competition</span>
+              <Badge variant="secondary" className="ml-1">{competitionData.length}</Badge>
             </TabsTrigger>
             <TabsTrigger value="branding" className="flex items-center gap-2">
               <Image className="h-4 w-4" />
-              Branding Requests
+              <span className="hidden sm:inline">Branding</span>
+              <Badge variant="secondary" className="ml-1">{brandingRequests.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="jointsales" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              <span className="hidden sm:inline">Joint Sales</span>
+              <Badge variant="secondary" className="ml-1">{jointSalesFeedback.length}</Badge>
             </TabsTrigger>
           </TabsList>
 
@@ -190,38 +525,111 @@ export default function FeedbackManagement() {
               ) : retailerFeedback.length === 0 ? (
                 <p className="text-center py-8 text-muted-foreground">No feedback records found</p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Retailer</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Rating</TableHead>
-                      <TableHead>Comments</TableHead>
-                      <TableHead>Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {retailerFeedback.map((feedback) => (
-                      <TableRow key={feedback.id}>
-                        <TableCell className="font-medium">
-                          {feedback.retailer_name}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{feedback.feedback_type}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          {feedback.rating ? `${feedback.rating}/5` : 'N/A'}
-                        </TableCell>
-                        <TableCell className="max-w-md truncate">
-                          {feedback.comments || 'No comments'}
-                        </TableCell>
-                        <TableCell>
-                          {new Date(feedback.created_at).toLocaleDateString()}
-                        </TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Retailer</TableHead>
+                        <TableHead>Submitted By</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Rating</TableHead>
+                        <TableHead>Comments</TableHead>
+                        <TableHead>Date</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {retailerFeedback.map((feedback) => (
+                        <TableRow key={feedback.id}>
+                          <TableCell className="font-medium">
+                            {feedback.retailer_name}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{feedback.submitted_by}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{feedback.feedback_type || 'N/A'}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            {feedback.rating ? (
+                              <span className={getScoreColor(feedback.rating)}>
+                                {feedback.rating}/5
+                              </span>
+                            ) : 'N/A'}
+                          </TableCell>
+                          <TableCell className="max-w-xs truncate">
+                            {feedback.comments || 'No comments'}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {format(new Date(feedback.created_at), "MMM dd, yyyy")}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </Card>
+          </TabsContent>
+
+          {/* Competition Data Tab */}
+          <TabsContent value="competition">
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Competition Data</h2>
+              {loading ? (
+                <p className="text-center py-8 text-muted-foreground">Loading...</p>
+              ) : competitionData.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground">No competition data found</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Retailer</TableHead>
+                        <TableHead>Submitted By</TableHead>
+                        <TableHead>Competitor</TableHead>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Price</TableHead>
+                        <TableHead>Stock</TableHead>
+                        <TableHead>Impact</TableHead>
+                        <TableHead>Insight</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {competitionData.map((data) => (
+                        <TableRow key={data.id}>
+                          <TableCell className="font-medium">
+                            {data.retailer_name}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{data.submitted_by}</Badge>
+                          </TableCell>
+                          <TableCell>{data.competitor_name}</TableCell>
+                          <TableCell>{data.sku_name}</TableCell>
+                          <TableCell>
+                            {data.selling_price ? `₹${data.selling_price}` : 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            {data.stock_quantity ?? 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            {data.impact_level && (
+                              <Badge className={getImpactBadge(data.impact_level)}>
+                                {data.impact_level}
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="max-w-xs truncate">
+                            {data.insight || 'N/A'}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {format(new Date(data.created_at), "MMM dd, yyyy")}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </Card>
           </TabsContent>
@@ -235,40 +643,119 @@ export default function FeedbackManagement() {
               ) : brandingRequests.length === 0 ? (
                 <p className="text-center py-8 text-muted-foreground">No branding requests found</p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Retailer</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Assets</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {brandingRequests.map((request) => (
-                      <TableRow key={request.id}>
-                        <TableCell className="font-medium">
-                          {request.retailer_name}
-                        </TableCell>
-                        <TableCell>{request.title || 'Untitled'}</TableCell>
-                        <TableCell>{request.requested_assets || 'N/A'}</TableCell>
-                        <TableCell>
-                          <Badge className={getStatusBadge(request.status)}>
-                            {request.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="max-w-md truncate">
-                          {request.description || 'No description'}
-                        </TableCell>
-                        <TableCell>
-                          {new Date(request.created_at).toLocaleDateString()}
-                        </TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Retailer</TableHead>
+                        <TableHead>Submitted By</TableHead>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Assets</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Date</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {brandingRequests.map((request) => (
+                        <TableRow key={request.id}>
+                          <TableCell className="font-medium">
+                            {request.retailer_name}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{request.submitted_by}</Badge>
+                          </TableCell>
+                          <TableCell>{request.title || 'Untitled'}</TableCell>
+                          <TableCell>{request.requested_assets || 'N/A'}</TableCell>
+                          <TableCell>
+                            <Badge className={getStatusBadge(request.status)}>
+                              {request.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="max-w-xs truncate">
+                            {request.description || 'No description'}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {format(new Date(request.created_at), "MMM dd, yyyy")}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </Card>
+          </TabsContent>
+
+          {/* Joint Sales Feedback Tab */}
+          <TabsContent value="jointsales">
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Joint Sales Feedback</h2>
+              {loading ? (
+                <p className="text-center py-8 text-muted-foreground">Loading...</p>
+              ) : jointSalesFeedback.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground">No joint sales feedback found</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Retailer</TableHead>
+                        <TableHead>FSE Name</TableHead>
+                        <TableHead>Manager</TableHead>
+                        <TableHead>Product</TableHead>
+                        <TableHead>Branding</TableHead>
+                        <TableHead>Competition</TableHead>
+                        <TableHead>Schemes</TableHead>
+                        <TableHead>Growth</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {jointSalesFeedback.map((feedback) => (
+                        <TableRow key={feedback.id}>
+                          <TableCell className="font-medium">
+                            {feedback.retailer_name}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{feedback.fse_name}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{feedback.manager_name}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <span className={getScoreColor(feedback.product_feedback_rating)}>
+                              {feedback.product_feedback_rating ?? 'N/A'}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className={getScoreColor(feedback.branding_rating)}>
+                              {feedback.branding_rating ?? 'N/A'}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className={getScoreColor(feedback.competition_rating)}>
+                              {feedback.competition_rating ?? 'N/A'}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className={getScoreColor(feedback.schemes_rating)}>
+                              {feedback.schemes_rating ?? 'N/A'}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className={getScoreColor(feedback.future_growth_rating)}>
+                              {feedback.future_growth_rating ?? 'N/A'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {format(new Date(feedback.feedback_date), "MMM dd, yyyy")}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </Card>
           </TabsContent>
