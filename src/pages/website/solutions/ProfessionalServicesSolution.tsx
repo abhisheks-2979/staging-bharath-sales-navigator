@@ -139,7 +139,7 @@ export const ProfessionalServicesSolution = () => {
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button 
                   size="lg"
-                  onClick={() => document.getElementById('why-professional-services')?.scrollIntoView({ behavior: 'smooth' })}
+                  onClick={() => navigate('/insights/professional-services-roi')}
                   className="bg-accent-gold hover:bg-accent-gold/90 text-accent-gold-foreground shadow-button"
                 >
                   Why Professional Services Matter
@@ -147,7 +147,7 @@ export const ProfessionalServicesSolution = () => {
                 <Button 
                   size="lg" 
                   variant="outline"
-                  onClick={() => document.getElementById('onboarding-checklist')?.scrollIntoView({ behavior: 'smooth' })}
+                  onClick={() => navigate('/insights/professional-services-checklist')}
                 >
                   Onboarding Checklist
                 </Button>
