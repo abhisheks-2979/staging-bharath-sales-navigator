@@ -73,8 +73,8 @@ export default function FeedbackManagement() {
   const [loading, setLoading] = useState(true);
   
   // Date filter state
-  const [dateRange, setDateRange] = useState<string>("7days");
-  const [startDate, setStartDate] = useState<Date | undefined>(subDays(new Date(), 7));
+  const [dateRange, setDateRange] = useState<string>("30days");
+  const [startDate, setStartDate] = useState<Date | undefined>(subDays(new Date(), 30));
   const [endDate, setEndDate] = useState<Date | undefined>(new Date());
 
   useEffect(() => {
@@ -95,10 +95,6 @@ export default function FeedbackManagement() {
     setDateRange(value);
     const now = new Date();
     switch (value) {
-      case "7days":
-        setStartDate(subDays(now, 7));
-        setEndDate(now);
-        break;
       case "30days":
         setStartDate(subDays(now, 30));
         setEndDate(now);
@@ -435,7 +431,6 @@ export default function FeedbackManagement() {
                 <SelectValue placeholder="Select range" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="7days">Last 7 days</SelectItem>
                 <SelectItem value="30days">Last 30 days</SelectItem>
                 <SelectItem value="90days">Last 90 days</SelectItem>
                 <SelectItem value="all">All time</SelectItem>
@@ -480,14 +475,6 @@ export default function FeedbackManagement() {
                 </Popover>
               </div>
             )}
-
-            {/* Stats Summary */}
-            <div className="flex items-center gap-4 ml-auto text-sm text-muted-foreground">
-              <span>Retailer: {retailerFeedback.length}</span>
-              <span>Competition: {competitionData.length}</span>
-              <span>Branding: {brandingRequests.length}</span>
-              <span>Joint Sales: {jointSalesFeedback.length}</span>
-            </div>
           </div>
         </Card>
 
