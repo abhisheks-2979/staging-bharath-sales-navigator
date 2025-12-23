@@ -4679,6 +4679,39 @@ export type Database = {
         }
         Relationships: []
       }
+      password_reset_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          method: string
+          phone_number: string | null
+          token: string
+          used: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          method?: string
+          phone_number?: string | null
+          token: string
+          used?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          method?: string
+          phone_number?: string | null
+          token?: string
+          used?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
       performance_comments: {
         Row: {
           created_at: string | null
@@ -8725,6 +8758,7 @@ export type Database = {
         }[]
       }
       cleanup_expired_recommendations: { Args: never; Returns: undefined }
+      cleanup_expired_reset_tokens: { Args: never; Returns: undefined }
       cleanup_old_execution_logs: { Args: never; Returns: undefined }
       create_approval_workflow: {
         Args: { user_id_param: string }
