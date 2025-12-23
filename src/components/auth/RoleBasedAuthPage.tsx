@@ -56,6 +56,12 @@ export const RoleBasedAuthPage = () => {
               className="w-full h-full object-contain"
             />
           </div>
+          <div>
+            <CardTitle className="text-4xl font-bold text-primary mb-2">Welcome</CardTitle>
+            <CardDescription className="text-lg font-medium text-muted-foreground">
+              Sign in to your account
+            </CardDescription>
+          </div>
         </CardHeader>
         
         <CardContent>
@@ -182,7 +188,12 @@ export const RoleBasedAuthPage = () => {
 
           {authMode === 'forgot' && (
             <div className="space-y-4">
-              <ForgotPasswordForm />
+              <div className="text-center space-y-2">
+                <h1 className="text-xl font-semibold">Reset Password</h1>
+                <p className="text-muted-foreground text-sm">
+                  Enter your details to reset your password
+                </p>
+              </div>
               
               <ForgotPasswordForm />
               
