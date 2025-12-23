@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, MessageSquare, Trophy, Image, Users, Calendar, Filter, RefreshCw } from "lucide-react";
+import { ArrowLeft, MessageSquare, Trophy, Image, Users, Calendar, Filter, RefreshCw, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,6 +13,8 @@ import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FeedbackDetailModal } from "@/components/FeedbackDetailModal";
+import { JointSalesDetailModal } from "@/components/JointSalesDetailModal";
 
 interface EnrichedFeedback {
   id: string;
@@ -63,6 +65,8 @@ interface EnrichedJointSalesFeedback {
   created_at: string | null;
 }
 
+type DetailModalType = 'retailer' | 'branding' | 'competition' | 'jointsales' | null;
+
 export default function FeedbackManagement() {
   const navigate = useNavigate();
   const { userRole } = useAuth();
@@ -76,6 +80,20 @@ export default function FeedbackManagement() {
   const [dateRange, setDateRange] = useState<string>("30days");
   const [startDate, setStartDate] = useState<Date | undefined>(subDays(new Date(), 30));
   const [endDate, setEndDate] = useState<Date | undefined>(new Date());
+
+  // Detail modal state
+  const [selectedDetail, setSelectedDetail] = useState<any>(null);
+  const [detailModalType, setDetailModalType] = useState<DetailModalType>(null);
+
+  const handleOpenDetail = (type: DetailModalType, data: any) => {
+    setDetailModalType(type);
+    setSelectedDetail(data);
+  };
+
+  const handleCloseDetail = () => {
+    setDetailModalType(null);
+    setSelectedDetail(null);
+  };
 
   useEffect(() => {
     if (userRole !== 'admin') {
@@ -522,11 +540,16 @@ export default function FeedbackManagement() {
                         <TableHead>Rating</TableHead>
                         <TableHead>Comments</TableHead>
                         <TableHead>Date</TableHead>
+                        <TableHead>View</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {retailerFeedback.map((feedback) => (
-                        <TableRow key={feedback.id}>
+                        <TableRow 
+                          key={feedback.id}
+                          className="cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => handleOpenDetail('retailer', feedback)}
+                        >
                           <TableCell className="font-medium">
                             {feedback.retailer_name}
                           </TableCell>
@@ -548,6 +571,11 @@ export default function FeedbackManagement() {
                           </TableCell>
                           <TableCell className="whitespace-nowrap">
                             {format(new Date(feedback.created_at), "MMM dd, yyyy")}
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <Eye className="h-4 w-4" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -580,11 +608,16 @@ export default function FeedbackManagement() {
                         <TableHead>Impact</TableHead>
                         <TableHead>Insight</TableHead>
                         <TableHead>Date</TableHead>
+                        <TableHead>View</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {competitionData.map((data) => (
-                        <TableRow key={data.id}>
+                        <TableRow 
+                          key={data.id}
+                          className="cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => handleOpenDetail('competition', data)}
+                        >
                           <TableCell className="font-medium">
                             {data.retailer_name}
                           </TableCell>
@@ -611,6 +644,11 @@ export default function FeedbackManagement() {
                           </TableCell>
                           <TableCell className="whitespace-nowrap">
                             {format(new Date(data.created_at), "MMM dd, yyyy")}
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <Eye className="h-4 w-4" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -641,11 +679,16 @@ export default function FeedbackManagement() {
                         <TableHead>Status</TableHead>
                         <TableHead>Description</TableHead>
                         <TableHead>Date</TableHead>
+                        <TableHead>View</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {brandingRequests.map((request) => (
-                        <TableRow key={request.id}>
+                        <TableRow 
+                          key={request.id}
+                          className="cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => handleOpenDetail('branding', request)}
+                        >
                           <TableCell className="font-medium">
                             {request.retailer_name}
                           </TableCell>
@@ -664,6 +707,11 @@ export default function FeedbackManagement() {
                           </TableCell>
                           <TableCell className="whitespace-nowrap">
                             {format(new Date(request.created_at), "MMM dd, yyyy")}
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <Eye className="h-4 w-4" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -696,11 +744,16 @@ export default function FeedbackManagement() {
                         <TableHead>Schemes</TableHead>
                         <TableHead>Growth</TableHead>
                         <TableHead>Date</TableHead>
+                        <TableHead>View</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {jointSalesFeedback.map((feedback) => (
-                        <TableRow key={feedback.id}>
+                        <TableRow 
+                          key={feedback.id}
+                          className="cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => handleOpenDetail('jointsales', feedback)}
+                        >
                           <TableCell className="font-medium">
                             {feedback.retailer_name}
                           </TableCell>
@@ -738,6 +791,11 @@ export default function FeedbackManagement() {
                           <TableCell className="whitespace-nowrap">
                             {format(new Date(feedback.feedback_date), "MMM dd, yyyy")}
                           </TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -748,6 +806,24 @@ export default function FeedbackManagement() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Detail Modals */}
+      {detailModalType && detailModalType !== 'jointsales' && (
+        <FeedbackDetailModal
+          open={!!selectedDetail}
+          onClose={handleCloseDetail}
+          type={detailModalType as 'retailer' | 'branding' | 'competition'}
+          data={selectedDetail}
+        />
+      )}
+
+      {detailModalType === 'jointsales' && (
+        <JointSalesDetailModal
+          open={!!selectedDetail}
+          onClose={handleCloseDetail}
+          data={selectedDetail}
+        />
+      )}
     </div>
   );
 }
