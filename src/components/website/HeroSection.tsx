@@ -27,6 +27,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import fieldSalesHero from "@/assets/field-sales-hero.png";
 import fieldSalesHero2 from "@/assets/field-sales-hero-2.png";
+import distributorHero from "@/assets/distributor-hero.png";
 
 const FloatingCard = ({ 
   children, 
@@ -344,7 +345,7 @@ const slides = [
     ]
   },
   {
-    background: fieldSalesHero, // Using placeholder - will update when image is provided
+    background: distributorHero,
     title: "Distributor Management",
     cards: [
       { Component: DistributorPortalCard, size: "large" as const, gridPos: 1 },
