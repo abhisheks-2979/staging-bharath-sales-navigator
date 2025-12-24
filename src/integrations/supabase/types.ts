@@ -9347,7 +9347,18 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      orders_total_amount: {
+        Row: {
+          total_amount: number | null
+        }
+        Insert: {
+          total_amount?: number | null
+        }
+        Update: {
+          total_amount?: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       calculate_beat_adherence: {
