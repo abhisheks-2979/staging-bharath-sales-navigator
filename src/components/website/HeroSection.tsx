@@ -1,11 +1,8 @@
-import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
 import { 
   MapPin, 
   Store, 
   ShoppingCart, 
   TrendingUp,
-  ArrowRight,
   MessageCircle,
   Mic,
   Target,
@@ -160,8 +157,6 @@ const SchemeCard = () => (
 );
 
 export const HeroSection = () => {
-  const navigate = useNavigate();
-
   return (
     <section className="relative min-h-screen overflow-hidden">
       {/* Full-screen background image */}
@@ -169,76 +164,85 @@ export const HeroSection = () => {
         <img 
           src={fieldSalesHero} 
           alt="Field Sales Representative" 
-          className="w-full h-full object-cover object-center"
+          className="w-full h-full object-cover object-[center_20%] md:object-[center_30%]"
         />
         {/* Gradient overlays for text readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/30 to-background/70"></div>
-        <div className="absolute inset-0 bg-gradient-to-r from-background/60 via-transparent to-background/60"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/20 to-background/70"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-background/50 via-transparent to-background/50"></div>
       </div>
 
       {/* Content */}
       <div className="relative z-10 min-h-screen flex flex-col">
-        {/* Header content - centered */}
-        <div className="flex-1 flex flex-col items-center justify-center pt-20 pb-8 px-4">
-          {/* Badge */}
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 bg-background/80 backdrop-blur-sm text-primary px-4 py-2 rounded-full text-xs md:text-sm font-medium mb-4 md:mb-6 border border-primary/30"
-          >
-            <Sparkles className="h-3 w-3 md:h-4 md:w-4" />
-            AI-Powered Field Sales Platform
-          </motion.div>
-
-          {/* Main Headline */}
-          <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-3xl md:text-5xl lg:text-7xl font-bold text-foreground mb-4 md:mb-6 leading-tight text-center"
-          >
-            Superpowers,
-            <br />
-            <span className="bg-gradient-to-r from-primary via-primary to-accent-gold bg-clip-text text-transparent">
-              everywhere you sell
-            </span>
-          </motion.h1>
-
-          {/* Sub-headline */}
-          <motion.p 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-base md:text-xl lg:text-2xl text-foreground/80 mb-6 md:mb-8 max-w-2xl mx-auto text-center px-4"
-          >
-            AI recommendations, smart routing, and real-time insights that work in every beat and store
-          </motion.p>
-
-          {/* CTAs */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="flex flex-col sm:flex-row gap-3 md:gap-4"
-          >
-            <Button 
-              size="lg"
-              onClick={() => navigate('/auth')}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 md:px-8 py-5 md:py-6 text-base md:text-lg font-semibold gap-2"
+        {/* Header content - Mobile: split top/bottom, Desktop: centered */}
+        <div className="flex-1 flex flex-col md:items-center md:justify-center pt-20 md:pt-20 px-4">
+          {/* Top section for mobile */}
+          <div className="md:hidden">
+            {/* Badge */}
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="inline-flex items-center gap-2 bg-background/80 backdrop-blur-sm text-primary px-3 py-1.5 rounded-full text-xs font-medium mb-3 border border-primary/30"
             >
-              Start Free Trial
-              <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
-            </Button>
-            <Button 
-              variant="outline" 
-              size="lg"
-              onClick={() => navigate('/request-demo')}
-              className="border-border bg-background/60 backdrop-blur-sm text-foreground hover:bg-background/80 px-6 md:px-8 py-5 md:py-6 text-base md:text-lg font-medium"
+              <Sparkles className="h-3 w-3" />
+              AI-Powered Field Sales
+            </motion.div>
+
+            {/* Main Headline - Top */}
+            <motion.h1 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="text-3xl font-bold text-foreground leading-tight"
             >
-              Request Demo
-            </Button>
-          </motion.div>
+              Superpowers,
+            </motion.h1>
+          </div>
+
+          {/* Desktop content - centered */}
+          <div className="hidden md:block text-center">
+            {/* Badge */}
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="inline-flex items-center gap-2 bg-background/80 backdrop-blur-sm text-primary px-4 py-2 rounded-full text-sm font-medium mb-6 border border-primary/30"
+            >
+              <Sparkles className="h-4 w-4" />
+              AI-Powered Field Sales Platform
+            </motion.div>
+
+            {/* Main Headline */}
+            <motion.h1 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="text-5xl lg:text-7xl font-bold text-foreground mb-6 leading-tight"
+            >
+              Superpowers,
+              <br />
+              <span className="bg-gradient-to-r from-primary via-primary to-accent-gold bg-clip-text text-transparent">
+                everywhere you sell
+              </span>
+            </motion.h1>
+          </div>
+
+          {/* Spacer for mobile to push bottom content down */}
+          <div className="flex-1 md:hidden" />
+
+          {/* Bottom section for mobile */}
+          <div className="md:hidden pb-4">
+            <motion.h1 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="text-3xl font-bold leading-tight"
+            >
+              <span className="bg-gradient-to-r from-primary via-primary to-accent-gold bg-clip-text text-transparent">
+                everywhere you sell
+              </span>
+            </motion.h1>
+          </div>
         </div>
 
         {/* Floating cards positioned randomly around - Desktop */}
