@@ -1,19 +1,21 @@
+import { useState, useEffect } from "react";
 import { 
   MapPin, 
   Store, 
-  ShoppingCart, 
   TrendingUp,
   MessageCircle,
   Mic,
   Trophy,
   Heart,
   Sparkles,
-  Zap,
   Brain,
-  Target
+  Target,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import fieldSalesHero from "@/assets/field-sales-hero.png";
+import fieldSalesHero2 from "@/assets/field-sales-hero-2.png";
 
 const FloatingCard = ({ 
   children, 
@@ -36,7 +38,8 @@ const FloatingCard = ({
     <motion.div
       initial={{ opacity: 0, y: 20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.7, delay, ease: "easeOut" }}
+      exit={{ opacity: 0, y: -20, scale: 0.95 }}
+      transition={{ duration: 0.5, delay, ease: "easeOut" }}
       className={`bg-white/90 backdrop-blur-xl border border-black/5 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.15)] ${sizeClasses[size]} ${className}`}
     >
       {children}
@@ -44,7 +47,7 @@ const FloatingCard = ({
   );
 };
 
-// LARGE CARD 1: AI Beat Optimizer
+// CARD COMPONENTS
 const AIBeatOptimizerCard = () => (
   <div className="p-5">
     <div className="flex items-center gap-3 mb-3">
@@ -70,16 +73,9 @@ const AIBeatOptimizerCard = () => (
         2.5km route
       </span>
     </div>
-    <div className="mt-3 pt-3 border-t border-black/10">
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-black/60">Conversion prediction</span>
-        <span className="text-black font-medium">87% likely</span>
-      </div>
-    </div>
   </div>
 );
 
-// LARGE CARD 2: AI Sales Intelligence
 const AISalesIntelligenceCard = () => (
   <div className="p-5">
     <div className="flex items-center gap-3 mb-3">
@@ -95,21 +91,13 @@ const AISalesIntelligenceCard = () => (
       Cross-sell <span className="font-semibold">cooking oil</span> at Sharma Store — 
       <span className="font-medium"> 92% match</span> with their purchase history.
     </p>
-    <div className="space-y-2">
-      {[
-        { label: "Revenue impact", value: "+₹8,500/month" },
-        { label: "Similar retailers bought", value: "34 stores" },
-      ].map((item, i) => (
-        <div key={i} className="flex items-center justify-between text-xs">
-          <span className="text-black/60">{item.label}</span>
-          <span className="font-medium text-black">{item.value}</span>
-        </div>
-      ))}
+    <div className="flex items-center justify-between text-xs">
+      <span className="text-black/60">Revenue impact</span>
+      <span className="font-medium text-black">+₹8,500/month</span>
     </div>
   </div>
 );
 
-// LARGE CARD 3: Top Performers
 const TopPerformersCard = () => (
   <div className="p-5">
     <div className="flex items-center gap-3 mb-3">
@@ -121,11 +109,10 @@ const TopPerformersCard = () => (
         <p className="text-[10px] text-black/60">Live sales leaderboard</p>
       </div>
     </div>
-    <div className="space-y-2.5">
+    <div className="space-y-2">
       {[
-        { name: "Sharma Kirana Store", value: "₹24,500", trend: "+18%", rank: 1 },
-        { name: "Gupta General Traders", value: "₹19,200", trend: "+12%", rank: 2 },
-        { name: "Patel & Sons Retail", value: "₹15,800", trend: "+9%", rank: 3 },
+        { name: "Sharma Kirana Store", value: "₹24,500", rank: 1 },
+        { name: "Gupta General Traders", value: "₹19,200", rank: 2 },
       ].map((retailer, i) => (
         <div key={i} className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -134,20 +121,13 @@ const TopPerformersCard = () => (
             </span>
             <span className="text-xs text-black/80">{retailer.name}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-black">{retailer.value}</span>
-            <span className="text-[10px] text-black/70 flex items-center">
-              <TrendingUp className="w-2.5 h-2.5 mr-0.5" />
-              {retailer.trend}
-            </span>
-          </div>
+          <span className="text-xs font-medium text-black">{retailer.value}</span>
         </div>
       ))}
     </div>
   </div>
 );
 
-// SMALL CARD 1: WhatsApp Commerce Bot
 const WhatsAppBotCard = () => (
   <div className="p-4">
     <div className="flex items-center gap-2 mb-2">
@@ -165,7 +145,6 @@ const WhatsAppBotCard = () => (
   </div>
 );
 
-// SMALL CARD 2: Voice-First Updates
 const VoiceUpdatesCard = () => (
   <div className="p-4">
     <div className="flex items-center gap-2 mb-2">
@@ -183,7 +162,6 @@ const VoiceUpdatesCard = () => (
   </div>
 );
 
-// ADD-ON CARD 1: Gamification
 const GamificationCard = () => (
   <div className="p-4">
     <div className="flex items-center gap-2 mb-2">
@@ -202,7 +180,6 @@ const GamificationCard = () => (
   </div>
 );
 
-// ADD-ON CARD 2: Retailer Loyalty
 const RetailerLoyaltyCard = () => (
   <div className="p-4">
     <div className="flex items-center gap-2 mb-2">
@@ -221,184 +198,267 @@ const RetailerLoyaltyCard = () => (
   </div>
 );
 
+// Slide configurations
+const slides = [
+  {
+    background: fieldSalesHero,
+    cards: [
+      { Component: AIBeatOptimizerCard, size: "large" as const, position: "left-top" },
+      { Component: AISalesIntelligenceCard, size: "large" as const, position: "right-top" },
+      { Component: TopPerformersCard, size: "large" as const, position: "center-bottom" },
+      { Component: WhatsAppBotCard, size: "normal" as const, position: "left-bottom" },
+    ]
+  },
+  {
+    background: fieldSalesHero2,
+    cards: [
+      { Component: VoiceUpdatesCard, size: "normal" as const, position: "left-top" },
+      { Component: GamificationCard, size: "normal" as const, position: "right-top" },
+      { Component: RetailerLoyaltyCard, size: "normal" as const, position: "center-bottom" },
+    ]
+  }
+];
+
 export const HeroSection = () => {
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  // Auto-scroll every 5 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const goToSlide = (index: number) => {
+    setCurrentSlide(index);
+  };
+
+  const goToPrev = () => {
+    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+  };
+
+  const goToNext = () => {
+    setCurrentSlide((prev) => (prev + 1) % slides.length);
+  };
+
+  const currentSlideData = slides[currentSlide];
+
   return (
     <section className="relative min-h-screen overflow-hidden">
-      {/* Full-screen background image with darker sunset overlay */}
-      <div className="absolute inset-0">
-        <img 
-          src={fieldSalesHero} 
-          alt="Field Sales Representative" 
-          className="w-full h-full object-cover object-[center_20%] md:object-[center_30%]"
-        />
-        {/* Darker sunset gradient overlay - amber/orange tones with dark */}
-        <div className="absolute inset-0 bg-gradient-to-b from-amber-900/70 via-orange-800/50 to-stone-900/80"></div>
-        <div className="absolute inset-0 bg-gradient-to-t from-stone-900/60 via-transparent to-amber-800/40"></div>
-        <div className="absolute inset-0 bg-black/25"></div>
-      </div>
+      {/* Background with transition */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentSlide}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.8 }}
+          className="absolute inset-0"
+        >
+          <img 
+            src={currentSlideData.background} 
+            alt="Field Sales Representative" 
+            className="w-full h-full object-cover object-[center_20%] md:object-[center_30%]"
+          />
+          {/* Original gradient overlays */}
+          <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/10 to-background/60"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-background/40 via-transparent to-background/40"></div>
+        </motion.div>
+      </AnimatePresence>
 
       {/* Content */}
       <div className="relative z-10 min-h-screen flex flex-col">
-        {/* Header content - centered for both mobile and desktop */}
+        {/* Header content */}
         <div className="flex-1 flex flex-col items-center justify-start pt-32 md:pt-28 lg:pt-24 px-4">
-          {/* Mobile content - centered, moved down */}
+          {/* Mobile content */}
           <div className="md:hidden text-center mt-8">
-            {/* Badge */}
             <motion.div 
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-xl text-white px-4 py-2 rounded-full text-xs font-medium mb-4 border border-white/30"
+              className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-xl text-primary px-4 py-2 rounded-full text-xs font-medium mb-4 border border-white/20"
             >
               <Sparkles className="h-3 w-3" />
               AI-Powered Field Sales Platform
             </motion.div>
 
-            {/* Main Headline */}
             <motion.h1 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-3xl font-bold text-white leading-tight"
+              className="text-3xl font-bold text-foreground leading-tight"
             >
               Superpowers,
               <br />
-              <span className="text-amber-300">
+              <span className="bg-gradient-to-r from-primary via-primary to-accent-gold bg-clip-text text-transparent">
                 everywhere you sell
               </span>
             </motion.h1>
           </div>
 
-          {/* Desktop content - centered */}
+          {/* Desktop content */}
           <div className="hidden md:block text-center">
-            {/* Badge */}
             <motion.div 
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-xl text-white px-5 py-2.5 rounded-full text-sm font-medium mb-6 border border-white/30"
+              className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-xl text-primary px-5 py-2.5 rounded-full text-sm font-medium mb-6 border border-white/20"
             >
               <Sparkles className="h-4 w-4" />
               AI-Powered Field Sales Platform
             </motion.div>
 
-            {/* Main Headline */}
             <motion.h1 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-5xl lg:text-7xl font-bold text-white mb-6 leading-tight"
+              className="text-5xl lg:text-7xl font-bold text-foreground mb-6 leading-tight"
             >
               Superpowers,
               <br />
-              <span className="text-amber-300">
+              <span className="bg-gradient-to-r from-primary via-primary to-accent-gold bg-clip-text text-transparent">
                 everywhere you sell
               </span>
             </motion.h1>
           </div>
         </div>
 
-        {/* Floating cards - Desktop: Grid layout with proper spacing */}
+        {/* Floating cards - Desktop */}
         <div className="hidden lg:block absolute inset-0 pointer-events-none">
           <div className="relative w-full h-full max-w-7xl mx-auto">
-            {/* LEFT COLUMN */}
-            <div className="absolute left-8 xl:left-12 top-28 pointer-events-auto">
-              <FloatingCard delay={0.4} size="large">
-                <AIBeatOptimizerCard />
-              </FloatingCard>
-            </div>
-
-            <div className="absolute left-8 xl:left-12 top-[340px] pointer-events-auto">
-              <FloatingCard delay={0.7} size="normal">
-                <WhatsAppBotCard />
-              </FloatingCard>
-            </div>
-
-            <div className="absolute left-8 xl:left-12 bottom-8 pointer-events-auto">
-              <FloatingCard delay={0.9} size="small">
-                <GamificationCard />
-              </FloatingCard>
-            </div>
-
-            {/* RIGHT COLUMN */}
-            <div className="absolute right-8 xl:right-12 top-28 pointer-events-auto">
-              <FloatingCard delay={0.5} size="large">
-                <AISalesIntelligenceCard />
-              </FloatingCard>
-            </div>
-
-            <div className="absolute right-8 xl:right-12 top-[340px] pointer-events-auto">
-              <FloatingCard delay={0.8} size="normal">
-                <VoiceUpdatesCard />
-              </FloatingCard>
-            </div>
-
-            <div className="absolute right-8 xl:right-12 bottom-8 pointer-events-auto">
-              <FloatingCard delay={1.0} size="small">
-                <RetailerLoyaltyCard />
-              </FloatingCard>
-            </div>
-
-            {/* CENTER BOTTOM - Large Card */}
-            <div className="absolute left-1/2 -translate-x-1/2 bottom-8 pointer-events-auto">
-              <FloatingCard delay={0.6} size="large">
-                <TopPerformersCard />
-              </FloatingCard>
-            </div>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentSlide}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.5 }}
+                className="absolute inset-0"
+              >
+                {currentSlideData.cards.map((card, index) => {
+                  const { Component, size, position } = card;
+                  let positionClass = "";
+                  
+                  switch (position) {
+                    case "left-top":
+                      positionClass = "left-8 xl:left-12 top-28";
+                      break;
+                    case "right-top":
+                      positionClass = "right-8 xl:right-12 top-28";
+                      break;
+                    case "left-bottom":
+                      positionClass = "left-8 xl:left-12 bottom-24";
+                      break;
+                    case "right-bottom":
+                      positionClass = "right-8 xl:right-12 bottom-24";
+                      break;
+                    case "center-bottom":
+                      positionClass = "left-1/2 -translate-x-1/2 bottom-24";
+                      break;
+                  }
+                  
+                  return (
+                    <div key={index} className={`absolute pointer-events-auto ${positionClass}`}>
+                      <FloatingCard delay={index * 0.15} size={size}>
+                        <Component />
+                      </FloatingCard>
+                    </div>
+                  );
+                })}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
 
-        {/* Floating cards - Tablet - Grid layout */}
+        {/* Floating cards - Tablet */}
         <div className="hidden md:block lg:hidden">
-          <div className="absolute left-4 top-[220px]">
-            <FloatingCard delay={0.5} size="normal">
-              <AIBeatOptimizerCard />
-            </FloatingCard>
-          </div>
-
-          <div className="absolute right-4 top-[220px]">
-            <FloatingCard delay={0.6} size="normal">
-              <AISalesIntelligenceCard />
-            </FloatingCard>
-          </div>
-
-          <div className="absolute left-4 bottom-24">
-            <FloatingCard delay={0.7} size="small">
-              <WhatsAppBotCard />
-            </FloatingCard>
-          </div>
-
-          <div className="absolute right-4 bottom-24">
-            <FloatingCard delay={0.8} size="small">
-              <VoiceUpdatesCard />
-            </FloatingCard>
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentSlide}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              {currentSlideData.cards.slice(0, 4).map((card, index) => {
+                const { Component, size } = card;
+                const positions = [
+                  "absolute left-4 top-[220px]",
+                  "absolute right-4 top-[220px]",
+                  "absolute left-4 bottom-28",
+                  "absolute right-4 bottom-28"
+                ];
+                
+                return (
+                  <div key={index} className={positions[index] || positions[0]}>
+                    <FloatingCard delay={index * 0.15} size={size}>
+                      <Component />
+                    </FloatingCard>
+                  </div>
+                );
+              })}
+            </motion.div>
+          </AnimatePresence>
         </div>
 
-        {/* Mobile cards - scrollable row at bottom */}
+        {/* Mobile cards - scrollable */}
         <div className="md:hidden px-4 pb-6 mt-auto">
-          <motion.div 
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-            className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide"
+          <AnimatePresence mode="wait">
+            <motion.div 
+              key={currentSlide}
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              transition={{ duration: 0.5 }}
+              className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide"
+            >
+              {currentSlideData.cards.map((card, index) => {
+                const { Component, size } = card;
+                const widthClass = size === "large" ? "w-[280px]" : size === "normal" ? "w-[240px]" : "w-[200px]";
+                
+                return (
+                  <div 
+                    key={index}
+                    className={`flex-shrink-0 ${widthClass} bg-white/90 backdrop-blur-xl border border-black/5 rounded-2xl shadow-lg`}
+                  >
+                    <Component />
+                  </div>
+                );
+              })}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Navigation arrows - Desktop */}
+        <div className="hidden md:flex absolute left-4 right-4 top-1/2 -translate-y-1/2 justify-between z-20 pointer-events-none">
+          <button
+            onClick={goToPrev}
+            className="pointer-events-auto p-3 rounded-full bg-white/20 backdrop-blur-xl border border-white/30 text-foreground hover:bg-white/30 transition-all"
           >
-            <div className="flex-shrink-0 w-[260px] bg-white/90 backdrop-blur-xl border border-black/5 rounded-2xl shadow-lg">
-              <AIBeatOptimizerCard />
-            </div>
-            <div className="flex-shrink-0 w-[220px] bg-white/90 backdrop-blur-xl border border-black/5 rounded-2xl shadow-lg">
-              <WhatsAppBotCard />
-            </div>
-            <div className="flex-shrink-0 w-[220px] bg-white/90 backdrop-blur-xl border border-black/5 rounded-2xl shadow-lg">
-              <VoiceUpdatesCard />
-            </div>
-            <div className="flex-shrink-0 w-[200px] bg-white/90 backdrop-blur-xl border border-black/5 rounded-2xl shadow-lg">
-              <GamificationCard />
-            </div>
-            <div className="flex-shrink-0 w-[200px] bg-white/90 backdrop-blur-xl border border-black/5 rounded-2xl shadow-lg">
-              <RetailerLoyaltyCard />
-            </div>
-          </motion.div>
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <button
+            onClick={goToNext}
+            className="pointer-events-auto p-3 rounded-full bg-white/20 backdrop-blur-xl border border-white/30 text-foreground hover:bg-white/30 transition-all"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Slide indicators */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+          {slides.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => goToSlide(index)}
+              className={`w-2 h-2 rounded-full transition-all ${
+                index === currentSlide 
+                  ? "bg-primary w-6" 
+                  : "bg-white/40 hover:bg-white/60"
+              }`}
+            />
+          ))}
         </div>
       </div>
     </section>
