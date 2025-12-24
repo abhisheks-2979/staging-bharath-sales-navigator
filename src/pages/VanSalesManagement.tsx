@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +15,8 @@ import { moveToRecycleBin } from '@/utils/recycleBinUtils';
 import { Truck, Plus, Edit, Trash2, Package, RotateCcw, ChevronDown, ChevronRight, ShoppingCart, TrendingDown, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { UserSelector } from '@/components/UserSelector';
+import { useSubordinates } from '@/hooks/useSubordinates';
 
 interface Van {
   id: string;
@@ -72,7 +74,7 @@ interface VanStockItem {
 
 export default function VanSalesManagement() {
   const navigate = useNavigate();
-  const { userRole } = useAuth();
+  const { userRole, user } = useAuth();
   const [vans, setVans] = useState<Van[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,6 +83,27 @@ export default function VanSalesManagement() {
   // No date filter - show all van stock data for admin
   const [vanStockSummaries, setVanStockSummaries] = useState<VanStockSummary[]>([]);
   const [expandedVans, setExpandedVans] = useState<Set<string>>(new Set());
+  
+  // Hierarchical user filter (for managers)
+  const { isManager, subordinateIds, subordinates } = useSubordinates();
+  const [selectedUserId, setSelectedUserId] = useState<string>('all');
+  
+  // Filter van stock summaries based on selected user
+  const filteredVanStockSummaries = useMemo(() => {
+    if (selectedUserId === 'all') {
+      // For admin or manager viewing all, show all or subordinates only
+      if (isManager && !userRole?.includes('admin')) {
+        return vanStockSummaries.filter(s => 
+          s.user_id === user?.id || subordinateIds.includes(s.user_id)
+        );
+      }
+      return vanStockSummaries;
+    }
+    if (selectedUserId === 'self') {
+      return vanStockSummaries.filter(s => s.user_id === user?.id);
+    }
+    return vanStockSummaries.filter(s => s.user_id === selectedUserId);
+  }, [vanStockSummaries, selectedUserId, user?.id, subordinateIds, isManager, userRole]);
   
   const [formData, setFormData] = useState({
     registration_number: '',
@@ -628,13 +651,25 @@ export default function VanSalesManagement() {
           <TabsContent value="van-inventory">
             <Card>
               <CardHeader>
-                <CardTitle>Van Inventory & Stock Management</CardTitle>
-                <CardDescription>
-                  All users' van stock - Real-time updates from My Visits
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Van Inventory & Stock Management</CardTitle>
+                    <CardDescription>
+                      All users' van stock - Real-time updates from My Visits
+                    </CardDescription>
+                  </div>
+                  {(isManager || userRole === 'admin') && (
+                    <UserSelector
+                      selectedUserId={selectedUserId}
+                      onUserChange={setSelectedUserId}
+                      showAllOption={true}
+                      allOptionLabel="All Team"
+                    />
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
-                {vanStockSummaries.length === 0 ? (
+                {filteredVanStockSummaries.length === 0 ? (
                   <div className="text-center py-8">
                     <Package className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
                     <p className="text-muted-foreground">No van stock records found</p>

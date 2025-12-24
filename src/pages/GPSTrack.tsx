@@ -13,6 +13,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { JourneyMap } from '@/components/JourneyMap';
 import { CurrentLocationMap } from '@/components/CurrentLocationMap';
 import { toast } from 'sonner';
+import { UserSelector } from '@/components/UserSelector';
+import { useSubordinates } from '@/hooks/useSubordinates';
 
 interface TeamMember {
   id: string;
@@ -48,16 +50,32 @@ export default function GPSTrack() {
   const [loading, setLoading] = useState(false);
   
   const isAdmin = userRole === 'admin';
+  
+  // Hierarchical user filter (for managers)
+  const { isManager, subordinateIds, subordinates } = useSubordinates();
+  const [managerSelectedUserId, setManagerSelectedUserId] = useState<string>('self');
+  
+  // Determine if user can select team members
+  const canSelectTeamMembers = isAdmin || isManager;
 
   useEffect(() => {
     if (isAdmin) {
       loadTeamMembers();
+    } else if (isManager) {
+      // For managers, use subordinates as team members
+      const managerTeam: TeamMember[] = [
+        { id: user?.id || '', full_name: 'My Data' },
+        ...subordinates.map(s => ({ id: s.subordinate_user_id, full_name: s.full_name }))
+      ];
+      setTeamMembers(managerTeam);
+      setCurrentLocationUser(user?.id || '');
+      setSelectedMember(user?.id || '');
     } else if (user?.id) {
-      // Non-admin users only see their own location
+      // Non-admin/non-manager users only see their own location
       setCurrentLocationUser(user.id);
       setSelectedMember(user.id);
     }
-  }, [isAdmin, user?.id]);
+  }, [isAdmin, isManager, user?.id, subordinates]);
 
   useEffect(() => {
     if (selectedMember) {
@@ -285,8 +303,8 @@ export default function GPSTrack() {
 
           {/* Current Location Tab */}
           <TabsContent value="current" className="space-y-6 mt-6">
-            {/* User Selector - Only for Admin */}
-            {isAdmin && (
+            {/* User Selector - For Admin or Manager */}
+            {canSelectTeamMembers && (
               <Card className="p-6">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Select Team Member</label>
@@ -342,8 +360,8 @@ export default function GPSTrack() {
                   </Popover>
                 </div>
 
-                {/* Team Member Selector - Only for Admin */}
-                {isAdmin && (
+                {/* Team Member Selector - For Admin or Manager */}
+                {canSelectTeamMembers && (
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Select Team Member</label>
                     <Select value={selectedMember} onValueChange={setSelectedMember}>

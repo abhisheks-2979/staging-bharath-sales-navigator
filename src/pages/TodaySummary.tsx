@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Layout } from "@/components/Layout";
 import { Download, Share, FileText, Clock, MapPin, CalendarIcon, ExternalLink, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,8 @@ import { calculateJointVisitScore } from "@/components/JointSalesFeedbackModal";
 import { JointSalesFeedbackViewModal } from "@/components/JointSalesFeedbackViewModal";
 import { useAuth } from "@/hooks/useAuth";
 import { FeedbackSummarySection } from "@/components/FeedbackSummarySection";
+import { UserSelector } from "@/components/UserSelector";
+import { useSubordinates } from "@/hooks/useSubordinates";
 
 type DateFilterType = 'today' | 'week' | 'lastWeek' | 'month' | 'custom' | 'dateRange';
 
@@ -33,9 +35,25 @@ export const TodaySummary = () => {
   const { user, userRole } = useAuth();
   const isAdmin = userRole === 'admin';
   
+  // Hierarchical user filter (for managers)
+  const { isManager, subordinateIds, subordinates } = useSubordinates();
+  const [managerSelectedUserId, setManagerSelectedUserId] = useState<string>('self');
+  
   // Admin user filter state
   const [allUsers, setAllUsers] = useState<Array<{ id: string; name: string; email: string }>>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  
+  // For managers (non-admin), use hierarchical filter
+  const effectiveManagerUserId = useMemo(() => {
+    if (!isManager || isAdmin) return null;
+    if (managerSelectedUserId === 'self' || managerSelectedUserId === user?.id) {
+      return user?.id;
+    }
+    if (managerSelectedUserId === 'all') {
+      return null; // Will filter by all subordinate IDs
+    }
+    return managerSelectedUserId;
+  }, [managerSelectedUserId, user?.id, isManager, isAdmin]);
   
   // Date filtering state
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -1671,16 +1689,27 @@ export const TodaySummary = () => {
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <div className="flex items-center gap-3">
-              <div>
-                <CardTitle className="text-xl font-bold">
-                  {filterType === 'today' ? "Today's Summary" : 
-                   filterType === 'week' ? "This Week's Summary" :
-                   filterType === 'lastWeek' ? "Last Week's Summary" :
-                   filterType === 'month' ? "Monthly Summary" :
-                   filterType === 'dateRange' ? "Date Range Summary" :
-                   "Visit Summary"}
-                </CardTitle>
-                <p className="text-primary-foreground/80">{summaryData.date}</p>
+              <div className="flex items-center gap-3">
+                <div>
+                  <CardTitle className="text-xl font-bold">
+                    {filterType === 'today' ? "Today's Summary" : 
+                     filterType === 'week' ? "This Week's Summary" :
+                     filterType === 'lastWeek' ? "Last Week's Summary" :
+                     filterType === 'month' ? "Monthly Summary" :
+                     filterType === 'dateRange' ? "Date Range Summary" :
+                     "Visit Summary"}
+                  </CardTitle>
+                  <p className="text-primary-foreground/80">{summaryData.date}</p>
+                </div>
+                {/* Manager UserSelector - shows for non-admin managers */}
+                {isManager && !isAdmin && (
+                  <UserSelector
+                    selectedUserId={managerSelectedUserId}
+                    onUserChange={setManagerSelectedUserId}
+                    showAllOption={true}
+                    allOptionLabel="All Team"
+                  />
+                )}
               </div>
             </div>
             <FileText size={24} />

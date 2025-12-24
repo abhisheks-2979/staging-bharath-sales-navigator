@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Plus, Users, MapPin, Calendar, BarChart, Edit2, Trash2, Clock, Truck, Sparkles, CalendarDays, Repeat, ChevronDown, TrendingUp, Package, Search } from "lucide-react";
+import { UserSelector } from "@/components/UserSelector";
+import { useSubordinates } from "@/hooks/useSubordinates";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -87,6 +89,21 @@ export const MyBeats = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Hierarchical user filter
+  const { isManager, subordinateIds } = useSubordinates();
+  const [selectedUserId, setSelectedUserId] = useState<string>('self');
+  
+  // Calculate effective user ID for data filtering
+  const effectiveUserId = useMemo(() => {
+    if (selectedUserId === 'self' || selectedUserId === user?.id) {
+      return user?.id;
+    }
+    if (selectedUserId === 'all') {
+      return null; // Will filter by all subordinate IDs
+    }
+    return selectedUserId;
+  }, [selectedUserId, user?.id]);
   const { recommendations, loading: recsLoading, generateRecommendation, provideFeedback } = useRecommendations('beat_visit');
   const [activeTab, setActiveTab] = useState('beats');
   const [showRetailerAnalytics, setShowRetailerAnalytics] = useState(false);
@@ -939,9 +956,17 @@ export const MyBeats = () => {
         <Card className="bg-gradient-primary text-primary-foreground">
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <CardTitle className="text-2xl font-bold">My Beats</CardTitle>
-                <p className="text-primary-foreground/80">Manage your sales territories and routes</p>
+              <div className="flex items-center gap-3">
+                <div>
+                  <CardTitle className="text-2xl font-bold">My Beats</CardTitle>
+                  <p className="text-primary-foreground/80">Manage your sales territories and routes</p>
+                </div>
+                <UserSelector
+                  selectedUserId={selectedUserId}
+                  onUserChange={setSelectedUserId}
+                  showAllOption={true}
+                  allOptionLabel="All Team"
+                />
               </div>
               <Button 
                 onClick={handleCreateBeat}
