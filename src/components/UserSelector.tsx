@@ -8,7 +8,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Users, User, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface UserSelectorProps {
@@ -57,7 +56,7 @@ export const UserSelector = ({
 
   if (isLoading) {
     return (
-      <div className={cn('h-10 w-48 bg-muted animate-pulse rounded-md', className)} />
+      <div className={cn('h-8 w-32 bg-muted animate-pulse rounded-md', className)} />
     );
   }
 
@@ -67,68 +66,32 @@ export const UserSelector = ({
       onValueChange={onUserChange}
       disabled={disabled}
     >
-      <SelectTrigger className={cn('w-[200px]', className)}>
-        <div className="flex items-center gap-2">
-          {selectedUserId === 'all' ? (
-            <Users className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <User className="h-4 w-4 text-muted-foreground" />
-          )}
-          <SelectValue placeholder="Select user">
-            {getDisplayName(selectedUserId)}
-          </SelectValue>
-        </div>
+      <SelectTrigger className={cn('h-8 w-auto min-w-[120px] max-w-[160px] text-sm', className)}>
+        <SelectValue placeholder="Select">
+          <span className="truncate">{getDisplayName(selectedUserId)}</span>
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
-        {/* My Data option */}
-        <SelectItem value="self">
-          <div className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            <span>My Data</span>
-          </div>
-        </SelectItem>
+        <SelectItem value="self" className="text-sm">My Data</SelectItem>
 
-        {/* All Team Members option */}
         {showAllOption && (
-          <SelectItem value="all">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              <span>{allOptionLabel}</span>
-            </div>
-          </SelectItem>
+          <SelectItem value="all" className="text-sm">{allOptionLabel}</SelectItem>
         )}
 
-        {/* Subordinates grouped by level */}
-        {Array.from(groupedSubordinates.entries()).map(([level, subs]) => (
-          <div key={level}>
-            {level === 1 && subordinates.length > 0 && (
-              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-1">
-                Direct Reports
-              </div>
-            )}
-            {level > 1 && (
-              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-1">
-                Level {level} Reports
-              </div>
-            )}
-            {subs.map((sub) => (
-              <SelectItem key={sub.subordinate_user_id} value={sub.subordinate_user_id}>
-                <div className="flex items-center gap-2">
-                  {level > 1 && (
-                    <span className="text-muted-foreground">
-                      {Array(level - 1)
-                        .fill(null)
-                        .map((_, i) => (
-                          <ChevronRight key={i} className="h-3 w-3 inline" />
-                        ))}
-                    </span>
-                  )}
-                  <User className="h-4 w-4" />
-                  <span>{sub.full_name}</span>
-                </div>
-              </SelectItem>
-            ))}
-          </div>
+        {subordinates.length > 0 && (
+          <div className="border-t my-1" />
+        )}
+
+        {subordinates.map((sub) => (
+          <SelectItem 
+            key={sub.subordinate_user_id} 
+            value={sub.subordinate_user_id}
+            className="text-sm"
+          >
+            <span className="truncate" style={{ paddingLeft: `${(sub.level - 1) * 8}px` }}>
+              {sub.full_name}
+            </span>
+          </SelectItem>
         ))}
       </SelectContent>
     </Select>
