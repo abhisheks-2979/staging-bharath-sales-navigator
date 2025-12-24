@@ -173,22 +173,22 @@ export const HeroSection = () => {
 
       {/* Content */}
       <div className="relative z-10 min-h-screen flex flex-col">
-        {/* Header content - Mobile: split top/bottom, Desktop: centered */}
-        <div className="flex-1 flex flex-col md:items-center md:justify-center pt-20 md:pt-20 px-4">
-          {/* Top section for mobile */}
-          <div className="md:hidden">
+        {/* Header content - centered for both mobile and desktop */}
+        <div className="flex-1 flex flex-col items-center justify-center pt-20 px-4">
+          {/* Mobile content - centered */}
+          <div className="md:hidden text-center">
             {/* Badge */}
             <motion.div 
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 bg-background/80 backdrop-blur-sm text-primary px-3 py-1.5 rounded-full text-xs font-medium mb-3 border border-primary/30"
+              className="inline-flex items-center gap-2 bg-background/80 backdrop-blur-sm text-primary px-3 py-1.5 rounded-full text-xs font-medium mb-4 border border-primary/30"
             >
               <Sparkles className="h-3 w-3" />
-              AI-Powered Field Sales
+              AI-Powered Field Sales Platform
             </motion.div>
 
-            {/* Main Headline - Top */}
+            {/* Main Headline */}
             <motion.h1 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -196,6 +196,10 @@ export const HeroSection = () => {
               className="text-3xl font-bold text-foreground leading-tight"
             >
               Superpowers,
+              <br />
+              <span className="bg-gradient-to-r from-primary via-primary to-accent-gold bg-clip-text text-transparent">
+                everywhere you sell
+              </span>
             </motion.h1>
           </div>
 
@@ -221,23 +225,6 @@ export const HeroSection = () => {
             >
               Superpowers,
               <br />
-              <span className="bg-gradient-to-r from-primary via-primary to-accent-gold bg-clip-text text-transparent">
-                everywhere you sell
-              </span>
-            </motion.h1>
-          </div>
-
-          {/* Spacer for mobile to push bottom content down */}
-          <div className="flex-1 md:hidden" />
-
-          {/* Bottom section for mobile */}
-          <div className="md:hidden pb-4">
-            <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-3xl font-bold leading-tight"
-            >
               <span className="bg-gradient-to-r from-primary via-primary to-accent-gold bg-clip-text text-transparent">
                 everywhere you sell
               </span>
