@@ -331,6 +331,7 @@ const slides = [
       { Component: AISalesIntelligenceCard, size: "large" as const, gridPos: 2 },
       { Component: TopPerformersCard, size: "normal" as const, gridPos: 3 },
       { Component: WhatsAppBotCard, size: "small" as const, gridPos: 4 },
+      { Component: GamificationCard, size: "normal" as const, gridPos: 5 },
     ]
   },
   {
@@ -338,10 +339,9 @@ const slides = [
     title: "Retailer Engagement",
     cards: [
       { Component: VoiceUpdatesCard, size: "large" as const, gridPos: 1 },
-      { Component: GamificationCard, size: "normal" as const, gridPos: 2 },
-      { Component: RetailerLoyaltyCard, size: "normal" as const, gridPos: 3 },
-      { Component: CreditManagementCard, size: "large" as const, gridPos: 4 },
-      { Component: TallyIntegrationCard, size: "normal" as const, gridPos: 5 },
+      { Component: RetailerLoyaltyCard, size: "normal" as const, gridPos: 2 },
+      { Component: CreditManagementCard, size: "large" as const, gridPos: 3 },
+      { Component: TallyIntegrationCard, size: "normal" as const, gridPos: 4 },
     ]
   },
   {
@@ -358,42 +358,42 @@ const slides = [
   }
 ];
 
-// Desktop card positions - no overlaps, well spaced
+// Desktop card positions - no overlaps, well spaced, positioned outside center content
 const getDesktopPosition = (gridPos: number, totalCards: number) => {
-  // 4 cards layout
+  // 4 cards layout - 2 left, 2 right
   if (totalCards === 4) {
     switch (gridPos) {
-      case 1: return "left-6 xl:left-10 top-32";
-      case 2: return "right-6 xl:right-10 top-32";
-      case 3: return "left-6 xl:left-10 bottom-28";
-      case 4: return "right-6 xl:right-10 bottom-28";
-      default: return "left-6 top-32";
+      case 1: return "left-4 xl:left-8 top-[180px]";
+      case 2: return "right-4 xl:right-8 top-[180px]";
+      case 3: return "left-4 xl:left-8 bottom-[120px]";
+      case 4: return "right-4 xl:right-8 bottom-[120px]";
+      default: return "left-4 top-[180px]";
     }
   }
-  // 5 cards layout
+  // 5 cards layout - 2 left, 2 right, 1 bottom center
   if (totalCards === 5) {
     switch (gridPos) {
-      case 1: return "left-6 xl:left-10 top-32";
-      case 2: return "right-6 xl:right-10 top-32";
-      case 3: return "left-1/2 -translate-x-1/2 top-32";
-      case 4: return "left-6 xl:left-10 bottom-28";
-      case 5: return "right-6 xl:right-10 bottom-28";
-      default: return "left-6 top-32";
+      case 1: return "left-4 xl:left-8 top-[180px]";
+      case 2: return "right-4 xl:right-8 top-[180px]";
+      case 3: return "left-4 xl:left-8 bottom-[120px]";
+      case 4: return "right-4 xl:right-8 bottom-[120px]";
+      case 5: return "left-1/2 -translate-x-1/2 bottom-[100px]";
+      default: return "left-4 top-[180px]";
     }
   }
-  // 6 cards layout
+  // 6 cards layout - 3 left side, 3 right side (stacked)
   if (totalCards === 6) {
     switch (gridPos) {
-      case 1: return "left-6 xl:left-10 top-32";
-      case 2: return "left-1/2 -translate-x-1/2 top-32";
-      case 3: return "right-6 xl:right-10 top-32";
-      case 4: return "left-6 xl:left-10 bottom-28";
-      case 5: return "left-1/2 -translate-x-1/2 bottom-28";
-      case 6: return "right-6 xl:right-10 bottom-28";
-      default: return "left-6 top-32";
+      case 1: return "left-4 xl:left-8 top-[160px]";
+      case 2: return "right-4 xl:right-8 top-[160px]";
+      case 3: return "left-4 xl:left-8 top-[340px]";
+      case 4: return "right-4 xl:right-8 top-[340px]";
+      case 5: return "left-4 xl:left-8 bottom-[80px]";
+      case 6: return "right-4 xl:right-8 bottom-[80px]";
+      default: return "left-4 top-[160px]";
     }
   }
-  return "left-6 top-32";
+  return "left-4 top-[180px]";
 };
 
 export const HeroSection = () => {
@@ -464,8 +464,8 @@ export const HeroSection = () => {
             >
               Superpowers,
               <br />
-              <span className="bg-gradient-to-r from-primary via-primary to-accent-gold bg-clip-text text-transparent">
-                everywhere you sell
+              <span className="text-foreground">
+                everywhere you <span className="text-black font-extrabold">Sell</span>
               </span>
             </motion.h1>
           </div>
@@ -480,8 +480,8 @@ export const HeroSection = () => {
             >
               Superpowers,
               <br />
-              <span className="bg-gradient-to-r from-primary via-primary to-accent-gold bg-clip-text text-transparent">
-                everywhere you sell
+              <span className="text-foreground">
+                everywhere you <span className="text-black font-extrabold">Sell</span>
               </span>
             </motion.h1>
           </div>
