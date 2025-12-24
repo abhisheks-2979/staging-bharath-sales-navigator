@@ -9,6 +9,8 @@ import { Layout } from '@/components/Layout';
 import { CheckCircle, XCircle, Camera, MapPin, Clock, Plus, Filter, Navigation2, Route, CalendarDays, FileText, LogOut, LogIn } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { UserSelector } from '@/components/UserSelector';
+import { useSubordinates } from '@/hooks/useSubordinates';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -37,8 +39,26 @@ interface ProcessingState {
 
 const Attendance = () => {
   const { toast } = useToast();
-  const { userProfile } = useAuth();
+  const { userProfile, user } = useAuth();
   const navigate = useNavigate();
+  
+  // Hierarchical user filter
+  const { isManager, subordinateIds } = useSubordinates();
+  const [selectedUserId, setSelectedUserId] = useState<string>('self');
+  
+  // Calculate effective user ID for data filtering
+  const effectiveUserId = React.useMemo(() => {
+    if (selectedUserId === 'self' || selectedUserId === user?.id) {
+      return user?.id;
+    }
+    if (selectedUserId === 'all') {
+      return null; // Will filter by all subordinate IDs
+    }
+    return selectedUserId;
+  }, [selectedUserId, user?.id]);
+  
+  // Check if viewing own data
+  const isViewingOwnData = selectedUserId === 'self' || selectedUserId === user?.id;
   const [attendanceData, setAttendanceData] = useState([]);
   const [todaysAttendance, setTodaysAttendance] = useState(null);
   const [todaysVisits, setTodaysVisits] = useState([]);
@@ -800,7 +820,14 @@ const Attendance = () => {
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Header Stats */}
           <div className="text-center space-y-4">
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Attendance</h1>
+            <div className="flex items-center justify-center gap-3">
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Attendance</h1>
+              <UserSelector
+                selectedUserId={selectedUserId}
+                onUserChange={setSelectedUserId}
+                showAllOption={false}
+              />
+            </div>
             <p className="text-muted-foreground">Track your daily attendance and working hours</p>
             
             {/* Main Stats */}

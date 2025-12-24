@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { UserSelector } from "@/components/UserSelector";
+import { useSubordinates } from "@/hooks/useSubordinates";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { shouldSuppressError } from "@/utils/offlineErrorHandler";
 import { Button } from "@/components/ui/button";
@@ -56,6 +58,21 @@ interface Retailer {
 export const MyRetailers = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  
+  // Hierarchical user filter
+  const { isManager, subordinateIds } = useSubordinates();
+  const [selectedUserId, setSelectedUserId] = useState<string>('self');
+  
+  // Calculate effective user ID for data filtering
+  const effectiveUserId = useMemo(() => {
+    if (selectedUserId === 'self' || selectedUserId === user?.id) {
+      return user?.id;
+    }
+    if (selectedUserId === 'all') {
+      return null; // Will filter by all subordinate IDs
+    }
+    return selectedUserId;
+  }, [selectedUserId, user?.id]);
   const [loading, setLoading] = useState(false);
   const [retailers, setRetailers] = useState<Retailer[]>([]);
   const [search, setSearch] = useState("");
@@ -465,8 +482,14 @@ export const MyRetailers = () => {
     <Layout>
       <section className="container mx-auto p-4 space-y-4">
         <Card className="bg-gradient-primary text-primary-foreground">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-xl">My Retailers</CardTitle>
+            <UserSelector
+              selectedUserId={selectedUserId}
+              onUserChange={setSelectedUserId}
+              showAllOption={true}
+              allOptionLabel="All Team"
+            />
           </CardHeader>
         </Card>
 
