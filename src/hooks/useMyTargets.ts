@@ -4,12 +4,15 @@ import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, en
 
 export type PeriodType = 'day' | 'month' | 'quarter' | 'year';
 
-export const useMyTargets = (periodType: PeriodType, date: Date = new Date()) => {
+export const useMyTargets = (periodType: PeriodType, date: Date = new Date(), userId?: string) => {
   const { data: targets, isLoading: targetsLoading } = useQuery({
-    queryKey: ['my-targets', periodType, date],
+    queryKey: ['my-targets', periodType, date, userId],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
+
+      // Use provided userId or fall back to current user
+      const targetUserId = userId || user.id;
 
       let periodStart: Date;
       let periodEnd: Date;
@@ -41,7 +44,7 @@ export const useMyTargets = (periodType: PeriodType, date: Date = new Date()) =>
           *,
           kpi:target_kpi_definitions(*)
         `)
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .eq('period_type', periodType)
         .gte('period_start', periodStart.toISOString().split('T')[0])
         .lte('period_end', periodEnd.toISOString().split('T')[0])
@@ -53,10 +56,13 @@ export const useMyTargets = (periodType: PeriodType, date: Date = new Date()) =>
   });
 
   const { data: performanceScore, isLoading: scoreLoading } = useQuery({
-    queryKey: ['my-performance-score', periodType, date],
+    queryKey: ['my-performance-score', periodType, date, userId],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
+
+      // Use provided userId or fall back to current user
+      const targetUserId = userId || user.id;
 
       let periodStart: Date;
       let periodEnd: Date;
@@ -79,7 +85,7 @@ export const useMyTargets = (periodType: PeriodType, date: Date = new Date()) =>
       const { data, error } = await supabase
         .from('user_performance_scores')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .eq('period_type', periodType)
         .gte('period_start', periodStart.toISOString().split('T')[0])
         .lte('period_end', periodEnd.toISOString().split('T')[0])
