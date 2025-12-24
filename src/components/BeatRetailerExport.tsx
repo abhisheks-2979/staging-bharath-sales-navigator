@@ -3,12 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { FileSpreadsheet, FileText, Download } from "lucide-react";
+import { FileSpreadsheet, FileText, Download, Languages, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { downloadPDF } from "@/utils/fileDownloader";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Retailer {
   id: string;
@@ -40,6 +41,8 @@ type ColumnKey = keyof typeof columnConfig;
 
 export const BeatRetailerExport = ({ beatName, retailers }: BeatRetailerExportProps) => {
   const [open, setOpen] = useState(false);
+  const [translateAddresses, setTranslateAddresses] = useState(true);
+  const [isTranslating, setIsTranslating] = useState(false);
   
   const [selectedColumns, setSelectedColumns] = useState<Record<ColumnKey, boolean>>(
     Object.fromEntries(
@@ -54,7 +57,26 @@ export const BeatRetailerExport = ({ beatName, retailers }: BeatRetailerExportPr
     }));
   };
 
-  const getSelectedData = () => {
+  const translateAddressesToEnglish = async (addresses: string[]): Promise<string[]> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('translate-address', {
+        body: { addresses }
+      });
+
+      if (error) {
+        console.error('Translation error:', error);
+        throw error;
+      }
+
+      return data.translatedAddresses || addresses;
+    } catch (error) {
+      console.error('Failed to translate addresses:', error);
+      // Return original addresses if translation fails
+      return addresses;
+    }
+  };
+
+  const getSelectedData = (translatedAddresses?: string[]) => {
     return retailers.map((retailer, index) => {
       const row: Record<string, string | number> = { "S.No": index + 1 };
       
@@ -64,7 +86,10 @@ export const BeatRetailerExport = ({ beatName, retailers }: BeatRetailerExportPr
           const label = columnConfig[colKey].label;
           let value = retailer[colKey as keyof Retailer];
           
-          if (colKey === 'last_visit_date' && value) {
+          // Use translated address if available
+          if (colKey === 'address' && translatedAddresses) {
+            value = translatedAddresses[index] || value;
+          } else if (colKey === 'last_visit_date' && value) {
             value = new Date(value as string).toLocaleDateString('en-IN');
           } else if (colKey === 'order_value' && value) {
             value = `₹${(value as number).toLocaleString('en-IN')}`;
@@ -78,131 +103,141 @@ export const BeatRetailerExport = ({ beatName, retailers }: BeatRetailerExportPr
     });
   };
 
-  const handleExportExcel = () => {
+  const handleExport = async (format: 'excel' | 'pdf') => {
     try {
-      const selectedData = getSelectedData();
+      let translatedAddresses: string[] | undefined;
+
+      // Translate addresses if option is enabled and address column is selected
+      if (translateAddresses && selectedColumns.address) {
+        setIsTranslating(true);
+        toast.info("Translating addresses to English...");
+        
+        const addresses = retailers.map(r => r.address);
+        translatedAddresses = await translateAddressesToEnglish(addresses);
+        
+        setIsTranslating(false);
+      }
+
+      const selectedData = getSelectedData(translatedAddresses);
       
       if (selectedData.length === 0) {
         toast.error("No retailers to export");
         return;
       }
 
-      const workbook = XLSX.utils.book_new();
-      
-      // Header rows
-      const titleRow = [`Beat: ${beatName}`];
-      const countRow = [`Total Retailers: ${retailers.length}`];
-      const dateRow = [`Generated: ${new Date().toLocaleDateString('en-IN')}`];
-      const emptyRow = [''];
-      
-      // Data headers and rows
-      const headers = Object.keys(selectedData[0] || {});
-      const dataRows = selectedData.map(row => headers.map(header => row[header]));
-      
-      const allRows = [
-        titleRow,
-        countRow,
-        dateRow,
-        emptyRow,
-        headers,
-        ...dataRows
-      ];
-      
-      const worksheet = XLSX.utils.aoa_to_sheet(allRows);
-
-      // Auto-size columns - compact widths
-      const colWidths = headers.map((header, idx) => ({
-        wch: Math.min(
-          Math.max(
-            header.length,
-            ...dataRows.map(row => String(row[idx] || "").length)
-          ),
-          30 // Max width reduced for compact layout
-        )
-      }));
-      worksheet['!cols'] = colWidths;
-      
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Retailers");
-
-      const fileName = `${beatName.replace(/[^a-zA-Z0-9]/g, '_')}_Retailers.xlsx`;
-      XLSX.writeFile(workbook, fileName);
-      
-      toast.success("Excel exported successfully");
-      setOpen(false);
+      if (format === 'excel') {
+        await exportExcel(selectedData);
+      } else {
+        await exportPDF(selectedData);
+      }
     } catch (error) {
-      console.error("Excel export error:", error);
-      toast.error("Failed to export Excel file");
+      console.error("Export error:", error);
+      toast.error("Failed to export");
+      setIsTranslating(false);
     }
   };
 
-  const handleExportPDF = async () => {
-    try {
-      const selectedData = getSelectedData();
-      
-      if (selectedData.length === 0) {
-        toast.error("No retailers to export");
-        return;
+  const exportExcel = async (selectedData: Record<string, string | number>[]) => {
+    const workbook = XLSX.utils.book_new();
+    
+    // Header rows
+    const titleRow = [`Beat: ${beatName}`];
+    const countRow = [`Total Retailers: ${retailers.length}`];
+    const dateRow = [`Generated: ${new Date().toLocaleDateString('en-IN')}`];
+    const emptyRow = [''];
+    
+    // Data headers and rows
+    const headers = Object.keys(selectedData[0] || {});
+    const dataRows = selectedData.map(row => headers.map(header => row[header]));
+    
+    const allRows = [
+      titleRow,
+      countRow,
+      dateRow,
+      emptyRow,
+      headers,
+      ...dataRows
+    ];
+    
+    const worksheet = XLSX.utils.aoa_to_sheet(allRows);
+
+    // Auto-size columns - compact widths
+    const colWidths = headers.map((header, idx) => ({
+      wch: Math.min(
+        Math.max(
+          header.length,
+          ...dataRows.map(row => String(row[idx] || "").length)
+        ),
+        30
+      )
+    }));
+    worksheet['!cols'] = colWidths;
+    
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Retailers");
+
+    const fileName = `${beatName.replace(/[^a-zA-Z0-9]/g, '_')}_Retailers.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+    
+    toast.success("Excel exported successfully");
+    setOpen(false);
+  };
+
+  const exportPDF = async (selectedData: Record<string, string | number>[]) => {
+    // Use portrait for compact layout, landscape if many columns
+    const selectedCount = Object.values(selectedColumns).filter(Boolean).length;
+    const orientation = selectedCount > 4 ? 'landscape' : 'portrait';
+    const doc = new jsPDF(orientation);
+    
+    // Beat heading
+    doc.setFontSize(16);
+    doc.setTextColor(41, 128, 185);
+    doc.text(`Beat: ${beatName}`, 14, 15);
+    
+    doc.setFontSize(11);
+    doc.setTextColor(60, 60, 60);
+    doc.text(`Total Retailers: ${retailers.length}`, 14, 23);
+    
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Generated: ${new Date().toLocaleDateString('en-IN')}`, 14, 29);
+
+    // Prepare table data
+    const headers = Object.keys(selectedData[0] || {});
+    const rows = selectedData.map(row => 
+      headers.map(header => String(row[header] || "-"))
+    );
+
+    // Compact table styling to fit more on one page
+    autoTable(doc, {
+      head: [headers],
+      body: rows,
+      startY: 35,
+      styles: { 
+        fontSize: 8, 
+        cellPadding: 1.5,
+        overflow: 'linebreak',
+        cellWidth: 'wrap'
+      },
+      headStyles: { 
+        fillColor: [41, 128, 185], 
+        textColor: 255, 
+        fontStyle: 'bold',
+        fontSize: 8
+      },
+      alternateRowStyles: { fillColor: [250, 250, 250] },
+      margin: { top: 35, left: 10, right: 10, bottom: 10 },
+      tableWidth: 'auto',
+      columnStyles: {
+        0: { cellWidth: 12 },
       }
+    });
 
-      // Use portrait for compact layout, landscape if many columns
-      const selectedCount = Object.values(selectedColumns).filter(Boolean).length;
-      const orientation = selectedCount > 4 ? 'landscape' : 'portrait';
-      const doc = new jsPDF(orientation);
-      
-      // Beat heading
-      doc.setFontSize(16);
-      doc.setTextColor(41, 128, 185);
-      doc.text(`Beat: ${beatName}`, 14, 15);
-      
-      doc.setFontSize(11);
-      doc.setTextColor(60, 60, 60);
-      doc.text(`Total Retailers: ${retailers.length}`, 14, 23);
-      
-      doc.setFontSize(9);
-      doc.setTextColor(100, 100, 100);
-      doc.text(`Generated: ${new Date().toLocaleDateString('en-IN')}`, 14, 29);
-
-      // Prepare table data
-      const headers = Object.keys(selectedData[0] || {});
-      const rows = selectedData.map(row => 
-        headers.map(header => String(row[header] || "-"))
-      );
-
-      // Compact table styling to fit more on one page
-      autoTable(doc, {
-        head: [headers],
-        body: rows,
-        startY: 35,
-        styles: { 
-          fontSize: 8, 
-          cellPadding: 1.5,
-          overflow: 'linebreak',
-          cellWidth: 'wrap'
-        },
-        headStyles: { 
-          fillColor: [41, 128, 185], 
-          textColor: 255, 
-          fontStyle: 'bold',
-          fontSize: 8
-        },
-        alternateRowStyles: { fillColor: [250, 250, 250] },
-        margin: { top: 35, left: 10, right: 10, bottom: 10 },
-        tableWidth: 'auto',
-        columnStyles: {
-          0: { cellWidth: 12 }, // S.No column narrow
-        }
-      });
-
-      const fileName = `${beatName.replace(/[^a-zA-Z0-9]/g, '_')}_Retailers.pdf`;
-      const pdfBlob = doc.output('blob');
-      await downloadPDF(pdfBlob, fileName);
-      
-      toast.success("PDF exported successfully");
-      setOpen(false);
-    } catch (error) {
-      console.error("PDF export error:", error);
-      toast.error("Failed to export PDF file");
-    }
+    const fileName = `${beatName.replace(/[^a-zA-Z0-9]/g, '_')}_Retailers.pdf`;
+    const pdfBlob = doc.output('blob');
+    await downloadPDF(pdfBlob, fileName);
+    
+    toast.success("PDF exported successfully");
+    setOpen(false);
   };
 
   const allSelected = Object.values(selectedColumns).every(val => val);
@@ -261,6 +296,29 @@ export const BeatRetailerExport = ({ beatName, retailers }: BeatRetailerExportPr
             ))}
           </div>
 
+          {/* Translate option */}
+          {selectedColumns.address && (
+            <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="translate-addresses"
+                  checked={translateAddresses}
+                  onCheckedChange={(checked) => setTranslateAddresses(checked === true)}
+                />
+                <Label
+                  htmlFor="translate-addresses"
+                  className="text-sm font-normal cursor-pointer flex items-center gap-2"
+                >
+                  <Languages className="h-4 w-4 text-primary" />
+                  Translate addresses to English
+                </Label>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 ml-6">
+                Converts Kannada/Hindi addresses to English using AI
+              </p>
+            </div>
+          )}
+
           <div className="pt-4 border-t space-y-2">
             <p className="text-xs text-muted-foreground">
               {retailers.length} retailer(s) will be exported
@@ -268,23 +326,31 @@ export const BeatRetailerExport = ({ beatName, retailers }: BeatRetailerExportPr
             
             <div className="grid grid-cols-2 gap-2">
               <Button
-                onClick={handleExportExcel}
-                disabled={noneSelected}
+                onClick={() => handleExport('excel')}
+                disabled={noneSelected || isTranslating}
                 className="gap-2"
                 size="sm"
               >
-                <FileSpreadsheet className="h-4 w-4" />
+                {isTranslating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileSpreadsheet className="h-4 w-4" />
+                )}
                 Excel
               </Button>
               
               <Button
-                onClick={handleExportPDF}
-                disabled={noneSelected}
+                onClick={() => handleExport('pdf')}
+                disabled={noneSelected || isTranslating}
                 variant="outline"
                 className="gap-2"
                 size="sm"
               >
-                <FileText className="h-4 w-4" />
+                {isTranslating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileText className="h-4 w-4" />
+                )}
                 PDF
               </Button>
             </div>
