@@ -190,6 +190,7 @@ export const TodaySummary = () => {
   // Use primitive values for dependencies to avoid infinite loops
   const dateRangeKey = `${dateRange.from.toISOString()}-${dateRange.to.toISOString()}`;
   const selectedUsersKey = selectedUserIds.join(',');
+  const managerFilterKey = isManager ? managerSelectedUserId : 'not-manager';
   
   // Fetch all users for admin filter
   useEffect(() => {
@@ -223,7 +224,7 @@ export const TodaySummary = () => {
     // Reset initial load flag when filter changes to show loading state
     initialLoadDone.current = false;
     fetchTodaysData();
-  }, [dateRangeKey, filterType, selectedUsersKey]);
+  }, [dateRangeKey, filterType, selectedUsersKey, managerFilterKey]);
 
   // Auto-refresh for today + sync complete listener
   useEffect(() => {
@@ -356,9 +357,27 @@ export const TodaySummary = () => {
       if (!authUser) return;
 
       // Determine which user IDs to fetch data for
-      const targetUserIds = isAdmin && selectedUserIds.length > 0 
-        ? selectedUserIds 
-        : [authUser.id];
+      let targetUserIds: string[];
+      
+      if (isAdmin && selectedUserIds.length > 0) {
+        // Admin with specific users selected
+        targetUserIds = selectedUserIds;
+      } else if (isManager && !isAdmin) {
+        // Manager using hierarchy filter
+        if (managerSelectedUserId === 'all') {
+          // All team: self + all subordinates
+          targetUserIds = [authUser.id, ...subordinateIds];
+        } else if (managerSelectedUserId === 'self' || managerSelectedUserId === authUser.id) {
+          // Only self
+          targetUserIds = [authUser.id];
+        } else {
+          // Specific subordinate selected
+          targetUserIds = [managerSelectedUserId];
+        }
+      } else {
+        // Regular user - only self
+        targetUserIds = [authUser.id];
+      }
 
       // Fetch attendance data for the selected period
       let attendanceQuery = supabase
