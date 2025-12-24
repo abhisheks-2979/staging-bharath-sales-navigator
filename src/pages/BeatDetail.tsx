@@ -16,6 +16,7 @@ import { EditBeatModal } from "@/components/EditBeatModal";
 import { BeatAnalyticsModal } from "@/components/BeatAnalyticsModal";
 import { useRecommendations } from "@/hooks/useRecommendations";
 import { RetailerDetailModal } from "@/components/RetailerDetailModal";
+import { BeatRetailerExport } from "@/components/BeatRetailerExport";
 
 interface BeatDetailData {
   beat_id: string;
@@ -930,18 +931,26 @@ export const BeatDetail = () => {
                 <Store size={20} className="text-primary" />
                 Retailers in this Beat ({beatData.retailers.length})
               </CardTitle>
-              {beatData.retailers.length > 0 && (
-                <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
-                  <input
-                    type="text"
-                    placeholder="Search retailers..."
-                    value={retailerSearch}
-                    onChange={(e) => setRetailerSearch(e.target.value)}
-                    className="w-full h-9 pl-9 pr-3 bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20 rounded-md text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
-                  />
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                {beatData.retailers.length > 0 && (
+                  <>
+                    <div className="relative w-full sm:w-48">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
+                      <input
+                        type="text"
+                        placeholder="Search retailers..."
+                        value={retailerSearch}
+                        onChange={(e) => setRetailerSearch(e.target.value)}
+                        className="w-full h-9 pl-9 pr-3 bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20 rounded-md text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
+                      />
+                    </div>
+                    <BeatRetailerExport 
+                      beatName={beatData.beat_name} 
+                      retailers={beatData.retailers} 
+                    />
+                  </>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>
