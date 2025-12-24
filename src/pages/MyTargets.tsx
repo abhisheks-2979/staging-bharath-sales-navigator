@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Layout } from "@/components/Layout";
 import { useMyTargets } from "@/hooks/useMyTargets";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,16 +11,28 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, TrendingUp, Target as TargetIcon } from "lucide-react";
 import { format, subMonths, subQuarters, subYears, startOfQuarter, endOfQuarter, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
+import { UserSelector } from "@/components/UserSelector";
+import { useSubordinates } from "@/hooks/useSubordinates";
 
 type PeriodType = 'day' | 'month' | 'quarter' | 'year';
 
 export default function MyTargets() {
-  const { userProfile } = useAuth();
+  const { userProfile, user } = useAuth();
+  const { isManager } = useSubordinates();
   const [periodType, setPeriodType] = useState<PeriodType>('month');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedQuarter, setSelectedQuarter] = useState<string>("Q1");
+  const [selectedUserId, setSelectedUserId] = useState<string>('self');
   
-  const { targets, performanceScore, isLoading } = useMyTargets(periodType, selectedDate);
+  // Calculate effective user ID for data fetching
+  const effectiveUserId = useMemo(() => {
+    if (selectedUserId === 'self' || selectedUserId === user?.id) {
+      return user?.id;
+    }
+    return selectedUserId;
+  }, [selectedUserId, user?.id]);
+  
+  const { targets, performanceScore, isLoading } = useMyTargets(periodType, selectedDate, effectiveUserId);
 
   const getRatingColor = (rating: string) => {
     const colors = {
@@ -114,7 +126,15 @@ export default function MyTargets() {
             </p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {/* User Selector for managers */}
+            <UserSelector
+              selectedUserId={selectedUserId}
+              onUserChange={setSelectedUserId}
+              showAllOption={false}
+              allOptionLabel="All Team"
+            />
+            
             <Select value={periodType} onValueChange={(value) => setPeriodType(value as PeriodType)}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue />
@@ -219,9 +239,9 @@ export default function MyTargets() {
         </Card>
 
         {/* Comments Section */}
-        {userProfile && (
+        {effectiveUserId && (
           <PerformanceComments
-            userId={userProfile.id}
+            userId={effectiveUserId}
             periodType={periodType}
             periodStart={getPeriodDates().start.toISOString().split('T')[0]}
             periodEnd={getPeriodDates().end.toISOString().split('T')[0]}

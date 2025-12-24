@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { MapPin, Users, CheckCircle, Save, ArrowLeft, Plus, Calendar as CalendarIcon, Search, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,8 @@ import { format, isAfter, startOfDay, startOfWeek, addDays, isSameDay, addWeeks,
 import { cn } from "@/lib/utils";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { toLocalISODate, getLocalTodayDate, parseLocalDate, formatWeekdayShort } from "@/utils/dateUtils";
+import { UserSelector } from "@/components/UserSelector";
+import { useSubordinates } from "@/hooks/useSubordinates";
 
 interface Beat {
   id: string; // beat_id
@@ -70,23 +72,33 @@ export const BeatPlanning = () => {
   const [plannedDates, setPlannedDates] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { subordinateIds, isManager } = useSubordinates();
+  const [selectedUserId, setSelectedUserId] = useState<string>('self');
   const [beats, setBeats] = useState<Beat[]>([]);
   const hasLoadedFromCacheRef = useRef(false);
+
+  // Calculate effective user ID based on selection
+  const effectiveUserId = useMemo(() => {
+    if (selectedUserId === 'self' || selectedUserId === user?.id) {
+      return user?.id;
+    }
+    return selectedUserId;
+  }, [selectedUserId, user?.id]);
 
   // toLocalISODate is now imported from @/utils/dateUtils
 
   // CACHE-FIRST: Load beats from local cache instantly, then sync from network
   const loadBeatsFromCache = async () => {
-    if (!user) return;
+    if (!effectiveUserId) return;
 
     try {
       // INSTANT: Load from cache first
       const cachedBeats = await offlineStorage.getAll<any>(STORES.BEATS);
       const cachedRetailers = await offlineStorage.getAll<any>(STORES.RETAILERS);
 
-      const userBeats = cachedBeats.filter((b: any) => b.is_active !== false && b.created_by === user.id);
+      const userBeats = cachedBeats.filter((b: any) => b.is_active !== false && b.created_by === effectiveUserId);
 
-      const userRetailers = cachedRetailers.filter((r: any) => r.user_id === user.id);
+      const userRetailers = cachedRetailers.filter((r: any) => r.user_id === effectiveUserId);
 
       if (userBeats.length > 0) {
         // Count retailers per beat
@@ -123,14 +135,14 @@ export const BeatPlanning = () => {
 
   // BACKGROUND: Load beats from network and update if different
   const loadBeatsFromNetwork = async () => {
-    if (!user) return;
+    if (!effectiveUserId) return;
     try {
       // Get user's own beats
       const { data: beatsData, error: beatsError } = await supabase
         .from('beats')
         .select('*')
         .eq('is_active', true)
-        .eq('created_by', user.id)
+        .eq('created_by', effectiveUserId)
         .order('created_at', { ascending: true });
 
       if (beatsError) throw beatsError;
@@ -146,7 +158,7 @@ export const BeatPlanning = () => {
       const { data: retailersData, error: retailersError } = await supabase
         .from('retailers')
         .select('beat_id, priority')
-        .eq('user_id', user.id);
+        .eq('user_id', effectiveUserId);
 
       if (retailersError) throw retailersError;
 
@@ -155,7 +167,7 @@ export const BeatPlanning = () => {
       const { data: beatPlansData } = await supabase
         .from('beat_plans')
         .select('beat_id, plan_date')
-        .eq('user_id', user.id)
+        .eq('user_id', effectiveUserId)
         .in('beat_id', beatIds)
         .lte('plan_date', toLocalISODate(new Date()))
         .order('plan_date', { ascending: false });
@@ -217,16 +229,16 @@ export const BeatPlanning = () => {
     setWeekDays(getWeekDays(selectedWeek));
   }, [selectedWeek]);
 
-  // Load beats from cache IMMEDIATELY on mount
+  // Load beats from cache IMMEDIATELY on mount or when effective user changes
   useEffect(() => {
-    if (user) {
+    if (effectiveUserId) {
       loadBeatsFromCache();
     }
-  }, [user]);
+  }, [effectiveUserId]);
 
-  // Load existing beat plans (cache-first) and sync beats from network when date changes
+  // Load existing beat plans (cache-first) and sync beats from network when date or user changes
   useEffect(() => {
-    if (user && selectedDate) {
+    if (effectiveUserId && selectedDate) {
       const dateString = toLocalISODate(selectedDate);
       loadBeatPlans(dateString);
       // Background network sync (non-blocking)
@@ -234,11 +246,11 @@ export const BeatPlanning = () => {
         loadBeatsFromNetwork();
       }
     }
-  }, [user, selectedDate]);
+  }, [effectiveUserId, selectedDate]);
 
   // Load week plan markers for calendar (cache-first, then network)
   useEffect(() => {
-    if (!user) return;
+    if (!effectiveUserId) return;
 
     const loadWeekPlans = async () => {
       try {
@@ -251,7 +263,7 @@ export const BeatPlanning = () => {
           const cachedPlans = await offlineStorage.getAll<any>(STORES.BEAT_PLANS);
           const cachedDates = new Set(
             (cachedPlans || [])
-              .filter((p: any) => p.user_id === user.id && p.plan_date >= startIso && p.plan_date <= endIso)
+              .filter((p: any) => p.user_id === effectiveUserId && p.plan_date >= startIso && p.plan_date <= endIso)
               .map((p: any) => p.plan_date)
           );
           if (cachedDates.size > 0) {
@@ -267,7 +279,7 @@ export const BeatPlanning = () => {
         const { data, error } = await supabase
           .from('beat_plans')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', effectiveUserId)
           .gte('plan_date', startIso)
           .lte('plan_date', endIso);
 
@@ -288,10 +300,10 @@ export const BeatPlanning = () => {
     };
 
     loadWeekPlans();
-  }, [user, weekDays]);
+  }, [effectiveUserId, weekDays]);
 
   const loadBeatPlans = async (date: string) => {
-    if (!user) return;
+    if (!effectiveUserId) return;
 
     const loadedDate = new Date(date + 'T00:00:00');
     const dayKey = format(loadedDate, 'EEE');
@@ -299,7 +311,7 @@ export const BeatPlanning = () => {
     // 1) Cache-first: show selection instantly even on slow/no network
     try {
       const cachedPlans = await offlineStorage.getAll<any>(STORES.BEAT_PLANS);
-      const plansForDate = (cachedPlans || []).filter((p: any) => p.user_id === user.id && p.plan_date === date);
+      const plansForDate = (cachedPlans || []).filter((p: any) => p.user_id === effectiveUserId && p.plan_date === date);
       if (plansForDate.length > 0) {
         const plannedBeatIds = plansForDate.map((p: any) => p.beat_id);
         setPlannedBeats(prev => ({
@@ -319,7 +331,7 @@ export const BeatPlanning = () => {
       const { data, error } = await supabase
         .from('beat_plans')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', effectiveUserId)
         .eq('plan_date', date);
 
       if (error) throw error;
@@ -567,8 +579,15 @@ export const BeatPlanning = () => {
         {/* Header */}
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
           <CardHeader className="pb-2 sm:pb-3">
-            <div className="flex items-center justify-between w-full">
+          <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-2 sm:gap-3">
+                {/* User Selector for managers */}
+                <UserSelector
+                  selectedUserId={selectedUserId}
+                  onUserChange={setSelectedUserId}
+                  showAllOption={false}
+                  allOptionLabel="All Team"
+                />
                 <div>
                   <CardTitle className="text-lg sm:text-xl font-bold">
                     {(() => {

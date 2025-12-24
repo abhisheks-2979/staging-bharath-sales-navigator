@@ -24,25 +24,26 @@ export default function TeamTargets() {
   
   const { teamMembers, isLoading } = useTeamTargets(periodType, selectedDate) as { teamMembers: any[], isLoading: boolean };
 
-  // Fetch all team members from employee hierarchy
+  // Fetch all team members from employee hierarchy using recursive function
   const { data: allTeamMembers } = useQuery({
-    queryKey: ['all-team-members'],
+    queryKey: ['all-team-members-recursive'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
 
-      // Get subordinates from employees table where manager_id matches current user
-      const { data: subordinates, error } = await supabase
-        .from('employees')
-        .select('user_id')
-        .eq('manager_id', user.id);
+      // Use recursive RPC to get ALL subordinates (not just direct reports)
+      const { data: subordinates, error } = await supabase.rpc('get_all_subordinates', {
+        manager_user_id: user.id,
+      });
 
       if (error) {
         console.error('Error fetching subordinates:', error);
         return [];
       }
 
-      const subordinateIds = subordinates?.map((s: any) => s.user_id) || [];
+      // Filter out self (level 0) and get actual subordinates
+      const actualSubordinates = (subordinates || []).filter((s: any) => s.level > 0);
+      const subordinateIds = actualSubordinates.map((s: any) => s.subordinate_user_id);
 
       if (subordinateIds.length === 0) return [];
 

@@ -16,6 +16,9 @@ import { useNavigate } from 'react-router-dom';
 import AdditionalExpenses from '@/components/AdditionalExpenses';
 import ProductivityTracking from '@/components/ProductivityTracking';
 import * as XLSX from 'xlsx';
+import { UserSelector } from '@/components/UserSelector';
+import { useSubordinates } from '@/hooks/useSubordinates';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ExpenseRow {
   id: string;
@@ -51,6 +54,9 @@ type FilterType = 'today' | 'yesterday' | 'current_week' | 'last_week' | 'curren
 
 const BeatAllowanceManagement = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { subordinateIds, isManager } = useSubordinates();
+  const [selectedUserId, setSelectedUserId] = useState<string>('self');
   const [expenseRows, setExpenseRows] = useState<ExpenseRow[]>([]);
   const [dateRangeStart, setDateRangeStart] = useState<Date>();
   const [dateRangeEnd, setDateRangeEnd] = useState<Date>();
@@ -63,6 +69,23 @@ const BeatAllowanceManagement = () => {
   const [activeTab, setActiveTab] = useState<'expenses' | 'da' | 'additional'>('expenses');
   const [leaveDates, setLeaveDates] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+
+  // Calculate effective user ID based on selection
+  const effectiveUserId = useMemo(() => {
+    if (selectedUserId === 'self' || selectedUserId === user?.id) {
+      return user?.id;
+    }
+    if (selectedUserId === 'all') {
+      return null; // Will filter by multiple user IDs
+    }
+    return selectedUserId;
+  }, [selectedUserId, user?.id]);
+
+  // Get all viewable user IDs for 'all' filter
+  const viewableUserIds = useMemo(() => {
+    if (!user?.id) return [];
+    return [user.id, ...subordinateIds];
+  }, [user?.id, subordinateIds]);
 
   // Calculate date range based on filter type
   const getDateRange = (): { start: Date; end: Date } => {
@@ -102,15 +125,21 @@ const BeatAllowanceManagement = () => {
 
   const fetchLeaveDates = async () => {
     try {
-      const user = await supabase.auth.getUser();
-      if (!user.data.user) return;
+      if (!user?.id) return;
 
-      // Fetch attendance records where user is on leave
-      const { data: attendanceData } = await supabase
+      // Build query based on effective user
+      let query = supabase
         .from('attendance')
         .select('date, status')
-        .eq('user_id', user.data.user.id)
         .in('status', ['leave', 'on_leave', 'absent']);
+      
+      if (effectiveUserId) {
+        query = query.eq('user_id', effectiveUserId);
+      } else {
+        query = query.in('user_id', viewableUserIds);
+      }
+
+      const { data: attendanceData } = await query;
 
       const leaveSet = new Set<string>();
       attendanceData?.forEach((record: any) => {
@@ -124,8 +153,7 @@ const BeatAllowanceManagement = () => {
 
   const fetchExpenseData = async () => {
     try {
-      const user = await supabase.auth.getUser();
-      if (!user.data.user) return;
+      if (!user?.id) return;
 
       // Fetch expense master config for TA type
       const { data: configData } = await supabase
@@ -137,11 +165,18 @@ const BeatAllowanceManagement = () => {
       const fixedTaAmount = configData?.fixed_ta_amount || 0;
 
       // Fetch beat plans (journey plans) to get dates and beats
-      const { data: beatPlans, error: beatPlansError } = await supabase
+      let beatPlansQuery = supabase
         .from('beat_plans')
         .select('plan_date, beat_id, beat_name')
-        .eq('user_id', user.data.user.id)
         .order('plan_date', { ascending: true });
+      
+      if (effectiveUserId) {
+        beatPlansQuery = beatPlansQuery.eq('user_id', effectiveUserId);
+      } else {
+        beatPlansQuery = beatPlansQuery.in('user_id', viewableUserIds);
+      }
+
+      const { data: beatPlans, error: beatPlansError } = await beatPlansQuery;
 
       if (beatPlansError) throw beatPlansError;
 
@@ -159,34 +194,46 @@ const BeatAllowanceManagement = () => {
       });
 
       // Fetch additional expenses
-      const { data: expensesData, error: expensesError } = await supabase
-        .from('additional_expenses')
-        .select('*')
-        .eq('user_id', user.data.user.id);
+      let expensesQuery = supabase.from('additional_expenses').select('*');
+      if (effectiveUserId) {
+        expensesQuery = expensesQuery.eq('user_id', effectiveUserId);
+      } else {
+        expensesQuery = expensesQuery.in('user_id', viewableUserIds);
+      }
+      const { data: expensesData, error: expensesError } = await expensesQuery;
 
       if (expensesError) throw expensesError;
 
       // Fetch orders with visit data to get order values
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select('total_amount, visit_id, created_at')
-        .eq('user_id', user.data.user.id);
+      let ordersQuery = supabase.from('orders').select('total_amount, visit_id, created_at');
+      if (effectiveUserId) {
+        ordersQuery = ordersQuery.eq('user_id', effectiveUserId);
+      } else {
+        ordersQuery = ordersQuery.in('user_id', viewableUserIds);
+      }
+      const { data: ordersData, error: ordersError } = await ordersQuery;
 
       if (ordersError) throw ordersError;
 
       // Fetch visits to link orders to beats and count productive visits
-      const { data: visitsData, error: visitsError } = await supabase
-        .from('visits')
-        .select('id, planned_date, retailer_id, status')
-        .eq('user_id', user.data.user.id);
+      let visitsQuery = supabase.from('visits').select('id, planned_date, retailer_id, status');
+      if (effectiveUserId) {
+        visitsQuery = visitsQuery.eq('user_id', effectiveUserId);
+      } else {
+        visitsQuery = visitsQuery.in('user_id', viewableUserIds);
+      }
+      const { data: visitsData, error: visitsError } = await visitsQuery;
 
       if (visitsError) throw visitsError;
 
       // Fetch retailers to get beat info
-      const { data: retailersData, error: retailersError } = await supabase
-        .from('retailers')
-        .select('id, beat_id, beat_name')
-        .eq('user_id', user.data.user.id);
+      let retailersQuery = supabase.from('retailers').select('id, beat_id, beat_name');
+      if (effectiveUserId) {
+        retailersQuery = retailersQuery.eq('user_id', effectiveUserId);
+      } else {
+        retailersQuery = retailersQuery.in('user_id', viewableUserIds);
+      }
+      const { data: retailersData, error: retailersError } = await retailersQuery;
 
       if (retailersError) throw retailersError;
 
@@ -281,8 +328,7 @@ const BeatAllowanceManagement = () => {
 
   const fetchDAData = async () => {
     try {
-      const user = await supabase.auth.getUser();
-      if (!user.data.user) return;
+      if (!user?.id) return;
 
       // Fetch DA amount from expense_master_config
       const { data: configData } = await supabase
@@ -293,11 +339,18 @@ const BeatAllowanceManagement = () => {
       const daPerDay = configData?.da_amount || 0;
 
       // Fetch attendance data with check-in/check-out times
-      const { data: attendanceData, error: attendanceError } = await supabase
+      let attendanceQuery = supabase
         .from('attendance')
         .select('date, check_in_time, check_out_time, status')
-        .eq('user_id', user.data.user.id)
         .order('date', { ascending: true });
+      
+      if (effectiveUserId) {
+        attendanceQuery = attendanceQuery.eq('user_id', effectiveUserId);
+      } else {
+        attendanceQuery = attendanceQuery.in('user_id', viewableUserIds);
+      }
+
+      const { data: attendanceData, error: attendanceError } = await attendanceQuery;
 
       if (attendanceError) throw attendanceError;
 
@@ -350,14 +403,20 @@ const BeatAllowanceManagement = () => {
 
   const fetchAdditionalExpenseData = async () => {
     try {
-      const user = await supabase.auth.getUser();
-      if (!user.data.user) return;
+      if (!user?.id) return;
 
-      const { data: expensesData, error } = await supabase
+      let expensesQuery = supabase
         .from('additional_expenses')
         .select('expense_date, category, custom_category, description, amount, bill_url')
-        .eq('user_id', user.data.user.id)
         .order('expense_date', { ascending: true });
+      
+      if (effectiveUserId) {
+        expensesQuery = expensesQuery.eq('user_id', effectiveUserId);
+      } else {
+        expensesQuery = expensesQuery.in('user_id', viewableUserIds);
+      }
+
+      const { data: expensesData, error } = await expensesQuery;
 
       if (error) throw error;
 
@@ -386,14 +445,17 @@ const BeatAllowanceManagement = () => {
       setLoading(false);
     };
     initializeData();
-  }, []);
+  }, [user?.id, effectiveUserId, viewableUserIds]);
 
-  // Auto-refresh data when filter changes
+  // Auto-refresh data when filter or user selection changes
   useEffect(() => {
-    if (!loading) {
+    if (!loading && user?.id) {
+      fetchLeaveDates();
       fetchExpenseData();
+      fetchDAData();
+      fetchAdditionalExpenseData();
     }
-  }, [filterType, dateRangeStart, dateRangeEnd, leaveDates]);
+  }, [filterType, dateRangeStart, dateRangeEnd, effectiveUserId]);
 
   const handleAdditionalExpensesClick = () => {
     // Check if any selected date is a leave date
@@ -527,6 +589,13 @@ const BeatAllowanceManagement = () => {
         <CardContent className="py-3 px-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex flex-col xs:flex-row items-start xs:items-center gap-2 xs:gap-3 w-full sm:w-auto">
+              {/* User Selector for managers */}
+              <UserSelector
+                selectedUserId={selectedUserId}
+                onUserChange={setSelectedUserId}
+                showAllOption={true}
+                allOptionLabel="All Team"
+              />
               <Select value={filterType} onValueChange={(value: FilterType) => setFilterType(value)}>
                 <SelectTrigger className="w-full xs:w-[160px] sm:w-[180px]">
                   <SelectValue />
