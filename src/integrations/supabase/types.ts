@@ -9422,6 +9422,14 @@ export type Database = {
         Returns: undefined
       }
       generate_invoice_number: { Args: never; Returns: string }
+      get_all_subordinates: {
+        Args: { manager_user_id: string }
+        Returns: {
+          full_name: string
+          level: number
+          subordinate_user_id: string
+        }[]
+      }
       get_authenticated_email: { Args: never; Returns: string }
       get_basic_profiles_for_admin: {
         Args: never
@@ -9430,6 +9438,14 @@ export type Database = {
           full_name: string
           id: string
           username: string
+        }[]
+      }
+      get_direct_reports: {
+        Args: { manager_user_id: string }
+        Returns: {
+          full_name: string
+          profile_picture_url: string
+          subordinate_user_id: string
         }[]
       }
       get_employee_basic_info: {
@@ -9548,6 +9564,7 @@ export type Database = {
       }
       hash_hint_answer: { Args: { answer: string }; Returns: string }
       is_account_locked: { Args: { user_email: string }; Returns: boolean }
+      is_manager: { Args: { user_id_param: string }; Returns: boolean }
       list_team_members: {
         Args: never
         Returns: {
