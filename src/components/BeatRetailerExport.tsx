@@ -183,10 +183,9 @@ export const BeatRetailerExport = ({ beatName, retailers }: BeatRetailerExportPr
   };
 
   const exportPDF = async (selectedData: Record<string, string | number>[]) => {
-    // Use portrait for compact layout, landscape if many columns
-    const selectedCount = Object.values(selectedColumns).filter(Boolean).length;
-    const orientation = selectedCount > 4 ? 'landscape' : 'portrait';
-    const doc = new jsPDF(orientation);
+    // Always use landscape for better address visibility
+    const doc = new jsPDF('landscape');
+    const pageWidth = doc.internal.pageSize.getWidth();
     
     // Beat heading
     doc.setFontSize(16);
@@ -207,14 +206,34 @@ export const BeatRetailerExport = ({ beatName, retailers }: BeatRetailerExportPr
       headers.map(header => String(row[header] || "-"))
     );
 
-    // Compact table styling to fit more on one page
+    // Find the index of the Address column
+    const addressIndex = headers.findIndex(h => h === 'Address');
+    const phoneIndex = headers.findIndex(h => h === 'Phone Number');
+    const nameIndex = headers.findIndex(h => h === 'Retailer Name');
+
+    // Build column styles dynamically
+    const columnStyles: Record<number, { cellWidth: number | 'auto' | 'wrap' }> = {
+      0: { cellWidth: 15 }, // S.No
+    };
+    
+    if (nameIndex > 0) {
+      columnStyles[nameIndex] = { cellWidth: 70 }; // Retailer Name
+    }
+    if (phoneIndex > 0) {
+      columnStyles[phoneIndex] = { cellWidth: 35 }; // Phone Number
+    }
+    if (addressIndex > 0) {
+      columnStyles[addressIndex] = { cellWidth: 'auto' }; // Address gets remaining space
+    }
+
+    // Compact table styling with full width
     autoTable(doc, {
       head: [headers],
       body: rows,
       startY: 35,
       styles: { 
         fontSize: 8, 
-        cellPadding: 1.5,
+        cellPadding: 2,
         overflow: 'linebreak',
         cellWidth: 'wrap'
       },
@@ -226,10 +245,8 @@ export const BeatRetailerExport = ({ beatName, retailers }: BeatRetailerExportPr
       },
       alternateRowStyles: { fillColor: [250, 250, 250] },
       margin: { top: 35, left: 10, right: 10, bottom: 10 },
-      tableWidth: 'auto',
-      columnStyles: {
-        0: { cellWidth: 12 },
-      }
+      tableWidth: pageWidth - 20,
+      columnStyles
     });
 
     const fileName = `${beatName.replace(/[^a-zA-Z0-9]/g, '_')}_Retailers.pdf`;
