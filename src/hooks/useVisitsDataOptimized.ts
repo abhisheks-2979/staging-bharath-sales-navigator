@@ -7,6 +7,7 @@ import { getLocalTodayDate } from '@/utils/dateUtils';
 interface UseVisitsDataOptimizedProps {
   userId: string | undefined;
   selectedDate: string;
+  viewUserId?: string; // Optional: view another user's data (for managers viewing subordinates)
 }
 
 interface PointsData {
@@ -175,7 +176,12 @@ const fetchPointsForDate = async (uid: string, date: string): Promise<PointsData
   return { total, byRetailer };
 };
 
-export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOptimizedProps) => {
+export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: UseVisitsDataOptimizedProps) => {
+  // The effective user ID to fetch data for:
+  // - If viewUserId is provided and not 'self', use that (manager viewing subordinate)
+  // - Otherwise use the authenticated user's ID
+  const effectiveUserId = viewUserId && viewUserId !== 'self' ? viewUserId : userId;
+  
   const [beatPlans, setBeatPlans] = useState<any[]>([]);
   const [visits, setVisits] = useState<any[]>([]);
   const [retailers, setRetailers] = useState<any[]>([]);
@@ -186,6 +192,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   const [error, setError] = useState<any>(null);
 
   const lastDateRef = useRef<string>('');
+  const lastUserRef = useRef<string>(''); // Track user changes for cache invalidation
   const cacheRef = useRef<Map<string, any>>(new Map());
   const isFetchingRef = useRef(false);
   const mountedRef = useRef(true);
@@ -196,13 +203,23 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   const smartSyncLockRef = useRef(false);
   
   // STALE CLOSURE FIX: Keep refs in sync with latest values for event handlers
-  const userIdRef = useRef(userId);
+  const userIdRef = useRef(effectiveUserId);
   const selectedDateRef = useRef(selectedDate);
   
+  // Clear cache when viewing different user
   useEffect(() => {
-    userIdRef.current = userId;
+    if (effectiveUserId && lastUserRef.current && effectiveUserId !== lastUserRef.current) {
+      console.log('[useVisitsDataOptimized] User changed, clearing cache');
+      cacheRef.current.clear();
+      lastSyncTimeRef.current.clear();
+    }
+    lastUserRef.current = effectiveUserId || '';
+  }, [effectiveUserId]);
+  
+  useEffect(() => {
+    userIdRef.current = effectiveUserId;
     selectedDateRef.current = selectedDate;
-  }, [userId, selectedDate]);
+  }, [effectiveUserId, selectedDate]);
 
   // Memoized progress stats - LOCAL CALCULATION ONLY
   // FIX: Pass selectedDate to calculateStats to ensure only matching visits are counted
@@ -526,7 +543,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
   // INITIAL LOAD: Local-first, instant display
   const loadData = useCallback(async () => {
-    if (!userId || !selectedDate) return;
+    if (!effectiveUserId || !selectedDate) return;
     if (isFetchingRef.current && lastDateRef.current === selectedDate) return;
     
     // CRITICAL FIX: If date changed, immediately clear visits/orders to prevent
@@ -592,8 +609,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       // Background smart sync - force if cache is stale
       if (navigator.onLine && (isCacheStale || (isTodayDate && shouldSyncNow(selectedDate)))) {
         console.log('[LoadData] Triggering sync - cache stale:', isCacheStale);
-        requestIdleCallback?.(() => smartDeltaSync(userId, selectedDate)) ||
-          setTimeout(() => smartDeltaSync(userId, selectedDate), 100);
+        requestIdleCallback?.(() => smartDeltaSync(effectiveUserId, selectedDate)) ||
+          setTimeout(() => smartDeltaSync(effectiveUserId, selectedDate), 100);
       }
       isFetchingRef.current = false;
       return;
@@ -601,7 +618,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
     // 2. Try persistent snapshot (fast)
     try {
-      const snapshot = await loadMyVisitsSnapshot(userId, selectedDate);
+      const snapshot = await loadMyVisitsSnapshot(effectiveUserId, selectedDate);
       
       // CRITICAL FIX: Validate snapshot data matches the selectedDate
       // This prevents stale visits from other dates contaminating the current view
@@ -630,7 +647,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       );
       if (hasValidSnapshotData) {
         // FIX: Also check offline storage for NEW retailers that might not be in snapshot
-        const offlineData = await loadFromOfflineStorage(userId, selectedDate);
+        const offlineData = await loadFromOfflineStorage(effectiveUserId, selectedDate);
         
         // Merge: Add any offline retailers not in snapshot
         let mergedRetailers = [...(snapshot.retailers || [])];
@@ -662,11 +679,11 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         // Snapshots can be stale - network is the source of truth for visit statuses
         if (navigator.onLine && isToday(selectedDate)) {
           // Skip throttle check for today - visit status must always be fresh
-          requestIdleCallback?.(() => smartDeltaSync(userId, selectedDate)) || 
-            setTimeout(() => smartDeltaSync(userId, selectedDate), 50);
+          requestIdleCallback?.(() => smartDeltaSync(effectiveUserId, selectedDate)) || 
+            setTimeout(() => smartDeltaSync(effectiveUserId, selectedDate), 50);
         } else if (navigator.onLine && shouldSyncNow(selectedDate)) {
-          requestIdleCallback?.(() => smartDeltaSync(userId, selectedDate)) || 
-            setTimeout(() => smartDeltaSync(userId, selectedDate), 100);
+          requestIdleCallback?.(() => smartDeltaSync(effectiveUserId, selectedDate)) || 
+            setTimeout(() => smartDeltaSync(effectiveUserId, selectedDate), 100);
         }
         isFetchingRef.current = false;
         return;
@@ -676,7 +693,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     }
 
     // 3. Try offline storage
-    const offlineData = await loadFromOfflineStorage(userId, selectedDate);
+    const offlineData = await loadFromOfflineStorage(effectiveUserId, selectedDate);
     // Check for ANY valid offline data (beat plans, retailers, visits, or orders)
     const hasValidOfflineData = offlineData && (
       offlineData.beatPlans.length > 0 || 
@@ -697,11 +714,11 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       // CRITICAL FIX: For today's date, ALWAYS sync immediately after loading from offline
       // This ensures unproductive visits marked yesterday night show up in progress stats
       if (navigator.onLine && isToday(selectedDate)) {
-        requestIdleCallback?.(() => smartDeltaSync(userId, selectedDate)) || 
-          setTimeout(() => smartDeltaSync(userId, selectedDate), 50);
+        requestIdleCallback?.(() => smartDeltaSync(effectiveUserId, selectedDate)) || 
+          setTimeout(() => smartDeltaSync(effectiveUserId, selectedDate), 50);
       } else if (navigator.onLine && shouldSyncNow(selectedDate)) {
-        requestIdleCallback?.(() => smartDeltaSync(userId, selectedDate)) || 
-          setTimeout(() => smartDeltaSync(userId, selectedDate), 100);
+        requestIdleCallback?.(() => smartDeltaSync(effectiveUserId, selectedDate)) || 
+          setTimeout(() => smartDeltaSync(effectiveUserId, selectedDate), 100);
       }
       isFetchingRef.current = false;
       return;
@@ -711,7 +728,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     if (navigator.onLine) {
       try {
         setIsLoading(true);
-        await doFullInitialLoad(userId, selectedDate);
+        await doFullInitialLoad(effectiveUserId, selectedDate);
       } finally {
         setIsLoading(false);
         setHasLoadedOnce(true);
@@ -723,7 +740,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     }
     
     isFetchingRef.current = false;
-  }, [userId, selectedDate, isToday, loadFromOfflineStorage, smartDeltaSync, shouldSyncNow]);
+  }, [effectiveUserId, selectedDate, isToday, loadFromOfflineStorage, smartDeltaSync, shouldSyncNow]);
 
   // Full initial load - only used when no local data exists
   const doFullInitialLoad = useCallback(async (uid: string, date: string) => {
@@ -829,8 +846,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     isFetchingRef.current = false;
     
     // Reload from local first
-    if (userId) {
-      const offlineData = await loadFromOfflineStorage(userId, selectedDate);
+    if (effectiveUserId) {
+      const offlineData = await loadFromOfflineStorage(effectiveUserId, selectedDate);
       if (offlineData) {
         setBeatPlans(offlineData.beatPlans);
         setVisits(offlineData.visits);
@@ -841,10 +858,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       
       // Then trigger background sync
       if (navigator.onLine) {
-        smartDeltaSync(userId, selectedDate);
+        smartDeltaSync(effectiveUserId, selectedDate);
       }
     }
-  }, [selectedDate, userId, loadFromOfflineStorage, smartDeltaSync]);
+  }, [selectedDate, effectiveUserId, loadFromOfflineStorage, smartDeltaSync]);
 
   // Load on mount and date change
   useEffect(() => {
