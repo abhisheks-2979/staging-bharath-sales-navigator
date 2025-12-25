@@ -352,6 +352,7 @@ const slides = [
       { Component: RetailerLoyaltyCard, size: "normal" as const, gridPos: 2, variant: "default" as const },
       { Component: CreditManagementCard, size: "large" as const, gridPos: 3, variant: "accent" as const },
       { Component: TallyIntegrationCard, size: "normal" as const, gridPos: 4, variant: "default" as const },
+      { Component: GamificationCard, size: "normal" as const, gridPos: 5, variant: "default" as const },
     ]
   },
   {
@@ -360,10 +361,10 @@ const slides = [
     cards: [
       { Component: DistributorPortalCard, size: "normal" as const, gridPos: 1, variant: "accent" as const },
       { Component: OrderTrackingCard, size: "small" as const, gridPos: 2, variant: "default" as const },
-      { Component: InventoryGRNCard, size: "small" as const, gridPos: 3, variant: "default" as const },
-      { Component: ReturnsClaimsCard, size: "small" as const, gridPos: 4, variant: "default" as const },
-      { Component: MDFSupportCard, size: "small" as const, gridPos: 5, variant: "subtle" as const },
-      { Component: CollectionARCard, size: "small" as const, gridPos: 6, variant: "subtle" as const },
+      { Component: MDFSupportCard, size: "small" as const, gridPos: 3, variant: "subtle" as const },
+      { Component: CollectionARCard, size: "small" as const, gridPos: 4, variant: "subtle" as const },
+      { Component: InventoryGRNCard, size: "small" as const, gridPos: 5, variant: "default" as const },
+      { Component: ReturnsClaimsCard, size: "small" as const, gridPos: 6, variant: "default" as const },
     ]
   }
 ];
@@ -373,37 +374,37 @@ const getDesktopPosition = (gridPos: number, totalCards: number) => {
   // 4 cards layout - 2 on each side, vertically stacked with good separation
   if (totalCards === 4) {
     switch (gridPos) {
-      case 1: return "left-3 xl:left-6 top-[130px]";
-      case 2: return "right-3 xl:right-6 top-[130px]";
-      case 3: return "left-3 xl:left-6 bottom-[110px]";
-      case 4: return "right-3 xl:right-6 bottom-[110px]";
-      default: return "left-3 top-[130px]";
-    }
-  }
-  // 5 cards layout - 2 top, 2 bottom, 1 extra on right middle (with offset to avoid overlap)
-  if (totalCards === 5) {
-    switch (gridPos) {
       case 1: return "left-3 xl:left-6 top-[100px]";
       case 2: return "right-3 xl:right-6 top-[100px]";
-      case 3: return "left-3 xl:left-6 bottom-[100px]";
-      case 4: return "right-3 xl:right-6 bottom-[100px]";
-      case 5: return "right-3 xl:right-6 top-[310px]"; // Middle right, with more gap from top card
+      case 3: return "left-3 xl:left-6 bottom-[130px]";
+      case 4: return "right-3 xl:right-6 bottom-[130px]";
       default: return "left-3 top-[100px]";
     }
   }
-  // 6 cards layout - 3 on left, 3 on right (properly stacked vertically with gaps)
-  if (totalCards === 6) {
+  // 5 cards layout - Slide 2: WhatsApp below subtitle in center-bottom
+  if (totalCards === 5) {
     switch (gridPos) {
-      case 1: return "left-3 xl:left-6 top-[90px]";        // Top left
-      case 2: return "right-3 xl:right-6 top-[90px]";      // Top right
-      case 3: return "left-3 xl:left-6 top-[280px]";       // Mid left (gap of ~190px from top)
-      case 4: return "right-3 xl:right-6 top-[280px]";     // Mid right
-      case 5: return "left-3 xl:left-6 bottom-[70px]";     // Bottom left
-      case 6: return "right-3 xl:right-6 bottom-[70px]";   // Bottom right
-      default: return "left-3 top-[90px]";
+      case 1: return "left-3 xl:left-6 top-[100px]";       // Top left
+      case 2: return "right-3 xl:right-6 top-[100px]";     // Top right
+      case 3: return "left-3 xl:left-6 bottom-[130px]";    // Bottom left
+      case 4: return "right-3 xl:right-6 bottom-[130px]";  // Bottom right
+      case 5: return "left-1/2 -translate-x-1/2 bottom-[100px]"; // Center bottom - below subtitle
+      default: return "left-3 top-[100px]";
     }
   }
-  return "left-3 top-[130px]";
+  // 6 cards layout - Slide 3: 2 top, 2 middle (left/right of center), 2 below subtitle
+  if (totalCards === 6) {
+    switch (gridPos) {
+      case 1: return "left-3 xl:left-6 top-[100px]";       // Top left - Distributor Portal
+      case 2: return "right-3 xl:right-6 top-[100px]";     // Top right - Order Tracking
+      case 3: return "left-3 xl:left-6 bottom-[130px]";    // Bottom left - MDF Support
+      case 4: return "right-3 xl:right-6 bottom-[130px]";  // Bottom right - Collection AR
+      case 5: return "left-[25%] -translate-x-1/2 bottom-[100px]";  // Below subtitle left - Inventory
+      case 6: return "right-[25%] translate-x-1/2 bottom-[100px]";  // Below subtitle right - Returns
+      default: return "left-3 top-[100px]";
+    }
+  }
+  return "left-3 top-[100px]";
 };
 
 export const HeroSection = () => {
@@ -472,7 +473,7 @@ export const HeroSection = () => {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="text-4xl font-bold leading-tight drop-shadow-lg"
+              className="text-[2.25rem] font-bold leading-tight drop-shadow-lg"
             >
               <span className="text-white">Superpowers,</span>
               <br />
@@ -488,7 +489,7 @@ export const HeroSection = () => {
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="text-6xl lg:text-8xl font-bold leading-[1.1] drop-shadow-xl"
+              className="text-[3.4rem] lg:text-[4.5rem] font-bold leading-[1.1] drop-shadow-xl"
             >
               <span className="text-white">Superpowers,</span>
               <br />
