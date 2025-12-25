@@ -29,31 +29,41 @@ import fieldSalesHero from "@/assets/field-sales-hero.png";
 import fieldSalesHero2 from "@/assets/field-sales-hero-2.png";
 import distributorHero from "@/assets/distributor-hero.png";
 
+// Superhuman-inspired glass card with subtle gradients and refined shadows
 const FloatingCard = ({ 
   children, 
   className = "",
   delay = 0,
-  size = "normal"
+  size = "normal",
+  variant = "default"
 }: { 
   children: React.ReactNode;
   className?: string;
   delay?: number;
   size?: "small" | "normal" | "large" | "wide";
+  variant?: "default" | "accent" | "subtle";
 }) => {
   const sizeClasses = {
-    small: "w-[180px] md:w-[200px]",
-    normal: "w-[220px] md:w-[240px]",
-    large: "w-[260px] md:w-[280px]",
-    wide: "w-[280px] md:w-[300px]"
+    small: "w-[160px] md:w-[180px]",
+    normal: "w-[200px] md:w-[220px]",
+    large: "w-[240px] md:w-[260px]",
+    wide: "w-[260px] md:w-[280px]"
+  };
+
+  const variantClasses = {
+    default: "bg-white/90 backdrop-blur-2xl border border-white/60 shadow-[0_8px_40px_rgba(0,0,0,0.08),0_0_0_1px_rgba(255,255,255,0.5)_inset]",
+    accent: "bg-gradient-to-br from-white/95 to-white/80 backdrop-blur-2xl border border-white/70 shadow-[0_12px_48px_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.6)_inset]",
+    subtle: "bg-white/80 backdrop-blur-xl border border-white/40 shadow-[0_4px_24px_rgba(0,0,0,0.06)]"
   };
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      initial={{ opacity: 0, y: 30, scale: 0.9 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -20, scale: 0.95 }}
-      transition={{ duration: 0.5, delay, ease: "easeOut" }}
-      className={`bg-white/95 backdrop-blur-xl border border-black/5 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] ${sizeClasses[size]} ${className}`}
+      transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
+      whileHover={{ y: -4, scale: 1.02, transition: { duration: 0.2 } }}
+      className={`rounded-2xl ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
     >
       {children}
     </motion.div>
@@ -327,73 +337,73 @@ const slides = [
     background: fieldSalesHero,
     title: "Field Sales AI",
     cards: [
-      { Component: AIBeatOptimizerCard, size: "large" as const, gridPos: 1 },
-      { Component: AISalesIntelligenceCard, size: "large" as const, gridPos: 2 },
-      { Component: TopPerformersCard, size: "normal" as const, gridPos: 3 },
-      { Component: WhatsAppBotCard, size: "small" as const, gridPos: 4 },
-      { Component: GamificationCard, size: "normal" as const, gridPos: 5 },
+      { Component: AIBeatOptimizerCard, size: "large" as const, gridPos: 1, variant: "accent" as const },
+      { Component: AISalesIntelligenceCard, size: "large" as const, gridPos: 2, variant: "accent" as const },
+      { Component: TopPerformersCard, size: "normal" as const, gridPos: 3, variant: "default" as const },
+      { Component: WhatsAppBotCard, size: "small" as const, gridPos: 4, variant: "subtle" as const },
+      { Component: GamificationCard, size: "normal" as const, gridPos: 5, variant: "default" as const },
     ]
   },
   {
     background: fieldSalesHero2,
     title: "Retailer Engagement",
     cards: [
-      { Component: VoiceUpdatesCard, size: "large" as const, gridPos: 1 },
-      { Component: RetailerLoyaltyCard, size: "normal" as const, gridPos: 2 },
-      { Component: CreditManagementCard, size: "large" as const, gridPos: 3 },
-      { Component: TallyIntegrationCard, size: "normal" as const, gridPos: 4 },
+      { Component: VoiceUpdatesCard, size: "large" as const, gridPos: 1, variant: "accent" as const },
+      { Component: RetailerLoyaltyCard, size: "normal" as const, gridPos: 2, variant: "default" as const },
+      { Component: CreditManagementCard, size: "large" as const, gridPos: 3, variant: "accent" as const },
+      { Component: TallyIntegrationCard, size: "normal" as const, gridPos: 4, variant: "default" as const },
     ]
   },
   {
     background: distributorHero,
     title: "Distributor Management",
     cards: [
-      { Component: DistributorPortalCard, size: "large" as const, gridPos: 1 },
-      { Component: OrderTrackingCard, size: "normal" as const, gridPos: 2 },
-      { Component: InventoryGRNCard, size: "normal" as const, gridPos: 3 },
-      { Component: ReturnsClaimsCard, size: "large" as const, gridPos: 4 },
-      { Component: MDFSupportCard, size: "normal" as const, gridPos: 5 },
-      { Component: CollectionARCard, size: "normal" as const, gridPos: 6 },
+      { Component: DistributorPortalCard, size: "large" as const, gridPos: 1, variant: "accent" as const },
+      { Component: OrderTrackingCard, size: "normal" as const, gridPos: 2, variant: "default" as const },
+      { Component: InventoryGRNCard, size: "normal" as const, gridPos: 3, variant: "default" as const },
+      { Component: ReturnsClaimsCard, size: "normal" as const, gridPos: 4, variant: "default" as const },
+      { Component: MDFSupportCard, size: "normal" as const, gridPos: 5, variant: "subtle" as const },
+      { Component: CollectionARCard, size: "normal" as const, gridPos: 6, variant: "subtle" as const },
     ]
   }
 ];
 
-// Desktop card positions - no overlaps, well spaced, positioned outside center content
+// Desktop card positions - well spaced, avoiding center title area
 const getDesktopPosition = (gridPos: number, totalCards: number) => {
-  // 4 cards layout - 2 left, 2 right
+  // 4 cards layout - 2 on each side, vertically stacked
   if (totalCards === 4) {
     switch (gridPos) {
-      case 1: return "left-4 xl:left-8 top-[180px]";
-      case 2: return "right-4 xl:right-8 top-[180px]";
-      case 3: return "left-4 xl:left-8 bottom-[120px]";
-      case 4: return "right-4 xl:right-8 bottom-[120px]";
-      default: return "left-4 top-[180px]";
+      case 1: return "left-6 xl:left-12 top-[180px]";
+      case 2: return "right-6 xl:right-12 top-[180px]";
+      case 3: return "left-6 xl:left-12 bottom-[130px]";
+      case 4: return "right-6 xl:right-12 bottom-[130px]";
+      default: return "left-6 top-[180px]";
     }
   }
-  // 5 cards layout - 2 left, 2 right, 1 bottom center
+  // 5 cards layout - asymmetric elegant arrangement (3 left, 2 right)
   if (totalCards === 5) {
     switch (gridPos) {
-      case 1: return "left-4 xl:left-8 top-[180px]";
-      case 2: return "right-4 xl:right-8 top-[180px]";
-      case 3: return "left-4 xl:left-8 bottom-[120px]";
-      case 4: return "right-4 xl:right-8 bottom-[120px]";
-      case 5: return "left-1/2 -translate-x-1/2 bottom-[100px]";
-      default: return "left-4 top-[180px]";
+      case 1: return "left-6 xl:left-10 top-[160px]";
+      case 2: return "right-6 xl:right-10 top-[160px]";
+      case 3: return "left-6 xl:left-14 bottom-[130px]";
+      case 4: return "right-6 xl:right-14 bottom-[130px]";
+      case 5: return "right-6 xl:right-10 top-[380px]";
+      default: return "left-6 top-[160px]";
     }
   }
-  // 6 cards layout - 3 left side, 3 right side (stacked)
+  // 6 cards layout - 3 on each side, staggered heights
   if (totalCards === 6) {
     switch (gridPos) {
-      case 1: return "left-4 xl:left-8 top-[160px]";
-      case 2: return "right-4 xl:right-8 top-[160px]";
-      case 3: return "left-4 xl:left-8 top-[340px]";
-      case 4: return "right-4 xl:right-8 top-[340px]";
-      case 5: return "left-4 xl:left-8 bottom-[80px]";
-      case 6: return "right-4 xl:right-8 bottom-[80px]";
-      default: return "left-4 top-[160px]";
+      case 1: return "left-6 xl:left-10 top-[140px]";
+      case 2: return "right-6 xl:right-10 top-[140px]";
+      case 3: return "left-6 xl:left-14 top-[340px]";
+      case 4: return "right-6 xl:right-14 top-[340px]";
+      case 5: return "left-6 xl:left-10 bottom-[90px]";
+      case 6: return "right-6 xl:right-10 bottom-[90px]";
+      default: return "left-6 top-[140px]";
     }
   }
-  return "left-4 top-[180px]";
+  return "left-6 top-[180px]";
 };
 
 export const HeroSection = () => {
@@ -420,10 +430,10 @@ export const HeroSection = () => {
       <AnimatePresence mode="wait">
         <motion.div
           key={currentSlide}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.8 }}
+          initial={{ opacity: 0, scale: 1.05 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.98 }}
+          transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
           className="absolute inset-0"
         >
           <img 
@@ -431,41 +441,43 @@ export const HeroSection = () => {
             alt="Field Sales Representative" 
             className="w-full h-full object-cover object-[center_20%] md:object-[center_30%]"
           />
-          {/* Gradient overlays */}
-          <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/10 to-background/60"></div>
-          <div className="absolute inset-0 bg-gradient-to-r from-background/40 via-transparent to-background/40"></div>
+          {/* Superhuman-inspired gradient overlays */}
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-900/60 via-transparent to-slate-900/50"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-900/30 via-transparent to-slate-900/30"></div>
+          {/* Subtle purple/blue tint like Superhuman */}
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-900/10 via-transparent to-blue-900/10"></div>
         </motion.div>
       </AnimatePresence>
 
       {/* Content */}
       <div className="relative z-10 min-h-screen flex flex-col">
-        {/* Badge at TOP - moved above everything */}
-        <div className="absolute top-20 md:top-16 left-0 right-0 z-30 flex justify-center px-4">
+        {/* Badge at TOP */}
+        <div className="absolute top-20 md:top-20 left-0 right-0 z-30 flex justify-center px-4">
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-xl text-primary px-4 py-2 md:px-5 md:py-2.5 rounded-full text-xs md:text-sm font-medium border border-white/20"
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-2xl text-white px-5 py-2.5 md:px-6 md:py-3 rounded-full text-xs md:text-sm font-medium border border-white/25 shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
           >
-            <Sparkles className="h-3 w-3 md:h-4 md:w-4" />
+            <Sparkles className="h-3.5 w-3.5 md:h-4 md:w-4" />
             AI-Powered Field Sales Platform
           </motion.div>
         </div>
 
-        {/* Header content */}
-        <div className="flex-1 flex flex-col items-center justify-start pt-40 md:pt-36 lg:pt-32 px-4">
+        {/* Header content - centered title with breathing room */}
+        <div className="flex-1 flex flex-col items-center justify-center px-4 pointer-events-none">
           {/* Mobile content */}
-          <div className="md:hidden text-center mt-4">
+          <div className="md:hidden text-center">
             <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-3xl font-bold text-foreground leading-tight"
+              transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className="text-4xl font-bold leading-tight drop-shadow-lg"
             >
-              Superpowers,
+              <span className="text-white">Superpowers,</span>
               <br />
-              <span className="text-foreground">
-                everywhere you <span className="text-black font-extrabold">Sell</span>
+              <span className="text-white/90">
+                everywhere you <span className="text-white font-black">Sell</span>
               </span>
             </motion.h1>
           </div>
@@ -473,17 +485,26 @@ export const HeroSection = () => {
           {/* Desktop content */}
           <div className="hidden md:block text-center">
             <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-5xl lg:text-7xl font-bold text-foreground mb-6 leading-tight"
+              transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className="text-6xl lg:text-8xl font-bold leading-[1.1] drop-shadow-xl"
             >
-              Superpowers,
+              <span className="text-white">Superpowers,</span>
               <br />
-              <span className="text-foreground">
-                everywhere you <span className="text-black font-extrabold">Sell</span>
+              <span className="text-white/90">
+                everywhere you <span className="text-white font-black">Sell</span>
               </span>
             </motion.h1>
+            {/* Subtitle like Superhuman */}
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              className="mt-6 text-lg lg:text-xl text-white/70 font-medium max-w-2xl mx-auto"
+            >
+              AI-powered sales, insights, and automation for every retailer and distributor
+            </motion.p>
           </div>
         </div>
 
@@ -500,12 +521,12 @@ export const HeroSection = () => {
                 className="absolute inset-0"
               >
                 {currentSlideData.cards.map((card, index) => {
-                  const { Component, size, gridPos } = card;
+                  const { Component, size, gridPos, variant } = card;
                   const positionClass = getDesktopPosition(gridPos, totalCards);
                   
                   return (
                     <div key={index} className={`absolute pointer-events-auto ${positionClass}`}>
-                      <FloatingCard delay={index * 0.1} size={size}>
+                      <FloatingCard delay={0.4 + index * 0.08} size={size} variant={variant}>
                         <Component />
                       </FloatingCard>
                     </div>
@@ -528,17 +549,17 @@ export const HeroSection = () => {
               className="absolute inset-0"
             >
               {currentSlideData.cards.slice(0, 4).map((card, index) => {
-                const { Component, size } = card;
+                const { Component, size, variant } = card;
                 const positions = [
-                  "absolute left-4 top-48",
-                  "absolute right-4 top-48",
-                  "absolute left-4 bottom-32",
-                  "absolute right-4 bottom-32"
+                  "absolute left-4 top-[220px]",
+                  "absolute right-4 top-[200px]",
+                  "absolute left-4 bottom-[140px]",
+                  "absolute right-4 bottom-[160px]"
                 ];
                 
                 return (
                   <div key={index} className={`${positions[index] || positions[0]} pointer-events-auto`}>
-                    <FloatingCard delay={index * 0.1} size={size}>
+                    <FloatingCard delay={0.3 + index * 0.08} size={size} variant={variant}>
                       <Component />
                     </FloatingCard>
                   </div>
@@ -549,7 +570,7 @@ export const HeroSection = () => {
         </div>
 
         {/* Mobile cards - scrollable */}
-        <div className="md:hidden px-4 pb-8 mt-auto">
+        <div className="md:hidden px-4 pb-10 mt-auto">
           <AnimatePresence mode="wait">
             <motion.div 
               key={currentSlide}
@@ -560,52 +581,69 @@ export const HeroSection = () => {
               className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide"
             >
               {currentSlideData.cards.map((card, index) => {
-                const { Component, size } = card;
-                const widthClass = size === "large" ? "w-[260px]" : size === "normal" ? "w-[220px]" : "w-[180px]";
+                const { Component, size, variant } = card;
+                const widthClass = size === "large" ? "w-[220px]" : size === "normal" ? "w-[190px]" : "w-[160px]";
+                const variantClasses = {
+                  default: "bg-white/90 backdrop-blur-2xl border border-white/60 shadow-[0_8px_40px_rgba(0,0,0,0.08)]",
+                  accent: "bg-gradient-to-br from-white/95 to-white/80 backdrop-blur-2xl border border-white/70 shadow-[0_12px_48px_rgba(0,0,0,0.1)]",
+                  subtle: "bg-white/80 backdrop-blur-xl border border-white/40 shadow-[0_4px_24px_rgba(0,0,0,0.06)]"
+                };
                 
                 return (
-                  <div 
+                  <motion.div 
                     key={index}
-                    className={`flex-shrink-0 ${widthClass} bg-white/95 backdrop-blur-xl border border-black/5 rounded-2xl shadow-lg`}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.2 + index * 0.05 }}
+                    className={`flex-shrink-0 ${widthClass} ${variantClasses[variant || 'default']} rounded-2xl`}
                   >
                     <Component />
-                  </div>
+                  </motion.div>
                 );
               })}
             </motion.div>
           </AnimatePresence>
         </div>
 
-        {/* Navigation arrows */}
-        <div className="absolute left-4 right-4 top-1/2 -translate-y-1/2 flex justify-between z-20 pointer-events-none">
-          <button
+        {/* Navigation arrows - Superhuman style */}
+        <div className="absolute left-4 right-4 md:left-8 md:right-8 top-1/2 -translate-y-1/2 flex justify-between z-20 pointer-events-none">
+          <motion.button
             onClick={goToPrev}
-            className="pointer-events-auto p-3 rounded-full bg-white/20 backdrop-blur-xl border border-white/30 text-foreground hover:bg-white/30 transition-all shadow-lg"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            className="pointer-events-auto p-3 md:p-4 rounded-full bg-white/15 backdrop-blur-2xl border border-white/20 text-white hover:bg-white/25 transition-all shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
           >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <button
+            <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
+          </motion.button>
+          <motion.button
             onClick={goToNext}
-            className="pointer-events-auto p-3 rounded-full bg-white/20 backdrop-blur-xl border border-white/30 text-foreground hover:bg-white/30 transition-all shadow-lg"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            className="pointer-events-auto p-3 md:p-4 rounded-full bg-white/15 backdrop-blur-2xl border border-white/20 text-white hover:bg-white/25 transition-all shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
           >
-            <ChevronRight className="w-5 h-5" />
-          </button>
+            <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
+          </motion.button>
         </div>
 
-        {/* Slide indicators with labels */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-20">
-          <span className="text-xs font-medium text-foreground/80 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full">
+        {/* Slide indicators - elegant pill style */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 z-20">
+          <motion.span 
+            key={currentSlideData.title}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-sm font-semibold text-white bg-white/15 backdrop-blur-2xl px-5 py-2 rounded-full border border-white/20 shadow-lg"
+          >
             {currentSlideData.title}
-          </span>
-          <div className="flex gap-2">
+          </motion.span>
+          <div className="flex gap-2.5">
             {slides.map((slide, index) => (
               <button
                 key={index}
                 onClick={() => goToSlide(index)}
-                className={`h-2 rounded-full transition-all ${
+                className={`h-2.5 rounded-full transition-all duration-300 ${
                   index === currentSlide 
-                    ? "bg-primary w-6" 
-                    : "bg-white/40 hover:bg-white/60 w-2"
+                    ? "bg-white w-8 shadow-lg" 
+                    : "bg-white/30 hover:bg-white/50 w-2.5"
                 }`}
                 title={slide.title}
               />
