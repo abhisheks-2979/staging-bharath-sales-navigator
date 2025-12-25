@@ -44,10 +44,10 @@ const FloatingCard = ({
   variant?: "default" | "accent" | "subtle";
 }) => {
   const sizeClasses = {
-    small: "w-[160px] md:w-[180px]",
-    normal: "w-[200px] md:w-[220px]",
-    large: "w-[240px] md:w-[260px]",
-    wide: "w-[260px] md:w-[280px]"
+    small: "w-[150px] md:w-[160px]",
+    normal: "w-[170px] md:w-[190px]",
+    large: "w-[200px] md:w-[220px]",
+    wide: "w-[220px] md:w-[240px]"
   };
 
   const variantClasses = {
@@ -358,52 +358,52 @@ const slides = [
     background: distributorHero,
     title: "Distributor Management",
     cards: [
-      { Component: DistributorPortalCard, size: "large" as const, gridPos: 1, variant: "accent" as const },
-      { Component: OrderTrackingCard, size: "normal" as const, gridPos: 2, variant: "default" as const },
-      { Component: InventoryGRNCard, size: "normal" as const, gridPos: 3, variant: "default" as const },
-      { Component: ReturnsClaimsCard, size: "normal" as const, gridPos: 4, variant: "default" as const },
-      { Component: MDFSupportCard, size: "normal" as const, gridPos: 5, variant: "subtle" as const },
-      { Component: CollectionARCard, size: "normal" as const, gridPos: 6, variant: "subtle" as const },
+      { Component: DistributorPortalCard, size: "normal" as const, gridPos: 1, variant: "accent" as const },
+      { Component: OrderTrackingCard, size: "small" as const, gridPos: 2, variant: "default" as const },
+      { Component: InventoryGRNCard, size: "small" as const, gridPos: 3, variant: "default" as const },
+      { Component: ReturnsClaimsCard, size: "small" as const, gridPos: 4, variant: "default" as const },
+      { Component: MDFSupportCard, size: "small" as const, gridPos: 5, variant: "subtle" as const },
+      { Component: CollectionARCard, size: "small" as const, gridPos: 6, variant: "subtle" as const },
     ]
   }
 ];
 
-// Desktop card positions - well spaced, avoiding center title area
+// Desktop card positions - cards on far left/right edges, avoiding center title
 const getDesktopPosition = (gridPos: number, totalCards: number) => {
-  // 4 cards layout - 2 on each side, vertically stacked
+  // 4 cards layout - 2 on each side, vertically stacked with good separation
   if (totalCards === 4) {
     switch (gridPos) {
-      case 1: return "left-6 xl:left-12 top-[180px]";
-      case 2: return "right-6 xl:right-12 top-[180px]";
-      case 3: return "left-6 xl:left-12 bottom-[130px]";
-      case 4: return "right-6 xl:right-12 bottom-[130px]";
-      default: return "left-6 top-[180px]";
+      case 1: return "left-3 xl:left-6 top-[130px]";
+      case 2: return "right-3 xl:right-6 top-[130px]";
+      case 3: return "left-3 xl:left-6 bottom-[110px]";
+      case 4: return "right-3 xl:right-6 bottom-[110px]";
+      default: return "left-3 top-[130px]";
     }
   }
-  // 5 cards layout - asymmetric elegant arrangement (3 left, 2 right)
+  // 5 cards layout - 2 top, 2 bottom, 1 extra on right middle (with offset to avoid overlap)
   if (totalCards === 5) {
     switch (gridPos) {
-      case 1: return "left-6 xl:left-10 top-[160px]";
-      case 2: return "right-6 xl:right-10 top-[160px]";
-      case 3: return "left-6 xl:left-14 bottom-[130px]";
-      case 4: return "right-6 xl:right-14 bottom-[130px]";
-      case 5: return "right-6 xl:right-10 top-[380px]";
-      default: return "left-6 top-[160px]";
+      case 1: return "left-3 xl:left-6 top-[100px]";
+      case 2: return "right-3 xl:right-6 top-[100px]";
+      case 3: return "left-3 xl:left-6 bottom-[100px]";
+      case 4: return "right-3 xl:right-6 bottom-[100px]";
+      case 5: return "right-3 xl:right-6 top-[310px]"; // Middle right, with more gap from top card
+      default: return "left-3 top-[100px]";
     }
   }
-  // 6 cards layout - 3 on each side, staggered heights
+  // 6 cards layout - 3 on left, 3 on right (properly stacked vertically with gaps)
   if (totalCards === 6) {
     switch (gridPos) {
-      case 1: return "left-6 xl:left-10 top-[140px]";
-      case 2: return "right-6 xl:right-10 top-[140px]";
-      case 3: return "left-6 xl:left-14 top-[340px]";
-      case 4: return "right-6 xl:right-14 top-[340px]";
-      case 5: return "left-6 xl:left-10 bottom-[90px]";
-      case 6: return "right-6 xl:right-10 bottom-[90px]";
-      default: return "left-6 top-[140px]";
+      case 1: return "left-3 xl:left-6 top-[90px]";        // Top left
+      case 2: return "right-3 xl:right-6 top-[90px]";      // Top right
+      case 3: return "left-3 xl:left-6 top-[280px]";       // Mid left (gap of ~190px from top)
+      case 4: return "right-3 xl:right-6 top-[280px]";     // Mid right
+      case 5: return "left-3 xl:left-6 bottom-[70px]";     // Bottom left
+      case 6: return "right-3 xl:right-6 bottom-[70px]";   // Bottom right
+      default: return "left-3 top-[90px]";
     }
   }
-  return "left-6 top-[180px]";
+  return "left-3 top-[130px]";
 };
 
 export const HeroSection = () => {
