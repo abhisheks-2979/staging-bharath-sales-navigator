@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES, MIN_SYNC_INTERVAL_MS } from '@/lib/offlineStorage';
 import { loadMyVisitsSnapshot, saveMyVisitsSnapshot } from '@/lib/myVisitsSnapshot';
 import { getLocalTodayDate } from '@/utils/dateUtils';
-import { isSlowConnection, getConnectionQuality } from '@/utils/internetSpeedCheck';
+import { isSlowConnection, getConnectionQuality, getManualSlowMode } from '@/utils/internetSpeedCheck';
 
 interface UseVisitsDataOptimizedProps {
   userId: string | undefined;
@@ -362,11 +362,17 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       return;
     }
     
-    // SLOW CONNECTION CHECK: Skip network sync entirely on slow connections
+    // SLOW CONNECTION CHECK: Skip network sync entirely on slow connections or manual slow mode
     // This prevents lag and ensures instant display from cache
     const connectionQuality = getConnectionQuality();
-    if (isSlowConnection()) {
-      console.log('[SmartSync] ⚡ Skipping sync - slow connection detected:', connectionQuality);
+    const manualSlowMode = getManualSlowMode();
+    
+    if (isSlowConnection() || manualSlowMode) {
+      console.log('[SmartSync] ⚡ Skipping sync - slow connection/mode detected:', {
+        quality: connectionQuality,
+        manualSlowMode,
+        isSlowConnection: isSlowConnection()
+      });
       return;
     }
     

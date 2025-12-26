@@ -1,18 +1,39 @@
 import { useNetwork } from '@/contexts/NetworkContext';
-import { Wifi, WifiOff, AlertTriangle } from 'lucide-react';
-import { useState } from 'react';
+import { Wifi, WifiOff, AlertTriangle, Zap } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { setManualSlowMode, getManualSlowMode } from '@/utils/internetSpeedCheck';
 
 export function SlowConnectionBanner() {
   const { isOnline, isSlow, connectionQuality, manualOfflineMode, setManualOfflineMode } = useNetwork();
   const [expanded, setExpanded] = useState(false);
+  const [slowModeEnabled, setSlowModeEnabled] = useState(getManualSlowMode());
 
   const isOffline = !isOnline || manualOfflineMode;
+  const isSlowMode = slowModeEnabled && !isOffline;
   
-  // Don't show if connection is good
-  if (isOnline && !isSlow && !manualOfflineMode) {
+  // Show if: offline, slow connection, manual offline mode, or slow mode enabled
+  const shouldShow = !isOnline || isSlow || manualOfflineMode || slowModeEnabled;
+  
+  if (!shouldShow) {
     return null;
   }
+
+  const handleToggleSlowMode = () => {
+    const newValue = !slowModeEnabled;
+    setSlowModeEnabled(newValue);
+    setManualSlowMode(newValue);
+  };
+
+  // Determine display state priority: offline > slow mode > slow connection
+  const getDisplayState = () => {
+    if (isOffline) return 'offline';
+    if (isSlowMode) return 'slowMode';
+    if (isSlow) return 'slow';
+    return 'normal';
+  };
+
+  const displayState = getDisplayState();
 
   return (
     <div className="fixed bottom-20 right-4 z-[200]">
@@ -21,14 +42,20 @@ export function SlowConnectionBanner() {
         onClick={() => setExpanded(!expanded)}
         className={cn(
           "w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all",
-          isOffline 
-            ? "bg-destructive text-destructive-foreground" 
-            : "bg-warning text-warning-foreground"
+          displayState === 'offline' && "bg-destructive text-destructive-foreground",
+          displayState === 'slowMode' && "bg-primary text-primary-foreground",
+          displayState === 'slow' && "bg-warning text-warning-foreground"
         )}
-        aria-label={isOffline ? "Offline" : "Slow connection"}
+        aria-label={
+          displayState === 'offline' ? "Offline" : 
+          displayState === 'slowMode' ? "Slow Mode Active" : 
+          "Slow connection"
+        }
       >
-        {isOffline ? (
+        {displayState === 'offline' ? (
           <WifiOff className="h-5 w-5" />
+        ) : displayState === 'slowMode' ? (
+          <Zap className="h-5 w-5" />
         ) : (
           <AlertTriangle className="h-5 w-5" />
         )}
@@ -38,40 +65,66 @@ export function SlowConnectionBanner() {
       {expanded && (
         <div 
           className={cn(
-            "absolute bottom-12 right-0 w-48 p-3 rounded-lg shadow-xl text-xs animate-in fade-in slide-in-from-bottom-2 duration-200",
-            isOffline 
-              ? "bg-destructive text-destructive-foreground" 
-              : "bg-warning text-warning-foreground"
+            "absolute bottom-12 right-0 w-56 p-3 rounded-lg shadow-xl text-xs animate-in fade-in slide-in-from-bottom-2 duration-200",
+            displayState === 'offline' && "bg-destructive text-destructive-foreground",
+            displayState === 'slowMode' && "bg-primary text-primary-foreground",
+            displayState === 'slow' && "bg-warning text-warning-foreground"
           )}
         >
           <div className="font-medium mb-1">
-            {isOffline ? (manualOfflineMode ? 'Manual Offline' : 'No Internet') : 'Slow Connection'}
+            {displayState === 'offline' 
+              ? (manualOfflineMode ? 'Manual Offline' : 'No Internet')
+              : displayState === 'slowMode'
+              ? 'Slow Mode Active'
+              : 'Slow Connection'}
           </div>
           <div className="opacity-80 mb-2">
-            {isOffline ? 'Using cached data' : 'Some features may be delayed'}
+            {displayState === 'offline' 
+              ? 'Using cached data' 
+              : displayState === 'slowMode'
+              ? 'Loading from cache first'
+              : 'Some features may be delayed'}
           </div>
           
-          {manualOfflineMode ? (
-            <button
-              onClick={() => {
-                setManualOfflineMode(false);
-                setExpanded(false);
-              }}
-              className="text-xs underline opacity-80 hover:opacity-100"
-            >
-              Go online
-            </button>
-          ) : !isOffline ? (
-            <button
-              onClick={() => {
-                setManualOfflineMode(true);
-                setExpanded(false);
-              }}
-              className="text-xs underline opacity-80 hover:opacity-100"
-            >
-              Work offline
-            </button>
-          ) : null}
+          <div className="flex flex-col gap-2">
+            {/* Slow Mode Toggle */}
+            {!isOffline && (
+              <button
+                onClick={handleToggleSlowMode}
+                className={cn(
+                  "text-xs px-2 py-1 rounded transition-all",
+                  slowModeEnabled 
+                    ? "bg-background/20 hover:bg-background/30" 
+                    : "bg-background/10 hover:bg-background/20"
+                )}
+              >
+                {slowModeEnabled ? '⚡ Disable Slow Mode' : '🐢 Enable Slow Mode'}
+              </button>
+            )}
+            
+            {/* Offline Toggle */}
+            {manualOfflineMode ? (
+              <button
+                onClick={() => {
+                  setManualOfflineMode(false);
+                  setExpanded(false);
+                }}
+                className="text-xs underline opacity-80 hover:opacity-100"
+              >
+                Go online
+              </button>
+            ) : !isOffline ? (
+              <button
+                onClick={() => {
+                  setManualOfflineMode(true);
+                  setExpanded(false);
+                }}
+                className="text-xs underline opacity-80 hover:opacity-100"
+              >
+                Work fully offline
+              </button>
+            ) : null}
+          </div>
         </div>
       )}
     </div>
@@ -81,8 +134,9 @@ export function SlowConnectionBanner() {
 // Compact version for use in headers/status bars
 export function ConnectionStatusIndicator() {
   const { isOnline, isSlow, manualOfflineMode } = useNetwork();
+  const slowModeEnabled = getManualSlowMode();
 
-  if (isOnline && !isSlow && !manualOfflineMode) {
+  if (isOnline && !isSlow && !manualOfflineMode && !slowModeEnabled) {
     return null;
   }
 
@@ -94,6 +148,8 @@ export function ConnectionStatusIndicator() {
         "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs",
         isOffline 
           ? "bg-destructive/20 text-destructive" 
+          : slowModeEnabled
+          ? "bg-primary/20 text-primary"
           : "bg-warning/20 text-warning"
       )}
     >
@@ -101,6 +157,11 @@ export function ConnectionStatusIndicator() {
         <>
           <WifiOff className="h-3 w-3" />
           <span>Offline</span>
+        </>
+      ) : slowModeEnabled ? (
+        <>
+          <Zap className="h-3 w-3" />
+          <span>Slow Mode</span>
         </>
       ) : (
         <>
