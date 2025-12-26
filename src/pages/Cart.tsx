@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { format } from "date-fns";
 import { usePaymentProofMandatory } from '@/hooks/usePaymentProofMandatory';
 import { awardPointsForOrder, updateRetailerSequence } from "@/utils/gamificationPointsAwarder";
+import { awardLoyaltyPointsForOrder } from "@/utils/retailerLoyaltyPointsAwarder";
 import { CreditScoreDisplay } from "@/components/CreditScoreDisplay";
 import { submitOrderWithOfflineSupport } from "@/utils/offlineOrderUtils";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
@@ -921,6 +922,20 @@ export const Cart = () => {
 
             // Update retailer sequence
             await updateRetailerSequence(currentUserId, validRetailerId);
+
+            // Award retailer loyalty points
+            await awardLoyaltyPointsForOrder({
+              orderId: order.id,
+              retailerId: validRetailerId,
+              orderValue: totalAmount,
+              orderItems: orderItems.map(item => ({
+                product_id: item.product_id,
+                quantity: item.quantity,
+              })),
+              isFirstOrder,
+              fseUserId: currentUserId,
+              orderDate: new Date()
+            });
 
             // Create invoice record (for future editing/management)
             const invoiceDate = new Date().toISOString().split('T')[0];

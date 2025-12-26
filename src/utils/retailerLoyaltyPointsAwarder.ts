@@ -105,14 +105,33 @@ export async function awardLoyaltyPointsForOrder(context: OrderContext) {
             break;
 
           case "order_value_tiers":
-            // Check order value against tiers
+            // Check order value against tiers in metadata OR simple min/max in target_config
             const metadata2 = action.metadata as any;
+            const targetConfig = action.target_config as any;
             const tiers = metadata2?.tiers || [];
-            for (const tier of tiers) {
-              if (context.orderValue >= tier.min_value) {
+            
+            // Check tiered structure first
+            if (tiers.length > 0) {
+              for (const tier of tiers) {
+                if (context.orderValue >= tier.min_value) {
+                  shouldAward = true;
+                  pointsToAward = tier.points;
+                  metadata = { tier_name: tier.name, order_value: context.orderValue };
+                }
+              }
+            } 
+            // Check simple min/max in target_config (e.g., "Value > Rs. 500")
+            else if (targetConfig?.min_value) {
+              const minValue = targetConfig.min_value;
+              const maxValue = targetConfig.max_value || Infinity;
+              if (context.orderValue >= minValue && context.orderValue <= maxValue) {
                 shouldAward = true;
-                pointsToAward = tier.points;
-                metadata = { tier_name: tier.name, order_value: context.orderValue };
+                pointsToAward = action.points;
+                metadata = { 
+                  min_value: minValue, 
+                  max_value: maxValue !== Infinity ? maxValue : undefined,
+                  order_value: context.orderValue 
+                };
               }
             }
             break;
