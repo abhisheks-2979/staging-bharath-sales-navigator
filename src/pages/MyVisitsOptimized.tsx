@@ -1,15 +1,25 @@
 // OPTIMIZED DATA LOADING FUNCTIONS FOR MY VISITS
 // This file contains cache-first loading logic for instant performance
+// SLOW CONNECTION AWARE: Skips network sync entirely on slow connections
 
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { supabase } from '@/integrations/supabase/client';
 import { shouldSuppressError } from '@/utils/offlineErrorHandler';
 import { toast } from 'sonner';
+import { isSlowConnection, getConnectionQuality } from '@/utils/internetSpeedCheck';
 
-// Helper: Create a timeout promise - increased to 8 seconds for slow networks
-const createTimeout = (ms: number = 8000) => new Promise((_, reject) => 
+// Helper: Create a timeout promise - reduced for slow networks
+const createTimeout = (ms: number = 5000) => new Promise((_, reject) => 
   setTimeout(() => reject(new Error('Network timeout')), ms)
 );
+
+// Get appropriate timeout based on connection quality
+const getNetworkTimeout = (): number => {
+  const quality = getConnectionQuality();
+  if (quality === 'slow') return 0; // Don't even try
+  if (quality === 'medium') return 3000; // 3 seconds for medium
+  return 5000; // 5 seconds for fast
+};
 
 // CACHE-FIRST load planned beats (instant display)
 export const loadPlannedBeatsOptimized = async (
@@ -50,8 +60,10 @@ export const loadPlannedBeatsOptimized = async (
       await loadAllVisitsForDate(date, [], preserveOrder);
     }
 
-    // STEP 2: Background network sync (non-blocking, with timeout for slow networks)
-    if (navigator.onLine) {
+    // STEP 2: Background network sync (non-blocking)
+    // SLOW CONNECTION CHECK: Skip network sync entirely on slow connections
+    const timeoutMs = getNetworkTimeout();
+    if (navigator.onLine && timeoutMs > 0 && !isSlowConnection()) {
       // Use requestIdleCallback or setTimeout to not block UI
       const syncFromNetwork = async () => {
         try {
@@ -61,7 +73,7 @@ export const loadPlannedBeatsOptimized = async (
               .select('*')
               .eq('user_id', user.id)
               .eq('plan_date', date),
-            createTimeout(8000).then(() => null)
+            createTimeout(timeoutMs).then(() => null)
           ]).catch(() => null);
           
           if (!result || result.error) {
@@ -99,6 +111,8 @@ export const loadPlannedBeatsOptimized = async (
       } else {
         setTimeout(() => syncFromNetwork(), 100);
       }
+    } else if (isSlowConnection()) {
+      console.log('[LoadBeats] ⚡ Skipping network sync - slow connection, using cache');
     }
   } catch (error) {
     if (!shouldSuppressError(error)) {
@@ -192,11 +206,13 @@ export const loadAllVisitsForDateOptimized = async (
       setInitialRetailerOrder([]);
     }
 
-    // STEP 2: Background network sync (non-blocking, with timeout for slow networks)
-    if (navigator.onLine) {
+    // STEP 2: Background network sync (non-blocking)
+    // SLOW CONNECTION CHECK: Skip network sync entirely on slow connections
+    const timeoutMs = getNetworkTimeout();
+    if (navigator.onLine && timeoutMs > 0 && !isSlowConnection()) {
       const syncFromNetwork = async () => {
         try {
-          // Race against timeout - 8 seconds for slow networks
+          // Race against timeout based on connection quality
           const result = await Promise.race([
             Promise.all([
               supabase.from('visits').select('*').eq('user_id', user.id).eq('planned_date', date),
@@ -204,7 +220,7 @@ export const loadAllVisitsForDateOptimized = async (
                 ? supabase.from('retailers').select('id').eq('user_id', user.id).in('beat_id', plannedBeatIds)
                 : Promise.resolve({ data: [], error: null }),
             ]),
-            createTimeout(8000).then(() => null)
+            createTimeout(timeoutMs).then(() => null)
           ]).catch(() => null);
           
           if (!result) {
@@ -249,7 +265,7 @@ export const loadAllVisitsForDateOptimized = async (
                       .lte('created_at', dateEnd.toISOString())
                   : Promise.resolve({ data: [], error: null }),
               ]),
-              createTimeout(8000).then(() => null)
+              createTimeout(timeoutMs).then(() => null)
             ]).catch(() => null);
 
             if (!secondResult) {
@@ -297,6 +313,8 @@ export const loadAllVisitsForDateOptimized = async (
       } else {
         setTimeout(() => syncFromNetwork(), 100);
       }
+    } else if (isSlowConnection()) {
+      console.log('[LoadVisits] ⚡ Skipping network sync - slow connection, using cache');
     }
   } catch (error) {
     if (!shouldSuppressError(error)) {

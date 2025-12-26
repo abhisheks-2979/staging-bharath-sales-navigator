@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES, MIN_SYNC_INTERVAL_MS } from '@/lib/offlineStorage';
 import { loadMyVisitsSnapshot, saveMyVisitsSnapshot } from '@/lib/myVisitsSnapshot';
 import { getLocalTodayDate } from '@/utils/dateUtils';
+import { isSlowConnection, getConnectionQuality } from '@/utils/internetSpeedCheck';
 
 interface UseVisitsDataOptimizedProps {
   userId: string | undefined;
@@ -361,18 +362,27 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       return;
     }
     
+    // SLOW CONNECTION CHECK: Skip network sync entirely on slow connections
+    // This prevents lag and ensures instant display from cache
+    const connectionQuality = getConnectionQuality();
+    if (isSlowConnection()) {
+      console.log('[SmartSync] ⚡ Skipping sync - slow connection detected:', connectionQuality);
+      return;
+    }
+    
     if (!shouldSyncNow(date)) {
       console.log('[SmartSync] Skipping - synced recently');
       return;
     }
 
     smartSyncLockRef.current = true;
-    console.log('[SmartSync] Starting full sync for', date);
+    console.log('[SmartSync] Starting full sync for', date, '| Connection:', connectionQuality);
 
     try {
-      // 8-second timeout
+      // Reduce timeout for medium connections (5s), normal for fast (8s)
+      const timeoutMs = connectionQuality === 'medium' ? 5000 : 8000;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
       // FIX #1: ALWAYS fetch ALL visits and orders for the date (no delta filter)
       // This ensures unproductive visits are never missed due to stale delta timestamps
@@ -607,10 +617,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       setHasLoadedOnce(true);
       
       // Background smart sync - force if cache is stale
-      if (navigator.onLine && (isCacheStale || (isTodayDate && shouldSyncNow(selectedDate)))) {
+      // SLOW CONNECTION CHECK: Skip background sync entirely on slow connections
+      const slowConnection = isSlowConnection();
+      if (!slowConnection && navigator.onLine && (isCacheStale || (isTodayDate && shouldSyncNow(selectedDate)))) {
         console.log('[LoadData] Triggering sync - cache stale:', isCacheStale);
         requestIdleCallback?.(() => smartDeltaSync(effectiveUserId, selectedDate)) ||
           setTimeout(() => smartDeltaSync(effectiveUserId, selectedDate), 100);
+      } else if (slowConnection) {
+        console.log('[LoadData] ⚡ Skipping background sync - slow connection, using cache');
       }
       isFetchingRef.current = false;
       return;
@@ -674,10 +688,12 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
           timestamp: Date.now() 
         });
         
-        // CRITICAL FIX: For today's date, ALWAYS sync immediately after loading snapshot
-        // This ensures unproductive visits marked yesterday night (after last sync) show up
-        // Snapshots can be stale - network is the source of truth for visit statuses
-        if (navigator.onLine && isToday(selectedDate)) {
+        // CRITICAL FIX: For today's date, sync after loading snapshot
+        // SLOW CONNECTION CHECK: Skip all syncs on slow connections - use cached data
+        const slowConnection = isSlowConnection();
+        if (slowConnection) {
+          console.log('[LoadData] ⚡ Using snapshot only - slow connection detected');
+        } else if (navigator.onLine && isToday(selectedDate)) {
           // Skip throttle check for today - visit status must always be fresh
           requestIdleCallback?.(() => smartDeltaSync(effectiveUserId, selectedDate)) || 
             setTimeout(() => smartDeltaSync(effectiveUserId, selectedDate), 50);

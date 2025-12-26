@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { loadMyVisitsSnapshot, saveMyVisitsSnapshot } from '@/lib/myVisitsSnapshot';
+import { isSlowConnection } from '@/utils/internetSpeedCheck';
 
 interface UseVisitsDataProps {
   userId: string | undefined;
@@ -94,8 +95,8 @@ export const useVisitsData = ({ userId, selectedDate }: UseVisitsDataProps) => {
       setOrders(cached.orders);
       setIsLoading(false);
       
-      // Background sync for today only
-      if (navigator.onLine && isToday(selectedDate)) {
+      // Background sync for today only - skip on slow connections
+      if (navigator.onLine && isToday(selectedDate) && !isSlowConnection()) {
         setTimeout(() => syncFromNetwork(userId, selectedDate), 50);
       }
       isFetchingRef.current = false;
@@ -114,8 +115,8 @@ export const useVisitsData = ({ userId, selectedDate }: UseVisitsDataProps) => {
         
         cacheRef.current.set(selectedDate, snapshot);
         
-        // Background sync for today
-        if (navigator.onLine && isToday(selectedDate)) {
+        // Background sync for today - skip on slow connections
+        if (navigator.onLine && isToday(selectedDate) && !isSlowConnection()) {
           setTimeout(() => syncFromNetwork(userId, selectedDate), 50);
         }
         isFetchingRef.current = false;
@@ -170,21 +171,27 @@ export const useVisitsData = ({ userId, selectedDate }: UseVisitsDataProps) => {
       console.error('Cache load error:', e);
     }
 
-    // 4. Network sync in background
-    if (navigator.onLine) {
+    // 4. Network sync in background - skip on slow connections
+    if (navigator.onLine && !isSlowConnection()) {
       setTimeout(() => syncFromNetwork(userId, selectedDate), 100);
+    } else if (isSlowConnection()) {
+      console.log('[useVisitsData] ⚡ Skipping network sync - slow connection, using cache');
     }
     
     isFetchingRef.current = false;
   }, [userId, selectedDate]);
 
-  // Background network sync
+  // Background network sync - skip on slow connections
   const syncFromNetwork = useCallback(async (uid: string, date: string) => {
-    if (!navigator.onLine) return;
+    // SLOW CONNECTION CHECK: Skip network sync entirely on slow connections
+    if (!navigator.onLine || isSlowConnection()) {
+      console.log('[useVisitsData] ⚡ Skipping syncFromNetwork - slow/offline');
+      return;
+    }
     
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
+      const timeout = setTimeout(() => controller.abort(), 8000); // Reduced to 8s
 
       const [bpRes, vRes, oRes] = await Promise.all([
         supabase.from('beat_plans').select('*').eq('user_id', uid).eq('plan_date', date),
