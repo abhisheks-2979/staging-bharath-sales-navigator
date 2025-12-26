@@ -5,6 +5,7 @@ import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { syncOrdersToVanStock, getTodayDateString } from '@/utils/vanStockSync';
 import { visitStatusCache } from '@/lib/visitStatusCache';
+import { isSlowConnection } from '@/utils/internetSpeedCheck';
 
 export function useOfflineSync() {
   const connectivityStatus = useConnectivity();
@@ -14,7 +15,14 @@ export function useOfflineSync() {
 
   // Process sync queue when coming back online
   const processSyncQueue = useCallback(async () => {
+    // Don't sync if offline
     if (connectivityStatus !== 'online') return;
+    
+    // On very slow connections, delay sync to not compete with user actions
+    if (isSlowConnection()) {
+      console.log('📶 Slow connection detected - delaying background sync');
+      return;
+    }
     
     // Prevent concurrent sync operations
     if (isSyncingRef.current) {
