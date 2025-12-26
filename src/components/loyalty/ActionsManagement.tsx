@@ -19,8 +19,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Star, Trophy, Edit, Trash2, Eye } from "lucide-react";
+import { Plus, Star, Trophy, Edit, Trash2, Eye, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ActionTargetConfig, getTargetConfigDescription } from "./ActionTargetConfig";
 
 const ACTION_TYPES = [
   { value: "first_order", label: "First Order Bonus", icon: "🎉" },
@@ -41,6 +42,9 @@ export function ActionsManagement() {
   const [editingAction, setEditingAction] = useState<any>(null);
   const [viewingAction, setViewingAction] = useState<any>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [createActionType, setCreateActionType] = useState<string>("");
+  const [createTargetConfig, setCreateTargetConfig] = useState<Record<string, any>>({});
+  const [editTargetConfig, setEditTargetConfig] = useState<Record<string, any>>({});
   const queryClient = useQueryClient();
 
   const { data: programs } = useQuery({
@@ -140,8 +144,11 @@ export function ActionsManagement() {
       points: Number(formData.get("points")),
       is_enabled: true,
       metadata: {},
+      target_config: createTargetConfig,
     };
     createMutation.mutate(action);
+    setCreateActionType("");
+    setCreateTargetConfig({});
   };
 
   const handleEditSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -151,8 +158,10 @@ export function ActionsManagement() {
       action_type: formData.get("action_type"),
       action_name: formData.get("action_name"),
       points: Number(formData.get("points")),
+      target_config: editTargetConfig,
     };
     updateMutation.mutate({ id: editingAction.id, updates });
+    setEditTargetConfig({});
   };
 
   return (
@@ -191,7 +200,15 @@ export function ActionsManagement() {
               <form onSubmit={handleCreateSubmit} className="space-y-4">
                 <div>
                   <Label htmlFor="action_type">Action Type</Label>
-                  <Select name="action_type" required>
+                  <Select 
+                    name="action_type" 
+                    required
+                    value={createActionType}
+                    onValueChange={(val) => {
+                      setCreateActionType(val);
+                      setCreateTargetConfig({});
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select action type" />
                     </SelectTrigger>
@@ -223,6 +240,13 @@ export function ActionsManagement() {
                     required
                   />
                 </div>
+                {createActionType && (
+                  <ActionTargetConfig
+                    actionType={createActionType}
+                    value={createTargetConfig}
+                    onChange={setCreateTargetConfig}
+                  />
+                )}
                 <Button type="submit" className="w-full">
                   Create Action
                 </Button>
@@ -267,6 +291,12 @@ export function ActionsManagement() {
                     <span className="font-semibold">{action.points} Points</span>
                   </div>
                   <Badge variant="secondary">{actionType?.label}</Badge>
+                  {action.target_config && typeof action.target_config === 'object' && !Array.isArray(action.target_config) && Object.keys(action.target_config).length > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Settings className="h-3 w-3" />
+                      <span>{getTargetConfigDescription(action.action_type, action.target_config as Record<string, any>)}</span>
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -286,6 +316,11 @@ export function ActionsManagement() {
                       className="flex-1"
                       onClick={() => {
                         setEditingAction(action);
+                        setEditTargetConfig(
+                          action.target_config && typeof action.target_config === 'object' && !Array.isArray(action.target_config)
+                            ? action.target_config as Record<string, any>
+                            : {}
+                        );
                         setIsEditOpen(true);
                       }}
                     >
@@ -325,7 +360,16 @@ export function ActionsManagement() {
             <form onSubmit={handleEditSubmit} className="space-y-4">
               <div>
                 <Label htmlFor="edit_action_type">Action Type</Label>
-                <Select name="action_type" defaultValue={editingAction.action_type} required>
+                <Select 
+                  name="action_type" 
+                  defaultValue={editingAction.action_type} 
+                  onValueChange={(val) => {
+                    if (val !== editingAction.action_type) {
+                      setEditTargetConfig({});
+                    }
+                  }}
+                  required
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -357,6 +401,12 @@ export function ActionsManagement() {
                   required
                 />
               </div>
+              <ActionTargetConfig
+                actionType={editingAction.action_type}
+                value={editTargetConfig}
+                onChange={setEditTargetConfig}
+                prefix="edit_"
+              />
               <Button type="submit" className="w-full">
                 Update Action
               </Button>

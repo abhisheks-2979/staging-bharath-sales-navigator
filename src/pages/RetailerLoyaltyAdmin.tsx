@@ -8,6 +8,7 @@ import { ActionsManagement } from "@/components/loyalty/ActionsManagement";
 import { RetailerPointsDashboard } from "@/components/loyalty/RetailerPointsDashboard";
 import { RedemptionsManagement } from "@/components/loyalty/RedemptionsManagement";
 import { LoyaltyAnalytics } from "@/components/loyalty/LoyaltyAnalytics";
+import { RewardsManagement } from "@/components/loyalty/RewardsManagement";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function RetailerLoyaltyAdmin() {
@@ -51,8 +52,9 @@ export default function RetailerLoyaltyAdmin() {
 
         {/* Management Tabs */}
         <Tabs defaultValue="programs" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6">
             <TabsTrigger value="programs">Programs</TabsTrigger>
+            <TabsTrigger value="rewards">Rewards</TabsTrigger>
             <TabsTrigger value="actions">Actions</TabsTrigger>
             <TabsTrigger value="points">Points</TabsTrigger>
             <TabsTrigger value="redemptions">Redemptions</TabsTrigger>
@@ -61,6 +63,10 @@ export default function RetailerLoyaltyAdmin() {
 
           <TabsContent value="programs" className="space-y-4">
             <ProgramsManagement />
+          </TabsContent>
+
+          <TabsContent value="rewards" className="space-y-4">
+            <RewardsManagement />
           </TabsContent>
 
           <TabsContent value="actions" className="space-y-4">

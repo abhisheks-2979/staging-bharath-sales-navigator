@@ -17,7 +17,7 @@ import { toast } from "@/hooks/use-toast";
 import { 
   Phone, MapPin, Edit2, ExternalLink, TrendingUp, Trash2, ShoppingCart, 
   Check, ChevronsUpDown, FileText, Download, Send, Loader2, ChevronLeft, 
-  ChevronRight, Calendar, BarChart3, User, Building
+  ChevronRight, Calendar, BarChart3, User, Building, Gift
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -25,6 +25,7 @@ import { fetchAndGenerateInvoice } from "@/utils/invoiceGenerator";
 import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from "recharts";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths, startOfWeek, endOfWeek, startOfQuarter, endOfQuarter, subQuarters, subMonths as subM, startOfDay, subDays, startOfYear } from "date-fns";
+import { RetailerLoyaltySection } from "./loyalty/RetailerLoyaltySection";
 
 interface RetailerInvoice {
   id: string;
@@ -751,9 +752,12 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
 
         {/* Tabs */}
         <Tabs defaultValue="overview" className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid w-full grid-cols-4 h-9">
+          <TabsList className="grid w-full grid-cols-5 h-9">
             <TabsTrigger value="overview" className="text-xs">
               <TrendingUp className="h-3 w-3 mr-1" /> Overview
+            </TabsTrigger>
+            <TabsTrigger value="loyalty" className="text-xs">
+              <Gift className="h-3 w-3 mr-1" /> Loyalty
             </TabsTrigger>
             <TabsTrigger value="calendar" className="text-xs">
               <Calendar className="h-3 w-3 mr-1" /> Calendar
@@ -913,6 +917,15 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* Loyalty Tab */}
+            <TabsContent value="loyalty" className="mt-0">
+              <RetailerLoyaltySection 
+                retailerId={formData.id} 
+                retailerName={formData.name}
+                territoryId={formData.territory_id}
+              />
             </TabsContent>
 
             {/* Calendar Tab */}
