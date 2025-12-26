@@ -21,6 +21,7 @@ interface PaymentContext {
 export async function awardLoyaltyPointsForOrder(context: OrderContext) {
   try {
     console.log("🎁 Starting loyalty points calculation for order:", context.orderId);
+    console.log("📦 Order value:", context.orderValue, "Retailer:", context.retailerId);
 
     // Get retailer's territory
     const { data: retailer } = await supabase
@@ -29,24 +30,40 @@ export async function awardLoyaltyPointsForOrder(context: OrderContext) {
       .eq("id", context.retailerId)
       .single();
 
-    if (!retailer?.territory_id) {
-      console.log("⚠️ Retailer has no territory, skipping loyalty points");
-      return;
-    }
+    const territoryId = retailer?.territory_id;
+    console.log("🗺️ Retailer territory:", territoryId || "No territory assigned");
 
-    // Get active programs for this territory
-    const { data: programs } = await supabase
+    // Get active programs - include programs that apply to all territories OR specific territory
+    const orderDateStr = context.orderDate.toISOString().split("T")[0];
+    
+    let query = supabase
       .from("retailer_loyalty_programs")
       .select("*")
       .eq("is_active", true)
-      .lte("start_date", context.orderDate.toISOString().split("T")[0])
-      .gte("end_date", context.orderDate.toISOString().split("T")[0])
-      .or(`territories.cs.{${retailer.territory_id}},is_all_territories.eq.true`);
+      .lte("start_date", orderDateStr)
+      .gte("end_date", orderDateStr);
+    
+    // If retailer has a territory, get programs for that territory OR all territories
+    // If no territory, get programs that apply to all territories
+    if (territoryId) {
+      query = query.or(`is_all_territories.eq.true,territories.cs.{${territoryId}}`);
+    } else {
+      query = query.eq("is_all_territories", true);
+    }
 
-    if (!programs || programs.length === 0) {
-      console.log("⚠️ No active loyalty programs for this territory");
+    const { data: programs, error: programError } = await query;
+
+    if (programError) {
+      console.error("❌ Error fetching loyalty programs:", programError);
       return;
     }
+
+    if (!programs || programs.length === 0) {
+      console.log("⚠️ No active loyalty programs found for this retailer");
+      return;
+    }
+
+    console.log("✅ Found", programs.length, "active loyalty programs:", programs.map(p => p.program_name));
 
     // Get or create tracking record
     let { data: tracking } = await supabase
@@ -70,24 +87,41 @@ export async function awardLoyaltyPointsForOrder(context: OrderContext) {
     }
 
     for (const program of programs) {
+      console.log("📋 Processing program:", program.program_name);
+      
       // Get all enabled actions for this program
-      const { data: actions } = await supabase
+      const { data: actions, error: actionsError } = await supabase
         .from("retailer_loyalty_actions")
         .select("*")
         .eq("program_id", program.id)
         .eq("is_enabled", true);
 
-      if (!actions || actions.length === 0) continue;
+      if (actionsError) {
+        console.error("❌ Error fetching actions:", actionsError);
+        continue;
+      }
+
+      if (!actions || actions.length === 0) {
+        console.log("⚠️ No enabled actions for program:", program.program_name);
+        continue;
+      }
+      
+      console.log("🎯 Found", actions.length, "enabled actions:", actions.map(a => `${a.action_name} (${a.action_type})`))
 
       for (const action of actions) {
         let shouldAward = false;
         let pointsToAward = action.points;
         let metadata: any = {};
 
+        console.log(`🔍 Checking action: ${action.action_name} (${action.action_type})`);
+        console.log("   target_config:", JSON.stringify(action.target_config));
+        console.log("   metadata:", JSON.stringify(action.metadata));
+
         switch (action.action_type) {
           case "first_order":
             shouldAward = context.isFirstOrder;
             metadata = { order_number: 1 };
+            console.log(`   first_order check: isFirstOrder=${context.isFirstOrder}, shouldAward=${shouldAward}`);
             break;
 
           case "order_frequency":
@@ -110,6 +144,8 @@ export async function awardLoyaltyPointsForOrder(context: OrderContext) {
             const targetConfig = action.target_config as any;
             const tiers = metadata2?.tiers || [];
             
+            console.log(`   order_value_tiers check: orderValue=${context.orderValue}, tiers=${tiers.length}, targetConfig=`, targetConfig);
+            
             // Check tiered structure first
             if (tiers.length > 0) {
               for (const tier of tiers) {
@@ -117,14 +153,16 @@ export async function awardLoyaltyPointsForOrder(context: OrderContext) {
                   shouldAward = true;
                   pointsToAward = tier.points;
                   metadata = { tier_name: tier.name, order_value: context.orderValue };
+                  console.log(`   Matched tier: ${tier.name}, points=${tier.points}`);
                 }
               }
             } 
             // Check simple min/max in target_config (e.g., "Value > Rs. 500")
-            else if (targetConfig?.min_value) {
-              const minValue = targetConfig.min_value;
-              const maxValue = targetConfig.max_value || Infinity;
-              if (context.orderValue >= minValue && context.orderValue <= maxValue) {
+            else if (targetConfig?.min_value !== undefined) {
+              const minValue = Number(targetConfig.min_value);
+              const maxValue = targetConfig.max_value !== undefined ? Number(targetConfig.max_value) : Infinity;
+              console.log(`   Checking range: ${minValue} <= ${context.orderValue} <= ${maxValue}`);
+              if (context.orderValue >= minValue && (maxValue === Infinity || context.orderValue <= maxValue)) {
                 shouldAward = true;
                 pointsToAward = action.points;
                 metadata = { 
@@ -132,6 +170,7 @@ export async function awardLoyaltyPointsForOrder(context: OrderContext) {
                   max_value: maxValue !== Infinity ? maxValue : undefined,
                   order_value: context.orderValue 
                 };
+                console.log(`   ✅ Matched! Awarding ${pointsToAward} points`);
               }
             }
             break;
@@ -178,9 +217,11 @@ export async function awardLoyaltyPointsForOrder(context: OrderContext) {
             break;
         }
 
+        console.log(`   Result: shouldAward=${shouldAward}, points=${pointsToAward}`);
+
         if (shouldAward) {
           // Insert loyalty points
-          const { error } = await supabase.from("retailer_loyalty_points").insert({
+          const { data: insertedPoints, error } = await supabase.from("retailer_loyalty_points").insert({
             program_id: program.id,
             retailer_id: context.retailerId,
             action_id: action.id,
@@ -189,13 +230,13 @@ export async function awardLoyaltyPointsForOrder(context: OrderContext) {
             reference_id: context.orderId,
             awarded_by_user_id: context.fseUserId,
             metadata,
-          });
+          }).select();
 
           if (error) {
             console.error("❌ Error awarding loyalty points:", error);
           } else {
             console.log(
-              `✅ Awarded ${pointsToAward} points for ${action.action_name}`
+              `✅ Awarded ${pointsToAward} points for ${action.action_name}`, insertedPoints
             );
           }
         }
