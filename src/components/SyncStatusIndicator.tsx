@@ -1,20 +1,41 @@
 import { useEffect, useState, memo, useCallback, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Cloud, CloudOff, RefreshCw, CheckCircle2, AlertCircle } from "lucide-react";
+import { Cloud, CloudOff, RefreshCw, CheckCircle2, AlertCircle, Database } from "lucide-react";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { toast } from "@/hooks/use-toast";
 import { SyncProgressModal } from "./SyncProgressModal";
+import { CacheWarmingProgress, useCacheWarming } from "./CacheWarmingProgress";
+import { useMasterDataCache } from "@/hooks/useMasterDataCache";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 export const SyncStatusIndicator = memo(() => {
   const isOnline = useConnectivity() === 'online';
   const { processSyncQueue } = useOfflineSync();
+  const { warmCacheWithProgress } = useMasterDataCache();
   const [syncQueueCount, setSyncQueueCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncStatus, setLastSyncStatus] = useState<'success' | 'error' | null>(null);
-  const [showModal, setShowModal] = useState(false);
+  const [showSyncModal, setShowSyncModal] = useState(false);
   const mountedRef = useRef(true);
+
+  // Cache warming state
+  const {
+    isWarming,
+    steps,
+    currentStep,
+    startWarming,
+    updateStep,
+    completeWarming,
+    dismissWarming,
+  } = useCacheWarming();
 
   // ONE-TIME CLEANUP: Remove old stuck items from sync queue on app open
   useEffect(() => {
@@ -164,13 +185,33 @@ export const SyncStatusIndicator = memo(() => {
     };
   }, [isOnline, syncQueueCount, isSyncing, processSyncQueue]);
 
-  // Only show when ACTIVELY syncing or have ACTUAL pending items (not stuck/old ones)
-  // Don't show just because we checked the queue - only when there's real work to do
-  if (isSyncing) {
-    return (
-      <>
+  // Handle prepare offline data click
+  const handlePrepareOfflineData = useCallback(() => {
+    if (!isOnline) {
+      toast({
+        title: "You're offline",
+        description: "Please connect to the internet to prepare offline data.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    startWarming();
+    warmCacheWithProgress((stepId, status) => {
+      updateStep(stepId, status);
+    });
+  }, [isOnline, startWarming, warmCacheWithProgress, updateStep]);
+
+  // Handle view sync queue click
+  const handleViewSyncQueue = useCallback(() => {
+    setShowSyncModal(true);
+  }, []);
+
+  // Render the dropdown menu trigger
+  const renderTrigger = () => {
+    if (isSyncing) {
+      return (
         <button
-          onClick={() => setShowModal(true)}
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           title="Syncing data..."
         >
@@ -179,17 +220,12 @@ export const SyncStatusIndicator = memo(() => {
             <span className="text-xs text-primary-foreground/70">{syncQueueCount}</span>
           )}
         </button>
-        <SyncProgressModal open={showModal} onOpenChange={setShowModal} />
-      </>
-    );
-  }
-  
-  // Show static indicator when there are actual pending items (both online and offline)
-  if (syncQueueCount > 0) {
-    return (
-      <>
+      );
+    }
+    
+    if (syncQueueCount > 0) {
+      return (
         <button
-          onClick={() => setShowModal(true)}
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           title={isOnline ? `${syncQueueCount} items pending sync` : `${syncQueueCount} items waiting to sync when online`}
         >
@@ -200,13 +236,61 @@ export const SyncStatusIndicator = memo(() => {
           )}
           <span className="text-xs text-primary-foreground/70">{syncQueueCount}</span>
         </button>
-        <SyncProgressModal open={showModal} onOpenChange={setShowModal} />
-      </>
+      );
+    }
+    
+    // Always show sync icon for access to Prepare Offline Data
+    return (
+      <button
+        className="flex items-center gap-1 hover:opacity-80 transition-opacity"
+        title="Sync options"
+      >
+        <Database className="h-4 w-4 text-primary-foreground/70" />
+      </button>
     );
-  }
-  
-  // Don't show anything when queue is empty
-  return null;
+  };
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          {renderTrigger()}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-[200px]">
+          <DropdownMenuItem onClick={handlePrepareOfflineData} disabled={!isOnline}>
+            <Database className="h-4 w-4 mr-2 text-blue-500" />
+            <span>Prepare Offline Data</span>
+          </DropdownMenuItem>
+          {syncQueueCount > 0 && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleViewSyncQueue}>
+                <RefreshCw className="h-4 w-4 mr-2 text-green-500" />
+                <span>View Sync Queue ({syncQueueCount})</span>
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Sync Queue Modal */}
+      <SyncProgressModal 
+        open={showSyncModal} 
+        onOpenChange={setShowSyncModal}
+        onTriggerSync={processSyncQueue}
+      />
+
+      {/* Cache Warming Progress Modal */}
+      <CacheWarmingProgress
+        isOpen={isWarming}
+        onComplete={completeWarming}
+        onDismiss={dismissWarming}
+        steps={steps}
+        currentStep={currentStep}
+        isOnline={isOnline}
+      />
+    </>
+  );
 });
 
 SyncStatusIndicator.displayName = 'SyncStatusIndicator';
