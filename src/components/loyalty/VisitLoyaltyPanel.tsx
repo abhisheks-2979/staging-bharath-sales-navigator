@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Star, Gift, ChevronDown, ChevronUp, Target, Sparkles, TrendingUp, Calendar } from "lucide-react";
 import { LoyaltyCrossSellCard } from "./LoyaltyCrossSellCard";
-
+import { LoyaltyScoreClickable } from "./LoyaltyScoreClickable";
 interface VisitLoyaltyPanelProps {
   retailerId: string;
   compact?: boolean;
@@ -101,18 +101,23 @@ export function VisitLoyaltyPanel({ retailerId, compact = false }: VisitLoyaltyP
     : 100;
   const pointsToNext = nextReward ? nextReward.points_required - totalPoints : 0;
 
-  // Compact view for visit card
+  // Compact view for visit card - clickable to show breakdown modal
   if (compact) {
     return (
-      <div className="flex items-center gap-2 text-sm">
-        <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-        <span className="font-medium">{totalPoints.toLocaleString()} pts</span>
-        {nextReward && pointsToNext <= 500 && (
-          <Badge variant="secondary" className="text-xs">
-            {pointsToNext} to {nextReward.reward_name}
-          </Badge>
-        )}
-      </div>
+      <LoyaltyScoreClickable 
+        retailerId={retailerId}
+        totalPoints={totalPoints}
+        programData={programData}
+        rewards={rewards || []}
+        actions={(actions || []).map(a => ({
+          id: a.id,
+          action_name: a.action_name,
+          action_type: a.action_type,
+          points: a.points,
+          is_enabled: a.is_enabled,
+          target_config: (a.target_config as Record<string, any>) || {}
+        }))}
+      />
     );
   }
 
