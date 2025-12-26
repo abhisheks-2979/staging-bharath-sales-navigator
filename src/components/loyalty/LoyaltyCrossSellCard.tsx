@@ -59,17 +59,18 @@ export function LoyaltyCrossSellCard({
   });
 
   // Fetch popular products
-  const { data: popularProducts } = useQuery({
+  const { data: popularProducts } = useQuery<Array<{ id: string; name: string }>>({
     queryKey: ["popular-products-for-retailer", retailerId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Using explicit any to avoid deep type instantiation from products table
+      const result = await (supabase as any)
         .from("products")
         .select("id, name")
         .eq("status", "active")
         .limit(5);
       
-      if (error) throw error;
-      return data as Array<{ id: string; name: string }>;
+      if (result.error) throw result.error;
+      return (result.data ?? []) as Array<{ id: string; name: string }>;
     },
   });
 
