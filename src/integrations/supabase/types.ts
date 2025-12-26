@@ -6721,6 +6721,7 @@ export type Database = {
           metadata: Json | null
           points: number
           program_id: string
+          target_config: Json | null
           updated_at: string | null
         }
         Insert: {
@@ -6732,6 +6733,7 @@ export type Database = {
           metadata?: Json | null
           points?: number
           program_id: string
+          target_config?: Json | null
           updated_at?: string | null
         }
         Update: {
@@ -6743,6 +6745,7 @@ export type Database = {
           metadata?: Json | null
           points?: number
           program_id?: string
+          target_config?: Json | null
           updated_at?: string | null
         }
         Relationships: [
@@ -6973,6 +6976,132 @@ export type Database = {
             columns: ["retailer_id"]
             isOneToOne: false
             referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      retailer_loyalty_reward_redemptions: {
+        Row: {
+          created_at: string | null
+          delivery_address: string | null
+          delivery_notes: string | null
+          id: string
+          points_redeemed: number
+          processed_at: string | null
+          processed_by: string | null
+          program_id: string
+          requested_at: string | null
+          retailer_id: string
+          reward_id: string
+          status: string | null
+          tracking_info: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          delivery_address?: string | null
+          delivery_notes?: string | null
+          id?: string
+          points_redeemed: number
+          processed_at?: string | null
+          processed_by?: string | null
+          program_id: string
+          requested_at?: string | null
+          retailer_id: string
+          reward_id: string
+          status?: string | null
+          tracking_info?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          delivery_address?: string | null
+          delivery_notes?: string | null
+          id?: string
+          points_redeemed?: number
+          processed_at?: string | null
+          processed_by?: string | null
+          program_id?: string
+          requested_at?: string | null
+          retailer_id?: string
+          reward_id?: string
+          status?: string | null
+          tracking_info?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retailer_loyalty_reward_redemptions_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "retailer_loyalty_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retailer_loyalty_reward_redemptions_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retailer_loyalty_reward_redemptions_reward_id_fkey"
+            columns: ["reward_id"]
+            isOneToOne: false
+            referencedRelation: "retailer_loyalty_rewards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      retailer_loyalty_rewards: {
+        Row: {
+          cash_value: number | null
+          created_at: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          points_required: number
+          program_id: string
+          reward_name: string
+          reward_type: string
+          stock_quantity: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          cash_value?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          points_required: number
+          program_id: string
+          reward_name: string
+          reward_type: string
+          stock_quantity?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          cash_value?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          points_required?: number
+          program_id?: string
+          reward_name?: string
+          reward_type?: string
+          stock_quantity?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retailer_loyalty_rewards_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "retailer_loyalty_programs"
             referencedColumns: ["id"]
           },
         ]
@@ -9356,6 +9485,15 @@ export type Database = {
         }
         Update: {
           total_amount?: number | null
+        }
+        Relationships: []
+      }
+      productive_view: {
+        Row: {
+          full_name: string | null
+          productive_visits: number | null
+          productivity_percentage: number | null
+          total_visits: number | null
         }
         Relationships: []
       }
