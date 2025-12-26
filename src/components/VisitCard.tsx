@@ -1,4 +1,4 @@
-import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck, UserCheck, Target } from "lucide-react";
+import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck, UserCheck, Target, Gift } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,6 +42,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { RetailerDetailModal } from "./RetailerDetailModal";
 import { FeedbackListView } from "./FeedbackListView";
 import { getLocalTodayDate } from "@/utils/dateUtils";
+import { VisitLoyaltyPanel } from "./loyalty/VisitLoyaltyPanel";
 interface Visit {
   id: string;
   retailerId?: string;
@@ -2103,8 +2104,9 @@ export const VisitCard = ({
               )}
             </div>
             {visit.retailerId && (
-              <div className="mt-2">
+              <div className="mt-2 flex items-center gap-2">
                 <CreditScoreDisplay retailerId={visit.retailerId} variant="compact" />
+                <VisitLoyaltyPanel retailerId={visit.retailerId} compact />
               </div>
             )}
           </div>
