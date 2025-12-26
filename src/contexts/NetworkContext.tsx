@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { getManualSlowMode, probeConnectionSpeed } from '@/utils/internetSpeedCheck';
 
 type ConnectionQuality = 'fast' | 'slow' | 'offline';
 type EffectiveType = '4g' | '3g' | '2g' | 'slow-2g' | 'unknown';
@@ -10,12 +11,14 @@ interface NetworkState {
   effectiveType: EffectiveType;
   shouldReduceData: boolean;
   lastChecked: Date | null;
+  lastSyncTime: Date | null;
 }
 
 interface NetworkContextValue extends NetworkState {
   checkConnection: () => void;
   setManualOfflineMode: (offline: boolean) => void;
   manualOfflineMode: boolean;
+  updateLastSyncTime: () => void;
 }
 
 const NetworkContext = createContext<NetworkContextValue | null>(null);
@@ -33,8 +36,9 @@ function getConnectionInfo(): { effectiveType: EffectiveType; downlink: number }
 }
 
 // Determine connection quality based on effective type and online status
-function determineQuality(isOnline: boolean, effectiveType: EffectiveType): ConnectionQuality {
+function determineQuality(isOnline: boolean, effectiveType: EffectiveType, hasSlowModeEnabled: boolean): ConnectionQuality {
   if (!isOnline) return 'offline';
+  if (hasSlowModeEnabled) return 'slow';
   
   switch (effectiveType) {
     case 'slow-2g':
@@ -51,38 +55,62 @@ function determineQuality(isOnline: boolean, effectiveType: EffectiveType): Conn
 
 export function NetworkProvider({ children }: { children: React.ReactNode }) {
   const [manualOfflineMode, setManualOfflineMode] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(() => {
+    // Try to restore from localStorage
+    const saved = localStorage.getItem('lastSyncTime');
+    return saved ? new Date(saved) : null;
+  });
+  
   const [state, setState] = useState<NetworkState>(() => {
     const isOnline = navigator.onLine;
     const { effectiveType } = getConnectionInfo();
-    const quality = determineQuality(isOnline, effectiveType);
+    const slowModeEnabled = getManualSlowMode();
+    const quality = determineQuality(isOnline, effectiveType, slowModeEnabled);
     
     return {
       isOnline,
-      isSlow: quality === 'slow',
+      isSlow: quality === 'slow' || slowModeEnabled,
       connectionQuality: quality,
       effectiveType,
       shouldReduceData: quality !== 'fast',
       lastChecked: new Date(),
+      lastSyncTime: null,
     };
   });
 
   const mountedRef = useRef(true);
 
-  const updateConnectionState = useCallback(() => {
+  const updateLastSyncTime = useCallback(() => {
+    const now = new Date();
+    setLastSyncTime(now);
+    localStorage.setItem('lastSyncTime', now.toISOString());
+  }, []);
+
+  const updateConnectionState = useCallback(async () => {
     if (!mountedRef.current) return;
     
     const isOnline = navigator.onLine && !manualOfflineMode;
     const { effectiveType } = getConnectionInfo();
-    const quality = manualOfflineMode ? 'offline' : determineQuality(isOnline, effectiveType);
+    const slowModeEnabled = getManualSlowMode();
     
-    setState({
+    // If Network API is unavailable, use probe result
+    let finalEffectiveType = effectiveType;
+    if (effectiveType === 'unknown' && isOnline) {
+      const probeResult = await probeConnectionSpeed();
+      finalEffectiveType = probeResult === 'slow' ? '2g' : '4g';
+    }
+    
+    const quality = manualOfflineMode ? 'offline' : determineQuality(isOnline, finalEffectiveType, slowModeEnabled);
+    
+    setState(prev => ({
       isOnline: isOnline && !manualOfflineMode,
-      isSlow: quality === 'slow',
+      isSlow: quality === 'slow' || slowModeEnabled,
       connectionQuality: quality,
-      effectiveType,
+      effectiveType: finalEffectiveType,
       shouldReduceData: quality !== 'fast',
       lastChecked: new Date(),
-    });
+      lastSyncTime: prev.lastSyncTime,
+    }));
   }, [manualOfflineMode]);
 
   const checkConnection = useCallback(() => {
@@ -90,15 +118,13 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
     
     // Also do a soft network probe if online
     if (navigator.onLine && !manualOfflineMode) {
-      fetch('/ping.txt', { method: 'HEAD', cache: 'no-store' })
-        .then(() => {
-          // Connection confirmed
+      probeConnectionSpeed()
+        .then((result) => {
           if (mountedRef.current) {
             updateConnectionState();
           }
         })
         .catch(() => {
-          // Network probe failed - might be slow or offline
           console.log('⚠️ Network probe failed');
         });
     }
@@ -156,9 +182,11 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
 
   const value: NetworkContextValue = {
     ...state,
+    lastSyncTime,
     checkConnection,
     setManualOfflineMode,
     manualOfflineMode,
+    updateLastSyncTime,
   };
 
   return (
@@ -179,9 +207,11 @@ export function useNetwork(): NetworkContextValue {
       effectiveType: 'unknown',
       shouldReduceData: false,
       lastChecked: null,
+      lastSyncTime: null,
       checkConnection: () => {},
       setManualOfflineMode: () => {},
       manualOfflineMode: false,
+      updateLastSyncTime: () => {},
     };
   }
   return context;
