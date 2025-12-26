@@ -15,6 +15,8 @@ import { useMasterDataCache } from "@/hooks/useMasterDataCache";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useAndroidBackButton } from "@/hooks/useAndroidBackButton";
 import { visitStatusCache } from "@/lib/visitStatusCache";
+import { NetworkProvider } from "@/contexts/NetworkContext";
+import { SlowConnectionBanner } from "@/components/SlowConnectionBanner";
 
 // Initialize visit status cache early to avoid flicker
 visitStatusCache.init();
@@ -197,13 +199,16 @@ const App = () => {
   return (
     <I18nextProvider i18n={i18n}>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <TooltipProvider>
-            <BrowserRouter>
-              <AppContent hasError={hasError} />
-            </BrowserRouter>
-          </TooltipProvider>
-        </AuthProvider>
+        <NetworkProvider>
+          <AuthProvider>
+            <TooltipProvider>
+              <BrowserRouter>
+                <SlowConnectionBanner />
+                <AppContent hasError={hasError} />
+              </BrowserRouter>
+            </TooltipProvider>
+          </AuthProvider>
+        </NetworkProvider>
       </QueryClientProvider>
     </I18nextProvider>
   );
