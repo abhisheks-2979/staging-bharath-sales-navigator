@@ -1,25 +1,55 @@
-import {useEffect, useRef, useState} from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { 
+  getNetworkStatus, 
+  addNetworkListener, 
+  isNativePlatform,
+  NetworkStatus 
+} from '@/utils/nativeNetworkService';
 
 type Status = 'unknown' | 'online' | 'offline';
 
 /**
- * Lightweight connectivity hook that primarily relies on browser events
- * and navigator.onLine for instant status updates.
+ * Lightweight connectivity hook that works on both web and native (Capacitor)
  * 
- * Network probing is used sparingly and only when online to confirm connectivity.
- * This ensures pages load instantly from cache without waiting for network checks.
+ * On native: Uses Capacitor Network plugin for reliable status
+ * On web: Uses browser events + optional probe for verification
  */
 export function useConnectivity(pollMs = 30000, startupDelayMs = 2000) {
-  // Start with browser's connectivity state for INSTANT feedback
-  // This is the key - we trust navigator.onLine immediately so pages can load
-  const [status, setStatus] = useState<Status>(navigator.onLine ? 'online' : 'offline');
+  const [status, setStatus] = useState<Status>(() => {
+    // Start with browser's connectivity state for instant feedback
+    return navigator.onLine ? 'online' : 'offline';
+  });
+  
   const timer = useRef<number | null>(null);
   const poller = useRef<number | null>(null);
   const mountedRef = useRef(true);
 
-  // Soft probe - only confirms connectivity, doesn't aggressively check
+  // Update status from network service
+  const updateStatus = async () => {
+    if (!mountedRef.current) return;
+    
+    try {
+      const networkStatus = await getNetworkStatus();
+      if (mountedRef.current) {
+        setStatus(networkStatus.connected ? 'online' : 'offline');
+      }
+    } catch (error) {
+      // Fallback to browser state
+      if (mountedRef.current) {
+        setStatus(navigator.onLine ? 'online' : 'offline');
+      }
+    }
+  };
+
+  // Web-only probe (skip on native since we have Capacitor plugin)
   const probe = async () => {
     if (!mountedRef.current) return;
+    
+    // On native, just use the network service
+    if (isNativePlatform()) {
+      await updateStatus();
+      return;
+    }
     
     // Trust browser's navigator.onLine as primary source
     if (!navigator.onLine) {
@@ -28,12 +58,12 @@ export function useConnectivity(pollMs = 30000, startupDelayMs = 2000) {
     }
 
     // If browser says online, we trust it immediately
-    // Only do a soft verification in background
     setStatus('online');
     
+    // Soft verification in background
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       
       const res = await fetch('/ping.txt', { 
         method: 'HEAD', 
@@ -44,12 +74,9 @@ export function useConnectivity(pollMs = 30000, startupDelayMs = 2000) {
       clearTimeout(timeoutId);
       
       if (!res.ok && mountedRef.current) {
-        // Only mark offline if the fetch explicitly fails
-        console.log('⚠️ Connectivity verification failed, but staying online based on navigator.onLine');
+        console.log('⚠️ Connectivity verification failed');
       }
     } catch (error) {
-      // Don't immediately mark as offline on probe failure
-      // Trust navigator.onLine instead
       if (!navigator.onLine && mountedRef.current) {
         setStatus('offline');
       }
@@ -59,11 +86,17 @@ export function useConnectivity(pollMs = 30000, startupDelayMs = 2000) {
   useEffect(() => {
     mountedRef.current = true;
     
-    // Browser connectivity events - respond IMMEDIATELY
+    // Add network status listener (works on both native and web)
+    const removeListener = addNetworkListener((networkStatus: NetworkStatus) => {
+      if (!mountedRef.current) return;
+      console.log('📶 useConnectivity: status changed', networkStatus);
+      setStatus(networkStatus.connected ? 'online' : 'offline');
+    });
+    
+    // Browser events as backup (especially for web)
     const onOnline = () => {
       console.log('🌐 Browser online event');
       setStatus('online');
-      // Soft probe to confirm, but don't block on it
       setTimeout(() => probe(), 500);
     };
     
@@ -75,27 +108,33 @@ export function useConnectivity(pollMs = 30000, startupDelayMs = 2000) {
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
 
-    // Delayed initial probe - don't block page loading
+    // Initial status check
+    updateStatus();
+
+    // Delayed probe (mainly for web)
     timer.current = window.setTimeout(() => {
-      if (mountedRef.current && navigator.onLine) {
+      if (mountedRef.current) {
         probe();
       }
-      // Start infrequent polling (30 seconds) only when online
+      
+      // Polling - less frequent on native since we have listeners
+      const pollInterval = isNativePlatform() ? pollMs * 2 : pollMs;
       poller.current = window.setInterval(() => {
-        if (mountedRef.current && navigator.onLine) {
-          probe();
+        if (mountedRef.current) {
+          updateStatus();
         }
-      }, pollMs);
+      }, pollInterval);
     }, startupDelayMs);
 
     return () => {
       mountedRef.current = false;
+      removeListener();
       if (timer.current) clearTimeout(timer.current);
       if (poller.current) clearInterval(poller.current);
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
     };
-  }, []);
+  }, [pollMs, startupDelayMs]);
 
   return status;
 }

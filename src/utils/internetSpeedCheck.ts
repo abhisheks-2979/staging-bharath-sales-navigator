@@ -1,8 +1,10 @@
 /**
  * Utility to check internet connection speed
- * Uses Network Information API with timeout-based fallback
+ * Uses Capacitor Network plugin for native apps, browser APIs for web
  * Returns estimated upload speed in Mbps
  */
+
+import { getNetworkStatus, getNetworkStatusSync, isNativePlatform } from './nativeNetworkService';
 
 // Cache the speed result to avoid repeated checks
 let cachedSpeed: number | null = null;
@@ -17,11 +19,21 @@ const PROBE_CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
 // Manual slow mode flag (user can force slow mode)
 let manualSlowMode: boolean = false;
 
+// Persist manual slow mode
+const SLOW_MODE_KEY = 'manualSlowMode';
+try {
+  const saved = localStorage.getItem(SLOW_MODE_KEY);
+  if (saved === 'true') manualSlowMode = true;
+} catch {}
+
 /**
  * Set manual slow mode - forces offline-first behavior
  */
 export const setManualSlowMode = (enabled: boolean): void => {
   manualSlowMode = enabled;
+  try {
+    localStorage.setItem(SLOW_MODE_KEY, enabled ? 'true' : 'false');
+  } catch {}
   console.log(`📶 Manual slow mode: ${enabled ? 'ON' : 'OFF'}`);
 };
 
@@ -33,6 +45,7 @@ export const getManualSlowMode = (): boolean => manualSlowMode;
 /**
  * Perform a quick timeout-based probe to detect slow connections
  * This is used as a fallback when Network Information API is unavailable
+ * Skip probe on native platforms - use Capacitor Network plugin instead
  */
 export const probeConnectionSpeed = async (): Promise<'fast' | 'slow'> => {
   // Return cached probe result if still valid
@@ -45,6 +58,21 @@ export const probeConnectionSpeed = async (): Promise<'fast' | 'slow'> => {
     return 'slow';
   }
 
+  // For native platforms, use Capacitor Network plugin instead of probe
+  if (isNativePlatform()) {
+    try {
+      const status = await getNetworkStatus();
+      probeResult = status.isSlowConnection ? 'slow' : 'fast';
+      probeTimestamp = Date.now();
+      console.log(`📶 Native network status: ${status.connectionType} -> ${probeResult}`);
+      return probeResult;
+    } catch (error) {
+      console.log('📶 Native network check failed, assuming slow');
+      return 'slow';
+    }
+  }
+
+  // Web: use timeout-based probe
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
@@ -75,8 +103,7 @@ export const probeConnectionSpeed = async (): Promise<'fast' | 'slow'> => {
 };
 
 /**
- * Get connection speed from Network Information API
- * Falls back to timeout-based detection for unsupported browsers
+ * Get connection speed - uses native plugin on mobile, browser APIs on web
  */
 export const getConnectionSpeed = (): { 
   downlink: number; 
@@ -94,11 +121,37 @@ export const getConnectionSpeed = (): {
     };
   }
 
-  if ('connection' in navigator && (navigator as any).connection) {
+  // Use sync network status (from cache or browser)
+  const networkStatus = getNetworkStatusSync();
+  
+  if (!networkStatus.connected) {
+    return {
+      downlink: 0,
+      effectiveType: 'none',
+      estimatedUpload: 0,
+      isSlowConnection: true,
+    };
+  }
+
+  // Map connection type to speed estimates
+  const typeToSpeed: Record<string, { downlink: number; effectiveType: string }> = {
+    'wifi': { downlink: 20, effectiveType: '4g' },
+    '4g': { downlink: 10, effectiveType: '4g' },
+    '3g': { downlink: 1, effectiveType: '3g' },
+    '2g': { downlink: 0.1, effectiveType: '2g' },
+    'cellular': { downlink: 5, effectiveType: '4g' }, // Assume decent cellular
+    'unknown': { downlink: 5, effectiveType: 'unknown' },
+    'none': { downlink: 0, effectiveType: 'none' },
+  };
+
+  const speedInfo = typeToSpeed[networkStatus.connectionType] || typeToSpeed['unknown'];
+  
+  // Also check browser Network Information API for more detail
+  if (!isNativePlatform() && 'connection' in navigator && (navigator as any).connection) {
     const connection = (navigator as any).connection;
-    const downlink = connection.downlink || 10; // Default 10 Mbps
-    const effectiveType = connection.effectiveType || '4g';
-    const estimatedUpload = downlink * 0.4; // Conservative estimate
+    const downlink = connection.downlink || speedInfo.downlink;
+    const effectiveType = connection.effectiveType || speedInfo.effectiveType;
+    const estimatedUpload = downlink * 0.4;
     
     return {
       downlink,
@@ -108,25 +161,12 @@ export const getConnectionSpeed = (): {
     };
   }
   
-  // Fallback: use probe result if available
-  if (probeResult !== 'unknown') {
-    const isSlow = probeResult === 'slow';
-    return {
-      downlink: isSlow ? 0.5 : 10,
-      effectiveType: isSlow ? '2g' : '4g',
-      estimatedUpload: isSlow ? 0.2 : 4,
-      isSlowConnection: isSlow,
-    };
-  }
-  
-  // No probe yet - assume medium connection, trigger probe in background
-  probeConnectionSpeed().catch(() => {});
-  
+  // Use mapped values
   return {
-    downlink: 5,
-    effectiveType: 'unknown',
-    estimatedUpload: 2,
-    isSlowConnection: false, // Optimistic default, probe will update
+    downlink: speedInfo.downlink,
+    effectiveType: speedInfo.effectiveType,
+    estimatedUpload: speedInfo.downlink * 0.4,
+    isSlowConnection: networkStatus.isSlowConnection,
   };
 };
 
@@ -163,12 +203,15 @@ export const isSlowConnection = (): boolean => {
  * Get connection quality label
  */
 export const getConnectionQuality = (): 'fast' | 'medium' | 'slow' | 'offline' => {
-  if (!navigator.onLine) return 'offline';
+  const networkStatus = getNetworkStatusSync();
+  
+  if (!networkStatus.connected) return 'offline';
   
   const { effectiveType, downlink } = getConnectionSpeed();
   
   if (effectiveType === '4g' && downlink >= 5) return 'fast';
   if (effectiveType === '4g' || effectiveType === '3g') return 'medium';
+  if (effectiveType === 'wifi') return 'fast';
   return 'slow';
 };
 
@@ -178,4 +221,6 @@ export const getConnectionQuality = (): 'fast' | 'medium' | 'slow' | 'offline' =
 export const clearSpeedCache = (): void => {
   cachedSpeed = null;
   cacheTimestamp = 0;
+  probeResult = 'unknown';
+  probeTimestamp = 0;
 };

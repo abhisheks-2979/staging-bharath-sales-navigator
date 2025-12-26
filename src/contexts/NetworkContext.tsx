@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { getManualSlowMode, probeConnectionSpeed } from '@/utils/internetSpeedCheck';
+import { getManualSlowMode, probeConnectionSpeed, clearSpeedCache } from '@/utils/internetSpeedCheck';
+import { 
+  getNetworkStatus, 
+  addNetworkListener, 
+  initializeNetworkListeners,
+  isNativePlatform,
+  NetworkStatus 
+} from '@/utils/nativeNetworkService';
 
 type ConnectionQuality = 'fast' | 'slow' | 'offline';
 type EffectiveType = '4g' | '3g' | '2g' | 'slow-2g' | 'unknown';
@@ -9,9 +16,11 @@ interface NetworkState {
   isSlow: boolean;
   connectionQuality: ConnectionQuality;
   effectiveType: EffectiveType;
+  connectionType: string;
   shouldReduceData: boolean;
   lastChecked: Date | null;
   lastSyncTime: Date | null;
+  isNative: boolean;
 }
 
 interface NetworkContextValue extends NetworkState {
@@ -23,58 +32,71 @@ interface NetworkContextValue extends NetworkState {
 
 const NetworkContext = createContext<NetworkContextValue | null>(null);
 
-// Get connection info from Network Information API
-function getConnectionInfo(): { effectiveType: EffectiveType; downlink: number } {
-  if ('connection' in navigator && (navigator as any).connection) {
-    const connection = (navigator as any).connection;
-    return {
-      effectiveType: connection.effectiveType || 'unknown',
-      downlink: connection.downlink || 10, // Default to 10 Mbps if unknown
-    };
+// Map connection type to effective type
+function mapToEffectiveType(connectionType: string): EffectiveType {
+  switch (connectionType) {
+    case 'wifi':
+    case '4g':
+      return '4g';
+    case '3g':
+      return '3g';
+    case '2g':
+      return '2g';
+    case 'cellular':
+      return '4g'; // Assume decent cellular by default
+    default:
+      return 'unknown';
   }
-  return { effectiveType: 'unknown', downlink: 10 };
 }
 
-// Determine connection quality based on effective type and online status
-function determineQuality(isOnline: boolean, effectiveType: EffectiveType, hasSlowModeEnabled: boolean): ConnectionQuality {
-  if (!isOnline) return 'offline';
+// Determine connection quality
+function determineQuality(
+  connected: boolean, 
+  connectionType: string, 
+  hasSlowModeEnabled: boolean
+): ConnectionQuality {
+  if (!connected) return 'offline';
   if (hasSlowModeEnabled) return 'slow';
   
-  switch (effectiveType) {
-    case 'slow-2g':
+  switch (connectionType) {
     case '2g':
-      return 'slow';
     case '3g':
-      return 'slow'; // 3G can be slow for data-heavy apps
+    case 'none':
+      return 'slow';
+    case 'wifi':
     case '4g':
-    case 'unknown':
-    default:
+    case 'cellular':
       return 'fast';
+    default:
+      return 'fast'; // Optimistic default
   }
 }
 
 export function NetworkProvider({ children }: { children: React.ReactNode }) {
   const [manualOfflineMode, setManualOfflineMode] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(() => {
-    // Try to restore from localStorage
-    const saved = localStorage.getItem('lastSyncTime');
-    return saved ? new Date(saved) : null;
+    try {
+      const saved = localStorage.getItem('lastSyncTime');
+      return saved ? new Date(saved) : null;
+    } catch {
+      return null;
+    }
   });
   
   const [state, setState] = useState<NetworkState>(() => {
     const isOnline = navigator.onLine;
-    const { effectiveType } = getConnectionInfo();
     const slowModeEnabled = getManualSlowMode();
-    const quality = determineQuality(isOnline, effectiveType, slowModeEnabled);
     
     return {
       isOnline,
-      isSlow: quality === 'slow' || slowModeEnabled,
-      connectionQuality: quality,
-      effectiveType,
-      shouldReduceData: quality !== 'fast',
+      isSlow: slowModeEnabled,
+      connectionQuality: isOnline ? 'fast' : 'offline',
+      effectiveType: 'unknown',
+      connectionType: 'unknown',
+      shouldReduceData: slowModeEnabled,
       lastChecked: new Date(),
       lastSyncTime: null,
+      isNative: isNativePlatform(),
     };
   });
 
@@ -83,94 +105,88 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
   const updateLastSyncTime = useCallback(() => {
     const now = new Date();
     setLastSyncTime(now);
-    localStorage.setItem('lastSyncTime', now.toISOString());
+    try {
+      localStorage.setItem('lastSyncTime', now.toISOString());
+    } catch {}
   }, []);
 
   const updateConnectionState = useCallback(async () => {
     if (!mountedRef.current) return;
     
-    const isOnline = navigator.onLine && !manualOfflineMode;
-    const { effectiveType } = getConnectionInfo();
     const slowModeEnabled = getManualSlowMode();
     
-    // If Network API is unavailable, use probe result
-    let finalEffectiveType = effectiveType;
-    if (effectiveType === 'unknown' && isOnline) {
-      const probeResult = await probeConnectionSpeed();
-      finalEffectiveType = probeResult === 'slow' ? '2g' : '4g';
+    try {
+      // Get network status (works on both native and web)
+      const networkStatus = await getNetworkStatus();
+      
+      const isOnline = networkStatus.connected && !manualOfflineMode;
+      const quality = manualOfflineMode 
+        ? 'offline' 
+        : determineQuality(networkStatus.connected, networkStatus.connectionType, slowModeEnabled);
+      
+      setState(prev => ({
+        isOnline,
+        isSlow: quality === 'slow' || slowModeEnabled || networkStatus.isSlowConnection,
+        connectionQuality: quality,
+        effectiveType: mapToEffectiveType(networkStatus.connectionType),
+        connectionType: networkStatus.connectionType,
+        shouldReduceData: quality !== 'fast',
+        lastChecked: new Date(),
+        lastSyncTime: prev.lastSyncTime,
+        isNative: isNativePlatform(),
+      }));
+    } catch (error) {
+      console.error('Failed to get network status:', error);
+      // Fallback to browser state
+      const isOnline = navigator.onLine && !manualOfflineMode;
+      setState(prev => ({
+        isOnline,
+        isSlow: slowModeEnabled,
+        connectionQuality: isOnline ? 'fast' : 'offline',
+        effectiveType: 'unknown',
+        connectionType: 'unknown',
+        shouldReduceData: !isOnline || slowModeEnabled,
+        lastChecked: new Date(),
+        lastSyncTime: prev.lastSyncTime,
+        isNative: isNativePlatform(),
+      }));
     }
-    
-    const quality = manualOfflineMode ? 'offline' : determineQuality(isOnline, finalEffectiveType, slowModeEnabled);
-    
-    setState(prev => ({
-      isOnline: isOnline && !manualOfflineMode,
-      isSlow: quality === 'slow' || slowModeEnabled,
-      connectionQuality: quality,
-      effectiveType: finalEffectiveType,
-      shouldReduceData: quality !== 'fast',
-      lastChecked: new Date(),
-      lastSyncTime: prev.lastSyncTime,
-    }));
   }, [manualOfflineMode]);
 
   const checkConnection = useCallback(() => {
+    clearSpeedCache();
     updateConnectionState();
-    
-    // Also do a soft network probe if online
-    if (navigator.onLine && !manualOfflineMode) {
-      probeConnectionSpeed()
-        .then((result) => {
-          if (mountedRef.current) {
-            updateConnectionState();
-          }
-        })
-        .catch(() => {
-          console.log('⚠️ Network probe failed');
-        });
-    }
-  }, [manualOfflineMode, updateConnectionState]);
+  }, [updateConnectionState]);
 
+  // Initialize network listeners on mount
   useEffect(() => {
     mountedRef.current = true;
-
-    const handleOnline = () => {
-      console.log('🌐 Network: Online event');
+    
+    // Initialize native/web listeners
+    initializeNetworkListeners().catch(console.error);
+    
+    // Add listener for network changes
+    const removeListener = addNetworkListener((status: NetworkStatus) => {
+      if (!mountedRef.current) return;
+      
+      console.log('📶 Network status changed:', status);
       updateConnectionState();
-    };
-
-    const handleOffline = () => {
-      console.log('📴 Network: Offline event');
-      updateConnectionState();
-    };
-
-    const handleConnectionChange = () => {
-      console.log('📶 Network: Connection changed');
-      updateConnectionState();
-    };
-
-    // Listen for online/offline events
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    // Listen for connection changes (Network Information API)
-    if ('connection' in navigator && (navigator as any).connection) {
-      (navigator as any).connection.addEventListener('change', handleConnectionChange);
-    }
-
-    // Periodic check - every 30 seconds when online, every 10 seconds when offline
+    });
+    
+    // Initial status check
+    updateConnectionState();
+    
+    // Periodic check as backup (less frequent on native since we have listeners)
+    const intervalMs = isNativePlatform() ? 60000 : 30000; // 60s native, 30s web
     const intervalId = setInterval(() => {
       if (mountedRef.current) {
         updateConnectionState();
       }
-    }, navigator.onLine ? 30000 : 10000);
+    }, intervalMs);
 
     return () => {
       mountedRef.current = false;
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      if ('connection' in navigator && (navigator as any).connection) {
-        (navigator as any).connection.removeEventListener('change', handleConnectionChange);
-      }
+      removeListener();
       clearInterval(intervalId);
     };
   }, [updateConnectionState]);
@@ -199,12 +215,12 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
 export function useNetwork(): NetworkContextValue {
   const context = useContext(NetworkContext);
   if (!context) {
-    // Return default values if outside provider (for safety)
     return {
       isOnline: navigator.onLine,
       isSlow: false,
       connectionQuality: navigator.onLine ? 'fast' : 'offline',
       effectiveType: 'unknown',
+      connectionType: 'unknown',
       shouldReduceData: false,
       lastChecked: null,
       lastSyncTime: null,
@@ -212,6 +228,7 @@ export function useNetwork(): NetworkContextValue {
       setManualOfflineMode: () => {},
       manualOfflineMode: false,
       updateLastSyncTime: () => {},
+      isNative: isNativePlatform(),
     };
   }
   return context;
