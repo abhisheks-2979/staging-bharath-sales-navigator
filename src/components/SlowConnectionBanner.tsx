@@ -1,11 +1,11 @@
 import { useNetwork } from '@/contexts/NetworkContext';
-import { Wifi, WifiOff, AlertTriangle, Zap } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Wifi, WifiOff, AlertTriangle, Zap, Signal, SignalLow } from 'lucide-react';
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { setManualSlowMode, getManualSlowMode } from '@/utils/internetSpeedCheck';
 
 export function SlowConnectionBanner() {
-  const { isOnline, isSlow, connectionQuality, manualOfflineMode, setManualOfflineMode } = useNetwork();
+  const { isOnline, isSlow, connectionType, isNative, manualOfflineMode, setManualOfflineMode } = useNetwork();
   const [expanded, setExpanded] = useState(false);
   const [slowModeEnabled, setSlowModeEnabled] = useState(getManualSlowMode());
 
@@ -35,6 +35,18 @@ export function SlowConnectionBanner() {
 
   const displayState = getDisplayState();
 
+  // Get connection label for native apps
+  const getConnectionLabel = (): string => {
+    if (isNative && connectionType && connectionType !== 'unknown') {
+      if (connectionType === 'wifi') return 'WiFi';
+      if (connectionType === 'cellular') return 'Cellular';
+      return connectionType.toUpperCase();
+    }
+    return '';
+  };
+
+  const connectionLabel = getConnectionLabel();
+
   return (
     <div className="fixed bottom-20 right-4 z-[200]">
       {/* Small floating indicator */}
@@ -56,6 +68,8 @@ export function SlowConnectionBanner() {
           <WifiOff className="h-5 w-5" />
         ) : displayState === 'slowMode' ? (
           <Zap className="h-5 w-5" />
+        ) : isNative ? (
+          <SignalLow className="h-5 w-5" />
         ) : (
           <AlertTriangle className="h-5 w-5" />
         )}
@@ -65,24 +79,31 @@ export function SlowConnectionBanner() {
       {expanded && (
         <div 
           className={cn(
-            "absolute bottom-12 right-0 w-56 p-3 rounded-lg shadow-xl text-xs animate-in fade-in slide-in-from-bottom-2 duration-200",
+            "absolute bottom-12 right-0 w-60 p-3 rounded-lg shadow-xl text-xs animate-in fade-in slide-in-from-bottom-2 duration-200",
             displayState === 'offline' && "bg-destructive text-destructive-foreground",
             displayState === 'slowMode' && "bg-primary text-primary-foreground",
             displayState === 'slow' && "bg-warning text-warning-foreground"
           )}
         >
-          <div className="font-medium mb-1">
+          <div className="font-medium mb-1 flex items-center gap-2">
             {displayState === 'offline' 
               ? (manualOfflineMode ? 'Manual Offline' : 'No Internet')
               : displayState === 'slowMode'
               ? 'Slow Mode Active'
               : 'Slow Connection'}
+            {connectionLabel && (
+              <span className="text-[10px] px-1.5 py-0.5 bg-background/20 rounded">
+                {connectionLabel}
+              </span>
+            )}
           </div>
           <div className="opacity-80 mb-2">
             {displayState === 'offline' 
               ? 'Using cached data' 
               : displayState === 'slowMode'
               ? 'Loading from cache first'
+              : isNative
+              ? 'Network is slow, using cached data'
               : 'Some features may be delayed'}
           </div>
           
@@ -92,13 +113,23 @@ export function SlowConnectionBanner() {
               <button
                 onClick={handleToggleSlowMode}
                 className={cn(
-                  "text-xs px-2 py-1 rounded transition-all",
+                  "text-xs px-2 py-1.5 rounded transition-all flex items-center gap-1",
                   slowModeEnabled 
                     ? "bg-background/20 hover:bg-background/30" 
                     : "bg-background/10 hover:bg-background/20"
                 )}
               >
-                {slowModeEnabled ? '⚡ Disable Slow Mode' : '🐢 Enable Slow Mode'}
+                {slowModeEnabled ? (
+                  <>
+                    <Zap className="h-3 w-3" />
+                    Disable Slow Mode
+                  </>
+                ) : (
+                  <>
+                    <SignalLow className="h-3 w-3" />
+                    Enable Slow Mode
+                  </>
+                )}
               </button>
             )}
             
@@ -109,8 +140,9 @@ export function SlowConnectionBanner() {
                   setManualOfflineMode(false);
                   setExpanded(false);
                 }}
-                className="text-xs underline opacity-80 hover:opacity-100"
+                className="text-xs underline opacity-80 hover:opacity-100 flex items-center gap-1"
               >
+                <Wifi className="h-3 w-3" />
                 Go online
               </button>
             ) : !isOffline ? (
@@ -119,8 +151,9 @@ export function SlowConnectionBanner() {
                   setManualOfflineMode(true);
                   setExpanded(false);
                 }}
-                className="text-xs underline opacity-80 hover:opacity-100"
+                className="text-xs underline opacity-80 hover:opacity-100 flex items-center gap-1"
               >
+                <WifiOff className="h-3 w-3" />
                 Work fully offline
               </button>
             ) : null}
@@ -133,7 +166,7 @@ export function SlowConnectionBanner() {
 
 // Compact version for use in headers/status bars
 export function ConnectionStatusIndicator() {
-  const { isOnline, isSlow, manualOfflineMode } = useNetwork();
+  const { isOnline, isSlow, connectionType, isNative, manualOfflineMode } = useNetwork();
   const slowModeEnabled = getManualSlowMode();
 
   if (isOnline && !isSlow && !manualOfflineMode && !slowModeEnabled) {
@@ -141,6 +174,16 @@ export function ConnectionStatusIndicator() {
   }
 
   const isOffline = !isOnline || manualOfflineMode;
+
+  // Get connection type label for native
+  const getTypeLabel = (): string | null => {
+    if (!isNative || !connectionType || connectionType === 'unknown') return null;
+    if (connectionType === 'wifi') return 'WiFi';
+    if (connectionType === 'cellular') return 'Cell';
+    return connectionType.toUpperCase();
+  };
+
+  const typeLabel = getTypeLabel();
 
   return (
     <div 
@@ -165,8 +208,8 @@ export function ConnectionStatusIndicator() {
         </>
       ) : (
         <>
-          <Wifi className="h-3 w-3" />
-          <span>Slow</span>
+          {isNative ? <SignalLow className="h-3 w-3" /> : <Signal className="h-3 w-3" />}
+          <span>Slow{typeLabel ? ` (${typeLabel})` : ''}</span>
         </>
       )}
     </div>
