@@ -211,6 +211,11 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
       const selectedUnit = row.unit || 'KG';
       const ratePerSelectedUnit = getPricePerUnit(row.product!, row.variant, selectedUnit);
       
+      // Get original rate (MRP) from variant or product - this is the rate BEFORE any discount
+      const originalRatePerSelectedUnit = row.variant 
+        ? Number(row.variant.price) || ratePerSelectedUnit
+        : Number(row.product!.rate) || ratePerSelectedUnit;
+      
       // Convert quantity to grams if unit is KG for internal storage
       const quantityInGrams = selectedUnit.toLowerCase() === 'kg' 
         ? Math.round(row.quantity * 1000)  // Round to avoid floating point issues
@@ -221,11 +226,17 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
         ? ratePerSelectedUnit / 1000
         : ratePerSelectedUnit;
       
+      // Original rate per gram for storage
+      const originalRatePerGram = selectedUnit.toLowerCase() === 'kg'
+        ? originalRatePerSelectedUnit / 1000
+        : originalRatePerSelectedUnit;
+      
       return {
         id: itemId,
         name: displayName || 'Unknown Product',
         category: row.product!.category?.name || 'Uncategorized',
         rate: ratePerGram, // Store rate per gram
+        original_rate: originalRatePerGram, // Store original rate (MRP) per gram
         unit: 'Grams', // Always store as grams internally
         base_unit: 'Grams',
         quantity: quantityInGrams, // Store quantity in grams
@@ -233,7 +244,8 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
         closingStock: Number(stock) || 0,
         schemes: row.product!.schemes || [],
         display_unit: selectedUnit, // Keep original unit for display purposes
-        display_quantity: Number(row.quantity) || 0 // Keep original quantity for display
+        display_quantity: Number(row.quantity) || 0, // Keep original quantity for display
+        hsn_code: (row.product as any)?.hsn_code || null
       };
     });
     

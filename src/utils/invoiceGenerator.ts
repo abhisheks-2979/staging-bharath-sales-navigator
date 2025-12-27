@@ -65,19 +65,75 @@ const numberToWords = (num: number): string => {
 };
 
 /**
+ * Normalize item for display - convert grams to KG when appropriate
+ * This solves the Rs.0 display issue for per-gram rates
+ */
+const normalizeItemForDisplay = (item: any) => {
+  const unit = (item.unit || '').toLowerCase();
+  const qty = Number(item.quantity) || 0;
+  const rate = Number(item.rate || item.price) || 0;
+  const originalRate = Number(item.original_rate) || rate;
+  const discountAmt = Number(item.discount_amount) || 0;
+  
+  // If stored in grams with a very small rate (per-gram), convert to KG for display
+  const isGramsUnit = unit === 'grams' || unit === 'gram' || unit === 'g';
+  const isSmallRate = rate > 0 && rate < 1; // Per-gram rate is typically < 1
+  
+  if (isGramsUnit && qty >= 1000 && isSmallRate) {
+    // Convert to KG for cleaner invoice display
+    return {
+      displayUnit: 'KG',
+      displayQty: qty / 1000,
+      displayRate: rate * 1000, // Rate per KG
+      displayOriginalRate: originalRate * 1000,
+      displayDiscountAmount: discountAmt, // Total discount stays same
+    };
+  }
+  
+  // If stored in grams but rate seems like per-KG (>=1), just show as KG
+  if (isGramsUnit && qty >= 1000 && rate >= 1) {
+    return {
+      displayUnit: 'KG',
+      displayQty: qty / 1000,
+      displayRate: rate, // Already per-unit rate
+      displayOriginalRate: originalRate,
+      displayDiscountAmount: discountAmt,
+    };
+  }
+  
+  // For small gram quantities or already using display_unit/display_quantity
+  if (item.display_unit && item.display_quantity) {
+    const displayRate = item.display_unit.toLowerCase() === 'kg' && isSmallRate 
+      ? rate * 1000 
+      : rate;
+    const displayOrigRate = item.display_unit.toLowerCase() === 'kg' && isSmallRate 
+      ? originalRate * 1000 
+      : originalRate;
+    return {
+      displayUnit: item.display_unit,
+      displayQty: item.display_quantity,
+      displayRate: displayRate,
+      displayOriginalRate: displayOrigRate,
+      displayDiscountAmount: discountAmt,
+    };
+  }
+  
+  // Default: use as-is
+  return {
+    displayUnit: item.unit || 'Piece',
+    displayQty: qty,
+    displayRate: rate,
+    displayOriginalRate: originalRate,
+    displayDiscountAmount: discountAmt,
+  };
+};
+
+/**
  * Generate Template 4 (Green Accent Professional) invoice PDF
  * This is the ONLY template used throughout the application
  */
 export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob> {
   const { orderId, company, retailer, cartItems, displayInvoiceNumber, displayInvoiceDate, displayInvoiceTime, beatName, salesmanName, schemeDetails } = data;
-  
-  // Get the rate directly from stored order data - no conversion needed for invoices
-  // The rate is already stored correctly in order_items
-  // Get the rate directly from stored order data - no conversion needed for invoices
-  // The rate is already stored correctly in order_items
-  const getDisplayRate = (item: any) => {
-    return Number(item.rate || item.price) || 0;
-  };
 
   // Get display name - show only variant name if it's a variant, or base product name
   const getDisplayName = (item: any) => {
@@ -238,38 +294,58 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   // Calculate total discount for savings display
   let totalDiscount = 0;
   
-  // Items table with green header - show MRP and Offer Price if discounts exist
-  const hasAnyDiscount = cartItems.some(item => 
-    (item.original_rate && item.discount_amount && item.discount_amount > 0) ||
-    (item.original_rate && item.rate && item.original_rate > item.rate)
-  );
+  // Pre-process items with display normalization
+  const normalizedItems = cartItems.map(item => {
+    const normalized = normalizeItemForDisplay(item);
+    return {
+      ...item,
+      _displayUnit: normalized.displayUnit,
+      _displayQty: normalized.displayQty,
+      _displayRate: normalized.displayRate,
+      _displayOriginalRate: normalized.displayOriginalRate,
+      _displayDiscountAmount: normalized.displayDiscountAmount,
+    };
+  });
   
-  const tableData = cartItems.map((item, index) => {
-    const qty = Number(item.quantity) || 0;
+  // Items table with green header - show MRP and Offer Price if discounts exist
+  // Check if any item has a meaningful discount (original_rate > rate OR discount_amount > 0)
+  const hasAnyDiscount = normalizedItems.some(item => {
+    const discountAmt = Number(item.discount_amount) || 0;
+    const origRate = item._displayOriginalRate;
+    const effRate = item._displayRate;
+    return discountAmt > 0 || (origRate > effRate && effRate > 0);
+  });
+  
+  const tableData = normalizedItems.map((item, index) => {
+    const displayQty = item._displayQty;
+    const displayUnit = item._displayUnit;
+    const displayRate = item._displayRate;
+    const displayOriginalRate = item._displayOriginalRate;
+    const itemDiscount = item._displayDiscountAmount;
 
-    // If we have stored invoice values (from edited invoices), use them directly without conversion
+    // If we have stored invoice values (from edited invoices), use them directly
     const hasStoredValues = item.taxable_amount != null && item.sgst_amount != null && item.cgst_amount != null;
     
     let effectiveRate: number;
     let originalRate: number;
     let rowTotal: number;
-    let itemDiscount: number = 0;
     
     if (hasStoredValues) {
-      // Use stored values directly - they're already correct, no conversion needed
+      // Use stored values directly
       effectiveRate = Number(item.price || item.rate) || 0;
       originalRate = Number(item.original_rate) || effectiveRate;
       rowTotal = Number(item.taxable_amount) || 0;
-      itemDiscount = Number(item.discount_amount) || 0;
     } else {
-      // Calculate from base values with unit conversion
-      effectiveRate = getDisplayRate(item);
-      originalRate = Number(item.original_rate) || effectiveRate;
-      itemDiscount = Number(item.discount_amount) || 0;
-      rowTotal = effectiveRate * qty;
+      // Use normalized display values
+      effectiveRate = displayRate;
+      originalRate = displayOriginalRate;
+      rowTotal = effectiveRate * displayQty;
     }
     
     totalDiscount += itemDiscount;
+    
+    // Format quantity - show decimals only if needed
+    const qtyStr = Number.isInteger(displayQty) ? displayQty.toString() : displayQty.toFixed(2);
     
     // If there are discounts in the order, show MRP and Offer columns
     if (hasAnyDiscount) {
@@ -277,8 +353,8 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
         (index + 1).toString(),
         getDisplayName(item),
         item.hsn_code || "-",
-        item.unit || "Piece",
-        qty.toString(),
+        displayUnit,
+        qtyStr,
         `Rs.${formatAmount(originalRate)}`, // MRP
         itemDiscount > 0 ? `Rs.${formatAmount(effectiveRate)}` : "-", // Offer Price (or "-" if no discount)
         `Rs.${formatAmount(rowTotal)}`,
@@ -288,8 +364,8 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
         (index + 1).toString(),
         getDisplayName(item),
         item.hsn_code || "-",
-        item.unit || "Piece",
-        qty.toString(),
+        displayUnit,
+        qtyStr,
         `Rs.${formatAmount(effectiveRate)}`,
         `Rs.${formatAmount(rowTotal)}`,
       ];
@@ -357,17 +433,17 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   });
 
   // Calculate totals - prefer stored invoice values when present
-  const hasStoredTotals = cartItems.some(item => 
+  const hasStoredTotals = normalizedItems.some(item => 
     item.taxable_amount != null && item.sgst_amount != null && item.cgst_amount != null
   );
 
-  const subtotal = cartItems.reduce((sum, item) => {
+  const subtotal = normalizedItems.reduce((sum, item) => {
     if (hasStoredTotals && item.taxable_amount != null) {
       return sum + Number(item.taxable_amount);
     }
-    const qty = Number(item.quantity) || 0;
-    const displayRate = getDisplayRate(item);
-    return sum + qty * displayRate;
+    const displayQty = item._displayQty;
+    const displayRate = item._displayRate;
+    return sum + displayQty * displayRate;
   }, 0);
 
   const sgst = hasStoredTotals

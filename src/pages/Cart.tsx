@@ -760,7 +760,9 @@ export const Cart = () => {
 
       const orderItems = cartItems.map(item => {
         const itemDiscount = orderCalculation.itemDiscounts[item.id] || 0;
-        const originalRate = getDisplayRate(item);
+        const currentRate = getDisplayRate(item);
+        // Use original_rate from cart item if available (set by TableOrderForm), otherwise use current rate
+        const originalRate = (item as any).original_rate || currentRate;
         const discountPerItem = item.quantity > 0 ? itemDiscount / item.quantity : 0;
         const itemTotal = computeItemTotal(item);
         
@@ -772,8 +774,8 @@ export const Cart = () => {
           product_id: item.id,
           product_name: item.name,
           category: item.category,
-          rate: originalRate - discountPerItem, // Store discounted rate
-          original_rate: originalRate,
+          rate: currentRate - discountPerItem, // Store discounted rate
+          original_rate: originalRate, // Store original MRP rate
           discount_amount: itemDiscount,
           unit: item.unit,
           quantity: item.quantity,
