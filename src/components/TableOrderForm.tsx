@@ -16,7 +16,7 @@ import { ApplyOfferSection } from "@/components/ApplyOfferSection";
 import { OrderEntrySchemesModal } from "@/components/OrderEntrySchemesModal";
 import { useOfflineSchemes, ProductScheme } from "@/hooks/useOfflineSchemes";
 import { useAppliedSchemes } from "@/hooks/useAppliedSchemes";
-import { calculateOrderWithSchemes, SchemeItem } from "@/utils/schemeEngine";
+import { calculateOrderWithSchemes, SchemeItem, isSchemeActive, isSchemeConditionMet, schemeHasConditions } from "@/utils/schemeEngine";
 interface Product {
   id: string;
   sku: string;
@@ -133,6 +133,9 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
   
   // Applied schemes persistence
   const { appliedSchemeIds, applyScheme, removeScheme, clearSchemes } = useAppliedSchemes(visitId, retailerId);
+  
+  // Track auto-applied schemes to prevent infinite loops
+  const autoAppliedSchemesRef = useRef<Set<string>>(new Set());
 
   // Get unique categories from products (memoized for performance)
   const categories = useMemo(() => {
@@ -278,6 +281,59 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
       localStorage.setItem(tableFormStorageKey, JSON.stringify(orderRows));
     }
   }, [orderRows, tableFormStorageKey, hasInitialized]);
+
+  // Auto-apply schemes when conditions are met
+  useEffect(() => {
+    if (!hasInitialized || orderRows.length === 0 || schemes.length === 0) return;
+    
+    // Build items for scheme calculation
+    const items: SchemeItem[] = orderRows
+      .filter(row => row.product && row.quantity > 0)
+      .map(row => ({
+        id: row.product!.id,
+        product_id: row.product!.id,
+        variant_id: row.variant?.id,
+        quantity: row.quantity,
+        rate: getPricePerUnit(row.product!, row.variant, row.unit),
+        name: row.variant?.variant_name || row.product!.name
+      }));
+    
+    if (items.length === 0) return;
+    
+    const subtotal = items.reduce((sum, item) => sum + (item.rate * item.quantity), 0);
+    const activeSchemes = schemes.filter(s => isSchemeActive(s));
+    
+    activeSchemes.forEach(scheme => {
+      // Skip pure percentage offers with no conditions - these require manual apply
+      if (scheme.scheme_type === 'percentage_discount' && !schemeHasConditions(scheme)) {
+        return;
+      }
+      
+      const conditionMet = isSchemeConditionMet(scheme, items, subtotal);
+      const isApplied = appliedSchemeIds.includes(scheme.id);
+      const wasAutoApplied = autoAppliedSchemesRef.current.has(scheme.id);
+      
+      if (conditionMet && !isApplied) {
+        // Auto-apply when condition is met
+        autoAppliedSchemesRef.current.add(scheme.id);
+        applyScheme(scheme.id);
+        toast({
+          title: "Offer Auto-Applied!",
+          description: scheme.name,
+          duration: 2000,
+        });
+      } else if (!conditionMet && isApplied && wasAutoApplied) {
+        // Auto-remove only if it was auto-applied (not manually)
+        autoAppliedSchemesRef.current.delete(scheme.id);
+        removeScheme(scheme.id);
+        toast({
+          title: "Offer Removed",
+          description: `${scheme.name} - condition no longer met`,
+          duration: 2000,
+        });
+      }
+    });
+  }, [orderRows, schemes, hasInitialized]);
 
   const findProductByCode = (code: string): { product: Product; variant?: any } | undefined => {
     // First check base products

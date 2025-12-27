@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { ProductScheme } from "@/hooks/useOfflineSchemes";
+import { isSchemeConditionMet, schemeHasConditions, SchemeItem } from "@/utils/schemeEngine";
 
 interface Product {
   id: string;
@@ -177,32 +178,37 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
     return scheme.product_id && orderProductIds.includes(scheme.product_id);
   };
 
-  // Find applicable schemes based on current order items
+  // Build items for scheme calculation
+  const schemeItems: SchemeItem[] = useMemo(() => {
+    return orderRows
+      .filter(row => row.product && row.quantity > 0)
+      .map(row => ({
+        id: row.product!.id,
+        product_id: row.product!.id,
+        quantity: row.quantity,
+        rate: row.product!.rate,
+        name: row.product!.name
+      }));
+  }, [orderRows]);
+
+  const subtotal = useMemo(() => 
+    schemeItems.reduce((sum, item) => sum + (item.rate * item.quantity), 0),
+  [schemeItems]);
+
+  // Find applicable schemes - only those where condition is actually met OR pure % offers
   const applicableSchemes = useMemo(() => {
-    if (orderRows.length === 0 || !orderRows.some(r => r.product)) return [];
-    
-    const orderProductIds = orderRows
-      .filter(row => row.product)
-      .map(row => row.product!.id);
-    
-    const orderProductNames = orderRows
-      .filter(row => row.product)
-      .map(row => row.product!.name.toLowerCase());
+    if (schemeItems.length === 0) return [];
     
     return activeSchemes.filter(scheme => {
-      // If scheme is for all products
-      if (isOrderWideScheme(scheme)) return true;
+      // Pure percentage offers without conditions - always show (require manual apply)
+      if (scheme.scheme_type === 'percentage_discount' && !schemeHasConditions(scheme)) {
+        return true;
+      }
       
-      // Check if scheme product is in order
-      if (scheme.product_id && orderProductIds.includes(scheme.product_id)) return true;
-      
-      // Fuzzy match by name
-      return orderProductNames.some(name => 
-        name.includes(scheme.product_name?.toLowerCase() || '') ||
-        (scheme.product_name?.toLowerCase() || '').includes(name.split(' - ')[0])
-      );
+      // For schemes with conditions - only show if condition is met
+      return isSchemeConditionMet(scheme, schemeItems, subtotal);
     });
-  }, [activeSchemes, orderRows]);
+  }, [activeSchemes, schemeItems, subtotal]);
 
   const filteredSchemes = useMemo(() => {
     return activeSchemes.filter(scheme => {
@@ -266,14 +272,19 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
     });
   };
 
-  const SchemeCard = ({ scheme }: { scheme: ProductScheme }) => {
-    const isApplicable = applicableSchemes.some(s => s.id === scheme.id);
+  const SchemeCard = ({ scheme, showInAllTab = false }: { scheme: ProductScheme; showInAllTab?: boolean }) => {
     const isApplied = appliedSchemeIds.includes(scheme.id);
     const isOrderWide = isOrderWideScheme(scheme);
     const productInCart = isProductInCart(scheme);
+    const hasConditions = schemeHasConditions(scheme);
+    const conditionMet = schemeItems.length > 0 && isSchemeConditionMet(scheme, schemeItems, subtotal);
+    const isPurePercentage = scheme.scheme_type === 'percentage_discount' && !hasConditions;
+    
+    // In "All Offers" tab, show condition status for schemes with conditions
+    const showConditionStatus = showInAllTab && hasConditions && !conditionMet;
     
     return (
-      <Card className={`border ${isApplied ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : isApplicable ? 'border-primary/50 bg-primary/5' : 'border-border/50'}`}>
+      <Card className={`border ${isApplied ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : conditionMet || isPurePercentage ? 'border-primary/50 bg-primary/5' : 'border-border/50 opacity-60'}`}>
         <CardContent className="p-3 space-y-2">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
@@ -320,15 +331,24 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
             </div>
             
             {isApplied ? (
-              <Button
-                size="sm"
-                variant="destructive"
-                className="h-7 text-xs px-2.5"
-                onClick={() => handleRemove(scheme)}
-              >
-                <X className="w-3 h-3 mr-1" />
-                Remove
-              </Button>
+              <div className="flex items-center gap-2">
+                <Badge variant="default" className="bg-green-600 text-[10px] px-1.5">
+                  <Check className="w-2.5 h-2.5 mr-0.5" />
+                  Applied
+                </Badge>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => handleRemove(scheme)}
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
+            ) : showConditionStatus ? (
+              <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                Condition not met
+              </Badge>
             ) : !isOrderWide && !productInCart ? (
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-muted-foreground">Add product first</span>
@@ -342,7 +362,7 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
                   Add & Apply
                 </Button>
               </div>
-            ) : (
+            ) : isPurePercentage ? (
               <Button
                 size="sm"
                 variant="default"
@@ -352,6 +372,11 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
                 <Plus className="w-3 h-3 mr-1" />
                 Apply
               </Button>
+            ) : (
+              <Badge variant="default" className="bg-green-600 text-[10px] px-1.5">
+                <Check className="w-2.5 h-2.5 mr-0.5" />
+                Auto-Applied
+              </Badge>
             )}
           </div>
         </CardContent>
@@ -427,7 +452,7 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
               <TabsContent value="all" className="m-0 space-y-2">
                 {filteredSchemes.length > 0 ? (
                   filteredSchemes.map(scheme => (
-                    <SchemeCard key={scheme.id} scheme={scheme} />
+                    <SchemeCard key={scheme.id} scheme={scheme} showInAllTab={true} />
                   ))
                 ) : (
                   <div className="text-center py-8">
