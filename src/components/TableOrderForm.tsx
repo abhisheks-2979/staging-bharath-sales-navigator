@@ -1000,32 +1000,25 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
                 </span>
               )}
             </div>
-            <div className="space-y-1.5">
+            <div className="flex flex-wrap gap-1.5">
               {orderCalculation.appliedSchemes.map(scheme => (
-                <div key={scheme.id} className="flex items-center justify-between bg-white dark:bg-background/50 rounded px-2 py-1.5">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Check size={12} className="text-green-600 flex-shrink-0" />
-                    <span className="text-xs truncate">{scheme.name}</span>
-                    {scheme.discount_amount > 0 && (
-                      <Badge variant="secondary" className="text-[9px] px-1">
-                        -₹{scheme.discount_amount.toFixed(0)}
-                      </Badge>
-                    )}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                <div key={scheme.id} className="flex items-center gap-1 bg-white dark:bg-background/50 rounded px-2 py-1 text-xs">
+                  <span className="truncate max-w-[120px]">{scheme.name}</span>
+                  {scheme.discount_amount > 0 && (
+                    <span className="text-green-600 font-medium">-₹{scheme.discount_amount.toFixed(0)}</span>
+                  )}
+                  <button
+                    className="ml-0.5 p-0.5 text-muted-foreground hover:text-destructive transition-colors"
                     onClick={() => {
-                      removeScheme(scheme.id);
+                      removeAppliedSchemeById(scheme.id);
                       toast({
                         title: "Offer Removed",
                         description: `${scheme.name} has been removed`,
                       });
                     }}
                   >
-                    <Trash2 size={12} />
-                  </Button>
+                    <Trash2 size={10} />
+                  </button>
                 </div>
               ))}
             </div>
