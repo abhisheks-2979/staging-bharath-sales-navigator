@@ -364,11 +364,6 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
         // Auto-apply when condition is met
         autoAppliedSchemesRef.current.add(scheme.id);
         applyScheme(scheme.id);
-        toast({
-          title: "Offer Auto-Applied!",
-          description: scheme.name,
-          duration: 2000,
-        });
       } else if (!conditionMet && isApplied && wasAutoApplied) {
         // Auto-remove only if it was auto-applied (not manually)
         autoAppliedSchemesRef.current.delete(scheme.id);
@@ -525,11 +520,7 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
     applyScheme(scheme.id);
 
     if (!product) {
-      // Order-wide scheme - just persist and show toast
-      toast({
-        title: "Offer Applied",
-        description: `${scheme.name} will be applied to your order`,
-      });
+      // Order-wide scheme - just persist
       return;
     }
     
@@ -555,10 +546,6 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
       setOrderRows(prev => [...prev, newRow]);
     }
     
-    toast({
-      title: "Offer Applied",
-      description: `${scheme.name} applied - ${product.name} added`,
-    });
   };
 
   const removeRow = (id: string) => {
