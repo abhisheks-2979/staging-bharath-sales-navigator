@@ -27,7 +27,7 @@
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
     
     <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#007BFF" />
     <link rel="apple-touch-icon" href="/favicon.png" />
     <link rel="icon" type="image/png" href="/favicon.png" />
@@ -35,8 +35,53 @@
 
   <body>
     <div id="root"></div>
+
+    <!-- PWA blank-screen recovery (only in standalone mode) -->
+    <script>
+      (function () {
+        try {
+          var isStandalone =
+            (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+            (typeof navigator !== 'undefined' && navigator.standalone === true);
+
+          if (!isStandalone) return;
+
+          var KEY = 'pwa_recovery_attempted_v1';
+          var TIMEOUT_MS = 8000;
+
+          window.setTimeout(function () {
+            var root = document.getElementById('root');
+            var hasContent = !!(root && root.childNodes && root.childNodes.length);
+            if (hasContent) return;
+
+            if (sessionStorage.getItem(KEY) === '1') return;
+            sessionStorage.setItem(KEY, '1');
+
+            Promise.resolve()
+              .then(function () {
+                if (!('caches' in window)) return;
+                return caches.keys().then(function (names) {
+                  return Promise.all(names.map(function (n) { return caches.delete(n); }));
+                });
+              })
+              .then(function () {
+                if (!('serviceWorker' in navigator)) return;
+                return navigator.serviceWorker.getRegistrations().then(function (regs) {
+                  return Promise.all(regs.map(function (r) { return r.unregister(); }));
+                });
+              })
+              .finally(function () {
+                window.location.reload();
+              });
+          }, TIMEOUT_MS);
+        } catch {
+          // ignore
+        }
+      })();
+    </script>
+
     <script type="module" src="/src/main.tsx"></script>
-    
+
     <!-- Service Worker Registration -->
   </body>
 </html>
