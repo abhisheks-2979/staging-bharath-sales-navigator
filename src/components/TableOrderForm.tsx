@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown, Star, Sparkles } from "lucide-react";
+import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown, Star, Sparkles, Tag } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -15,7 +15,8 @@ import { isFocusedProductActive } from "@/utils/focusedProductChecker";
 import { ApplyOfferSection } from "@/components/ApplyOfferSection";
 import { OrderEntrySchemesModal } from "@/components/OrderEntrySchemesModal";
 import { useOfflineSchemes, ProductScheme } from "@/hooks/useOfflineSchemes";
-
+import { useAppliedSchemes } from "@/hooks/useAppliedSchemes";
+import { calculateOrderWithSchemes, SchemeItem } from "@/utils/schemeEngine";
 interface Product {
   id: string;
   sku: string;
@@ -129,6 +130,9 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
   
   // Load schemes with offline support
   const { schemes, loading: schemesLoading, isOnline } = useOfflineSchemes();
+  
+  // Applied schemes persistence
+  const { appliedSchemeIds, applyScheme, removeScheme, clearSchemes } = useAppliedSchemes(visitId, retailerId);
 
   // Get unique categories from products (memoized for performance)
   const categories = useMemo(() => {
@@ -363,9 +367,19 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
     setOrderRows([...orderRows, newRow]);
   };
 
-  // Handle applying a scheme - add product with minimum qualifying quantity
+  // Handle applying a scheme - add product with minimum qualifying quantity and persist scheme
   const handleApplyScheme = (scheme: ProductScheme, product?: Product, quantity?: number) => {
-    if (!product) return;
+    // Always persist the scheme as applied
+    applyScheme(scheme.id);
+    
+    if (!product) {
+      // Order-wide scheme - just persist and show toast
+      toast({
+        title: "Offer Applied",
+        description: `${scheme.name} will be applied to your order`,
+      });
+      return;
+    }
     
     // Check if product already exists in order
     const existingRowIndex = orderRows.findIndex(row => row.product?.id === product.id);
@@ -388,6 +402,11 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
       };
       setOrderRows(prev => [...prev, newRow]);
     }
+    
+    toast({
+      title: "Offer Applied",
+      description: `${scheme.name} applied - ${product.name} added`,
+    });
   };
 
   const removeRow = (id: string) => {
@@ -509,8 +528,32 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
     }
   };
 
+  // Calculate totals using scheme engine
+  const orderCalculation = useMemo(() => {
+    const schemeItems: SchemeItem[] = orderRows
+      .filter(row => row.product && row.quantity > 0)
+      .map(row => ({
+        id: row.product!.id,
+        product_id: row.product!.id,
+        variant_id: row.variant?.id,
+        quantity: row.quantity,
+        rate: getPricePerUnit(row.product!, row.variant, row.unit),
+        name: row.variant?.variant_name || row.product!.name
+      }));
+    
+    return calculateOrderWithSchemes(schemeItems, schemes, appliedSchemeIds);
+  }, [orderRows, schemes, appliedSchemeIds]);
+
   const getTotalValue = () => {
-    return parseFloat(orderRows.reduce((sum, row) => sum + row.total, 0).toFixed(2));
+    return parseFloat(orderCalculation.subtotal.toFixed(2));
+  };
+  
+  const getDiscountValue = () => {
+    return parseFloat(orderCalculation.totalDiscount.toFixed(2));
+  };
+  
+  const getFinalTotal = () => {
+    return parseFloat(orderCalculation.finalTotal.toFixed(2));
   };
 
   const hasActiveSchemes = (product: Product) => {
@@ -771,11 +814,35 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
           Add Row
         </Button>
         
-        <div className="text-right">
-          <p className="text-sm text-muted-foreground">Total</p>
-          <p className="text-lg font-bold">₹{getTotalValue().toFixed(2)}</p>
+        <div className="text-right space-y-1">
+          <div className="flex justify-end items-center gap-2">
+            <p className="text-sm text-muted-foreground">Subtotal:</p>
+            <p className="text-sm font-medium">₹{getTotalValue().toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+          </div>
+          
+          {getDiscountValue() > 0 && (
+            <div className="flex justify-end items-center gap-2">
+              <div className="flex items-center gap-1 text-green-600">
+                <Tag size={12} />
+                <p className="text-sm">Discount:</p>
+              </div>
+              <p className="text-sm font-medium text-green-600">-₹{getDiscountValue().toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+            </div>
+          )}
+          
+          {orderCalculation.appliedSchemes.length > 0 && (
+            <div className="text-xs text-green-600 flex items-center justify-end gap-1">
+              <Sparkles size={10} />
+              {orderCalculation.appliedSchemes.map(s => s.name).join(', ')}
+            </div>
+          )}
+          
+          <div className="flex justify-end items-center gap-2 pt-1 border-t border-border">
+            <p className="text-sm font-semibold">Total:</p>
+            <p className="text-lg font-bold">₹{getFinalTotal().toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+          </div>
           <p className="text-xs text-muted-foreground">
-            (incl. GST: ₹{(getTotalValue() * 1.05).toLocaleString('en-IN', { maximumFractionDigits: 2 })})
+            (incl. GST: ₹{(getFinalTotal() * 1.05).toLocaleString('en-IN', { maximumFractionDigits: 2 })})
           </p>
         </div>
       </div>
