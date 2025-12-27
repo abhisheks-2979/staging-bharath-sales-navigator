@@ -85,6 +85,57 @@ export function getActiveSchemes(schemes: ProductScheme[]): ProductScheme[] {
 }
 
 /**
+ * Check if scheme has conditions (not just a pure percentage offer)
+ */
+export function schemeHasConditions(scheme: ProductScheme): boolean {
+  return !!(
+    scheme.condition_quantity || 
+    scheme.buy_quantity || 
+    scheme.min_order_value
+  );
+}
+
+/**
+ * Check if ALL conditions for a scheme are met by current order items
+ */
+export function isSchemeConditionMet(
+  scheme: ProductScheme, 
+  items: SchemeItem[], 
+  subtotal: number
+): boolean {
+  // Check min order value condition
+  if (scheme.min_order_value && subtotal < scheme.min_order_value) {
+    return false;
+  }
+  
+  // For product-specific schemes, check product and quantity conditions
+  if (scheme.product_id) {
+    const matchingItem = items.find(item => 
+      item.product_id === scheme.product_id || 
+      item.id === scheme.product_id
+    );
+    
+    if (!matchingItem) return false;
+    
+    // Check quantity condition (buy_quantity or condition_quantity)
+    const requiredQty = scheme.condition_quantity || scheme.buy_quantity;
+    if (requiredQty && matchingItem.quantity < requiredQty) {
+      return false;
+    }
+  } else {
+    // Order-wide scheme - check min_order_value only (already checked above)
+    // For order-wide quantity schemes, check total quantity
+    const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
+    const requiredQty = scheme.condition_quantity || scheme.buy_quantity;
+    if (requiredQty && totalQty < requiredQty) {
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+/**
  * Check if a scheme applies to a specific item
  */
 function schemeAppliesToItem(scheme: ProductScheme, item: SchemeItem): boolean {
