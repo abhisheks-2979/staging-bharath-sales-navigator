@@ -482,15 +482,17 @@ export const MyRetailers = () => {
     <Layout>
       <section className="container mx-auto p-4 space-y-4">
         <Card className="bg-gradient-primary text-primary-foreground">
-          <CardHeader className="space-y-3">
-            <CardTitle className="text-xl">My Retailers</CardTitle>
-            <UserSelector
-              selectedUserId={selectedUserId}
-              onUserChange={setSelectedUserId}
-              showAllOption={true}
-              allOptionLabel="All Team"
-              className="w-fit"
-            />
+          <CardHeader className="pb-2 px-2 sm:px-6 pt-2 sm:pt-6">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base sm:text-xl font-bold">My Retailers</CardTitle>
+              <UserSelector
+                selectedUserId={selectedUserId}
+                onUserChange={setSelectedUserId}
+                showAllOption={true}
+                allOptionLabel="All Team"
+                className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+              />
+            </div>
           </CardHeader>
         </Card>
 
