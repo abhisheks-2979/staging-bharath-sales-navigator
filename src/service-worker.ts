@@ -8,20 +8,19 @@ interface PrecacheEntry {
   url: string;
   revision?: string;
 }
-import { precacheAndRoute, createHandlerBoundToURL } from 'workbox-precaching';
+import { precacheAndRoute, createHandlerBoundToURL, cleanupOutdatedCaches } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
-import { NetworkFirst, CacheFirst } from 'workbox-strategies';
+import { NetworkFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 
 // Version runtime caches to force fresh data after deploys
 // INCREMENT THIS VERSION TO FORCE COMPLETE CACHE REFRESH
 const RUNTIME_CACHE_VERSION = 'v18';
-const PRECACHE_VERSION = 'v18';
 
 // Workbox will replace this with the list of files to precache.
 precacheAndRoute(self.__WB_MANIFEST);
 
-// No need to precache offline.html - we'll serve the app instead
+const appShellHandler = createHandlerBoundToURL('/index.html');
 
 // Immediately activate updated service worker and allow manual skip-waiting
 self.addEventListener('install', () => {
@@ -33,159 +32,124 @@ self.addEventListener('message', (event) => {
   if (event.data && (event.data === 'SKIP_WAITING' || event.data.type === 'SKIP_WAITING')) {
     self.skipWaiting();
   }
-  
+
   // Handle force clear request
   if (event.data && event.data.type === 'CLEAR_ALL_CACHES') {
     event.waitUntil(
-      caches.keys().then(names => {
+      caches.keys().then((names) => {
         console.log('🗑️ Force clearing all caches...');
-        return Promise.all(names.map(name => caches.delete(name)));
-      })
+        return Promise.all(names.map((name) => caches.delete(name)));
+      }),
     );
   }
 });
-// AGGRESSIVE cache cleanup on activation
+
+// Cache cleanup on activation
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
+      // Let Workbox manage its own precache caches.
+      try {
+        cleanupOutdatedCaches();
+      } catch {
+        // ignore
+      }
+
       const cacheNames = await caches.keys();
-      const currentCaches = [
+      const runtimeCaches = new Set([
         `api-cache-${RUNTIME_CACHE_VERSION}`,
         `images-cache-${RUNTIME_CACHE_VERSION}`,
         `dynamic-cache-${RUNTIME_CACHE_VERSION}`,
         `navigation-cache-${RUNTIME_CACHE_VERSION}`,
-      ];
-      
-      // Delete ALL caches that don't match current version
+      ]);
+
+      // Only delete OUR runtime caches from older versions.
       const deletionPromises = cacheNames
-        .filter(name => {
-          // Keep only caches with current version
-          return !currentCaches.includes(name) && 
-                 !name.includes(`workbox-precache-${PRECACHE_VERSION}`);
+        .filter((name) => {
+          const isOurRuntimeCache =
+            name.startsWith('api-cache-') ||
+            name.startsWith('images-cache-') ||
+            name.startsWith('dynamic-cache-') ||
+            name.startsWith('navigation-cache-');
+
+          return isOurRuntimeCache && !runtimeCaches.has(name);
         })
-        .map(name => {
-          console.log('🗑️ Deleting old cache:', name);
+        .map((name) => {
+          console.log('🗑️ Deleting old runtime cache:', name);
           return caches.delete(name);
         });
-      
+
       await Promise.all(deletionPromises);
-      
+
       // Take control immediately
       await self.clients.claim();
-      
+
       // Notify all clients
       const clients = await self.clients.matchAll();
-      clients.forEach(client => {
+      clients.forEach((client) => {
         client.postMessage({ type: 'CACHE_UPDATED', version: RUNTIME_CACHE_VERSION });
       });
-      
+
       console.log('✅ Service worker activated with version:', RUNTIME_CACHE_VERSION);
-    })()
+    })(),
   );
 });
 
-// Fallback to index.html for SPA routes - CRITICAL for PWA navigation
+// App-shell style navigation handling (prevents white screen)
 registerRoute(
   ({ request }) => request.mode === 'navigate',
-  async ({ url }) => {
-    console.log('🧭 Navigation request:', url.pathname);
-    
-    // Always try network first to avoid white screen from stale cache
+  async (args) => {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
-      
-      const networkResponse = await fetch(url.href, {
+
+      const networkResponse = await fetch(args.request, {
         signal: controller.signal,
-        cache: 'no-cache'
+        cache: 'no-store',
       });
+
       clearTimeout(timeoutId);
-      
-      if (networkResponse.ok) {
-        // Cache the successful response
-        const cache = await caches.open(`navigation-cache-${RUNTIME_CACHE_VERSION}`);
-        cache.put('/index.html', networkResponse.clone());
-        console.log('✅ Serving fresh page from network');
+
+      // Some hosting setups may return 404 for deep links; fall back to app shell.
+      if (networkResponse && networkResponse.ok) {
         return networkResponse;
       }
-    } catch (error) {
-      console.log('⚠️ Network request failed, trying cache');
+    } catch {
+      // ignore
     }
-    
-    // Network failed - try cache
-    const cachedResponse = await caches.match('/index.html');
-    if (cachedResponse) {
-      console.log('✅ Serving cached index.html');
-      return cachedResponse;
+
+    try {
+      return await appShellHandler(args);
+    } catch {
+      // First-time offline install: show a simple offline page instead of white screen
+      return new Response(
+        `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Offline</title>
+    <style>
+      body{margin:0;font-family:system-ui,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff;color:#111;padding:24px;text-align:center}
+      .card{max-width:420px}
+      h1{font-size:20px;margin:0 0 10px}
+      p{margin:0;opacity:.75;line-height:1.5}
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>You’re offline</h1>
+      <p>Connect to the internet once to finish setting up the app.</p>
+    </div>
+    <script>
+      window.addEventListener('online', () => window.location.reload());
+    </script>
+  </body>
+</html>`,
+        { headers: { 'Content-Type': 'text/html' } },
+      );
     }
-    
-    // Try any cached HTML from workbox precache
-    const allCaches = await caches.keys();
-    for (const cacheName of allCaches) {
-      if (cacheName.includes('workbox-precache')) {
-        const cache = await caches.open(cacheName);
-        const keys = await cache.keys();
-        for (const req of keys) {
-          if (req.url.includes('index.html')) {
-            const response = await cache.match(req);
-            if (response) {
-              console.log('✅ Serving precached index.html');
-              return response;
-            }
-          }
-        }
-      }
-    }
-    
-    // Last resort: return offline page
-    console.error('❌ No cached version found - First time offline');
-    return new Response(`
-        <!DOCTYPE html>
-        <html lang="en">
-          <head>
-            <meta charset="UTF-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <title>Bharath Sales Navigator</title>
-            <style>
-              body {
-                margin: 0;
-                font-family: system-ui, -apple-system, sans-serif;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                min-height: 100vh;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-                padding: 20px;
-                text-align: center;
-              }
-              .container {
-                max-width: 400px;
-              }
-              h1 { font-size: 24px; margin-bottom: 16px; }
-              p { font-size: 16px; line-height: 1.6; opacity: 0.9; }
-              .icon { font-size: 64px; margin-bottom: 20px; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="icon">📱</div>
-              <h1>Connect to Internet</h1>
-              <p>Please connect to the internet for the first time to download the app. After that, you can use it offline.</p>
-              <p style="margin-top: 20px; font-size: 14px;">The app will automatically load once you're online.</p>
-            </div>
-            <script>
-              // Auto reload when online
-              window.addEventListener('online', () => {
-                window.location.reload();
-              });
-            </script>
-          </body>
-        </html>
-      `, {
-        headers: { 'Content-Type': 'text/html' }
-      });
-  }
+  },
 );
 
 // Runtime caching: Supabase API - Use NetworkFirst with very short cache
