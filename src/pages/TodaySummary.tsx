@@ -36,24 +36,8 @@ export const TodaySummary = () => {
   const isAdmin = userRole === 'admin';
   
   // Hierarchical user filter (for managers)
-  const { isManager, subordinateIds, subordinates } = useSubordinates();
+  const { isManager, subordinateIds } = useSubordinates();
   const [managerSelectedUserId, setManagerSelectedUserId] = useState<string>('self');
-  
-  // Admin user filter state
-  const [allUsers, setAllUsers] = useState<Array<{ id: string; name: string; email: string }>>([]);
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  
-  // For managers (non-admin), use hierarchical filter
-  const effectiveManagerUserId = useMemo(() => {
-    if (!isManager || isAdmin) return null;
-    if (managerSelectedUserId === 'self' || managerSelectedUserId === user?.id) {
-      return user?.id;
-    }
-    if (managerSelectedUserId === 'all') {
-      return null; // Will filter by all subordinate IDs
-    }
-    return managerSelectedUserId;
-  }, [managerSelectedUserId, user?.id, isManager, isAdmin]);
   
   // Date filtering state
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -189,42 +173,13 @@ export const TodaySummary = () => {
 
   // Use primitive values for dependencies to avoid infinite loops
   const dateRangeKey = `${dateRange.from.toISOString()}-${dateRange.to.toISOString()}`;
-  const selectedUsersKey = selectedUserIds.join(',');
   const managerFilterKey = isManager ? managerSelectedUserId : 'not-manager';
-  
-  // Fetch all users for admin filter
-  useEffect(() => {
-    const fetchAllUsers = async () => {
-      if (!isAdmin) return;
-      
-      try {
-        const { data: profiles, error } = await supabase
-          .from('profiles')
-          .select('id, full_name, username')
-          .order('full_name', { ascending: true });
-        
-        if (error) throw error;
-        
-        const users = profiles?.map(p => ({
-          id: p.id,
-          name: p.full_name || p.username || 'Unknown',
-          email: p.username || ''
-        })) || [];
-        
-        setAllUsers(users);
-      } catch (error) {
-        console.error('Error fetching users:', error);
-      }
-    };
-    
-    fetchAllUsers();
-  }, [isAdmin]);
   
   useEffect(() => {
     // Reset initial load flag when filter changes to show loading state
     initialLoadDone.current = false;
     fetchTodaysData();
-  }, [dateRangeKey, filterType, selectedUsersKey, managerFilterKey]);
+  }, [dateRangeKey, filterType, managerFilterKey]);
 
   // Auto-refresh for today + sync complete listener
   useEffect(() => {
@@ -359,11 +314,8 @@ export const TodaySummary = () => {
       // Determine which user IDs to fetch data for
       let targetUserIds: string[];
       
-      if (isAdmin && selectedUserIds.length > 0) {
-        // Admin with specific users selected
-        targetUserIds = selectedUserIds;
-      } else if (isManager && !isAdmin) {
-        // Manager using hierarchy filter
+      if (isManager) {
+        // Manager (including admin managers) using hierarchy filter
         if (managerSelectedUserId === 'all') {
           // All team: self + all subordinates
           targetUserIds = [authUser.id, ...subordinateIds];
@@ -1706,32 +1658,31 @@ export const TodaySummary = () => {
       <div className="container mx-auto p-4 space-y-4">
         {/* Header */}
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-3">
-                <div>
-                  <CardTitle className="text-xl font-bold">
-                    {filterType === 'today' ? "Today's Summary" : 
-                     filterType === 'week' ? "This Week's Summary" :
-                     filterType === 'lastWeek' ? "Last Week's Summary" :
-                     filterType === 'month' ? "Monthly Summary" :
-                     filterType === 'dateRange' ? "Date Range Summary" :
-                     "Visit Summary"}
-                  </CardTitle>
-                  <p className="text-primary-foreground/80">{summaryData.date}</p>
-                </div>
-                {/* Manager UserSelector - shows for non-admin managers */}
-                {isManager && !isAdmin && (
-                  <UserSelector
-                    selectedUserId={managerSelectedUserId}
-                    onUserChange={setManagerSelectedUserId}
-                    showAllOption={true}
-                    allOptionLabel="All Team"
-                  />
-                )}
+          <CardHeader className="pb-3 space-y-3">
+            <div className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-xl font-bold">
+                  {filterType === 'today' ? "Today's Summary" : 
+                   filterType === 'week' ? "This Week's Summary" :
+                   filterType === 'lastWeek' ? "Last Week's Summary" :
+                   filterType === 'month' ? "Monthly Summary" :
+                   filterType === 'dateRange' ? "Date Range Summary" :
+                   "Visit Summary"}
+                </CardTitle>
+                <p className="text-primary-foreground/80">{summaryData.date}</p>
               </div>
+              <FileText size={24} />
             </div>
-            <FileText size={24} />
+            {/* User Selector for managers - placed below the heading */}
+            {isManager && (
+              <UserSelector
+                selectedUserId={managerSelectedUserId}
+                onUserChange={setManagerSelectedUserId}
+                showAllOption={true}
+                allOptionLabel="All Team"
+                className="w-fit"
+              />
+            )}
           </CardHeader>
         </Card>
 
@@ -1852,64 +1803,6 @@ export const TodaySummary = () => {
             </div>
           </CardContent>
         </Card>
-
-        {/* Admin User Filter */}
-        {isAdmin && (
-          <Card>
-            <CardContent className="p-3">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Users size={16} className="text-primary" />
-                    <span className="font-medium text-sm">Filter by User</span>
-                  </div>
-                  {selectedUserIds.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelectedUserIds([])}
-                      className="h-6 text-xs"
-                    >
-                      Clear
-                    </Button>
-                  )}
-                </div>
-                
-                <Select
-                  value={selectedUserIds.length === 1 ? selectedUserIds[0] : "all"}
-                  onValueChange={(value) => {
-                    if (value === "all") {
-                      setSelectedUserIds([]);
-                    } else {
-                      setSelectedUserIds([value]);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="All Users (showing your data)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Users (showing your data)</SelectItem>
-                    {allUsers.map(u => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                {selectedUserIds.length === 1 && (
-                  <div className="flex items-center gap-2 p-2 bg-primary/10 rounded-lg">
-                    <Users size={14} className="text-primary" />
-                    <span className="text-sm font-medium">
-                      Showing data for: {allUsers.find(u => u.id === selectedUserIds[0])?.name || 'Unknown'}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-2">
@@ -2032,11 +1925,6 @@ export const TodaySummary = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Performance Summary</CardTitle>
-            {selectedUserIds.length === 1 && (
-              <p className="text-xs text-muted-foreground">
-                Showing data for: {allUsers.find(u => u.id === selectedUserIds[0])?.name}
-              </p>
-            )}
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -2045,7 +1933,7 @@ export const TodaySummary = () => {
               ) : visitBreakdown.length === 0 || visitBreakdown[0]?.count === 0 ? (
                 <div className="text-center text-muted-foreground py-4">
                   <p>No visits planned for this period</p>
-                  {selectedUserIds.length > 0 && (
+                  {isManager && managerSelectedUserId !== 'self' && (
                     <p className="text-xs mt-1">Try selecting a different user or date range</p>
                   )}
                 </div>
@@ -2275,7 +2163,7 @@ export const TodaySummary = () => {
         <FeedbackSummarySection 
           dateFrom={dateRange.from} 
           dateTo={dateRange.to}
-          userId={isAdmin && selectedUserIds.length > 0 ? selectedUserIds[0] : user?.id}
+          userId={isManager && managerSelectedUserId !== 'self' && managerSelectedUserId !== 'all' ? managerSelectedUserId : user?.id}
         />
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
