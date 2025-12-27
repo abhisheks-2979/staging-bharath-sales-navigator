@@ -15,8 +15,8 @@ import { ExpirationPlugin } from 'workbox-expiration';
 
 // Version runtime caches to force fresh data after deploys
 // INCREMENT THIS VERSION TO FORCE COMPLETE CACHE REFRESH
-const RUNTIME_CACHE_VERSION = 'v17';
-const PRECACHE_VERSION = 'v17';
+const RUNTIME_CACHE_VERSION = 'v18';
+const PRECACHE_VERSION = 'v18';
 
 // Workbox will replace this with the list of files to precache.
 precacheAndRoute(self.__WB_MANIFEST);
@@ -88,50 +88,58 @@ self.addEventListener('activate', (event) => {
 registerRoute(
   ({ request }) => request.mode === 'navigate',
   async ({ url }) => {
-    // Try cache first for instant offline loading
-    const cachedResponse = await caches.match('/index.html');
+    console.log('🧭 Navigation request:', url.pathname);
     
-    // If browser reports offline and cache exists, serve immediately
-    if (typeof navigator !== 'undefined' && !navigator.onLine && cachedResponse) {
-      console.log('✅ Offline: Serving cached index.html');
-      return cachedResponse;
-    }
-    
-    // Try network with timeout
+    // Always try network first to avoid white screen from stale cache
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       
-      const networkResponse = await fetch('/index.html', {
-        signal: controller.signal
+      const networkResponse = await fetch(url.href, {
+        signal: controller.signal,
+        cache: 'no-cache'
       });
       clearTimeout(timeoutId);
       
-      // Cache the network response
-      const cache = await caches.open(`navigation-cache-${RUNTIME_CACHE_VERSION}`);
-      cache.put('/index.html', networkResponse.clone());
-      
-      console.log('✅ Serving fresh index.html from network');
-      return networkResponse;
+      if (networkResponse.ok) {
+        // Cache the successful response
+        const cache = await caches.open(`navigation-cache-${RUNTIME_CACHE_VERSION}`);
+        cache.put('/index.html', networkResponse.clone());
+        console.log('✅ Serving fresh page from network');
+        return networkResponse;
+      }
     } catch (error) {
-      // Network failed, serve from cache
-      console.log('⚠️ Network unavailable, serving from cache');
-      
-      if (cachedResponse) {
-        console.log('✅ Serving cached index.html');
-        return cachedResponse;
+      console.log('⚠️ Network request failed, trying cache');
+    }
+    
+    // Network failed - try cache
+    const cachedResponse = await caches.match('/index.html');
+    if (cachedResponse) {
+      console.log('✅ Serving cached index.html');
+      return cachedResponse;
+    }
+    
+    // Try any cached HTML from workbox precache
+    const allCaches = await caches.keys();
+    for (const cacheName of allCaches) {
+      if (cacheName.includes('workbox-precache')) {
+        const cache = await caches.open(cacheName);
+        const keys = await cache.keys();
+        for (const req of keys) {
+          if (req.url.includes('index.html')) {
+            const response = await cache.match(req);
+            if (response) {
+              console.log('✅ Serving precached index.html');
+              return response;
+            }
+          }
+        }
       }
-      
-      // Try precached version
-      const precachedResponse = await caches.match('/index.html');
-      if (precachedResponse) {
-        console.log('✅ Serving precached index.html');
-        return precachedResponse;
-      }
-      
-      // Last resort: return offline page
-      console.error('❌ No cached version found - First time offline');
-      return new Response(`
+    }
+    
+    // Last resort: return offline page
+    console.error('❌ No cached version found - First time offline');
+    return new Response(`
         <!DOCTYPE html>
         <html lang="en">
           <head>
@@ -177,7 +185,6 @@ registerRoute(
       `, {
         headers: { 'Content-Type': 'text/html' }
       });
-    }
   }
 );
 
