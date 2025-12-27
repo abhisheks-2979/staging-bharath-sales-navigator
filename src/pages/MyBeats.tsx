@@ -957,8 +957,18 @@ export const MyBeats = () => {
           <CardHeader className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <CardTitle className="text-2xl font-bold">My Beats</CardTitle>
-                <p className="text-primary-foreground/80">Manage your sales territories and routes</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* User Selector inline with title */}
+                  <UserSelector
+                    selectedUserId={selectedUserId}
+                    onUserChange={setSelectedUserId}
+                    showAllOption={true}
+                    allOptionLabel="All Team"
+                    className="h-7 min-w-[100px] max-w-[140px] text-xs bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground [&>span]:text-primary-foreground"
+                  />
+                  <CardTitle className="text-2xl font-bold">My Beats</CardTitle>
+                </div>
+                <p className="text-primary-foreground/80 mt-1">Manage your sales territories and routes</p>
               </div>
               <Button 
                 onClick={handleCreateBeat}
@@ -969,13 +979,6 @@ export const MyBeats = () => {
                 Create New Beat
               </Button>
             </div>
-            <UserSelector
-              selectedUserId={selectedUserId}
-              onUserChange={setSelectedUserId}
-              showAllOption={true}
-              allOptionLabel="All Team"
-              className="w-fit"
-            />
           </CardHeader>
         </Card>
 
