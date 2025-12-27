@@ -1,0 +1,375 @@
+/**
+ * Scheme Engine - Centralized calculation engine for all offer/discount logic
+ * Handles order-wide schemes, product-specific schemes, and various discount types
+ */
+
+export interface SchemeItem {
+  id: string;
+  product_id?: string;
+  variant_id?: string;
+  quantity: number;
+  rate: number;
+  name?: string;
+}
+
+export interface AppliedScheme {
+  id: string;
+  name: string;
+  scheme_type: string;
+  discount_amount: number;
+  discount_percentage?: number;
+  product_id?: string | null;
+  free_items?: { product_name: string; quantity: number }[];
+}
+
+export interface SchemeCalculationResult {
+  subtotal: number;
+  totalDiscount: number;
+  finalTotal: number;
+  appliedSchemes: AppliedScheme[];
+  itemDiscounts: Record<string, number>; // product_id -> discount amount
+}
+
+export interface ProductScheme {
+  id: string;
+  name: string;
+  description?: string | null;
+  scheme_type: string;
+  product_id?: string | null;
+  variant_id?: string | null;
+  discount_percentage?: number | null;
+  discount_amount?: number | null;
+  buy_quantity?: number | null;
+  free_quantity?: number | null;
+  free_product_id?: string | null;
+  condition_quantity?: number | null;
+  quantity_condition_type?: string | null;
+  min_order_value?: number | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  is_active?: boolean | null;
+  is_first_order_only?: boolean | null;
+  product_name?: string;
+  free_product_name?: string;
+}
+
+/**
+ * Check if a scheme is currently active based on dates and is_active flag
+ */
+export function isSchemeActive(scheme: ProductScheme): boolean {
+  if (scheme.is_active === false) return false;
+  
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  if (scheme.start_date) {
+    const startDate = new Date(scheme.start_date);
+    startDate.setHours(0, 0, 0, 0);
+    if (today < startDate) return false;
+  }
+  
+  if (scheme.end_date) {
+    const endDate = new Date(scheme.end_date);
+    endDate.setHours(23, 59, 59, 999);
+    if (now > endDate) return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Get all active schemes from a list
+ */
+export function getActiveSchemes(schemes: ProductScheme[]): ProductScheme[] {
+  return schemes.filter(isSchemeActive);
+}
+
+/**
+ * Check if a scheme applies to a specific item
+ */
+function schemeAppliesToItem(scheme: ProductScheme, item: SchemeItem): boolean {
+  // Order-wide scheme (no product_id) applies to all items
+  if (!scheme.product_id) return true;
+  
+  // Product-specific scheme
+  if (scheme.product_id === item.product_id) {
+    // If scheme has variant_id, check that too
+    if (scheme.variant_id && item.variant_id) {
+      return scheme.variant_id === item.variant_id;
+    }
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Check if quantity condition is met
+ */
+function isQuantityConditionMet(scheme: ProductScheme, quantity: number): boolean {
+  if (!scheme.condition_quantity) return true;
+  
+  const condType = scheme.quantity_condition_type || 'gte';
+  
+  switch (condType) {
+    case 'gte':
+    case 'min':
+      return quantity >= scheme.condition_quantity;
+    case 'eq':
+      return quantity === scheme.condition_quantity;
+    case 'lte':
+    case 'max':
+      return quantity <= scheme.condition_quantity;
+    default:
+      return quantity >= scheme.condition_quantity;
+  }
+}
+
+/**
+ * Calculate discount for a single scheme on given items
+ */
+function calculateSchemeDiscount(
+  scheme: ProductScheme, 
+  items: SchemeItem[], 
+  subtotal: number
+): { discount: number; itemDiscounts: Record<string, number>; freeItems?: { product_name: string; quantity: number }[] } {
+  let discount = 0;
+  const itemDiscounts: Record<string, number> = {};
+  let freeItems: { product_name: string; quantity: number }[] | undefined;
+
+  // Get applicable items
+  const applicableItems = items.filter(item => schemeAppliesToItem(scheme, item));
+  
+  if (applicableItems.length === 0) return { discount: 0, itemDiscounts };
+
+  // Calculate based on scheme type
+  switch (scheme.scheme_type) {
+    case 'percentage_discount':
+    case 'percentage': {
+      const discountPct = scheme.discount_percentage || 0;
+      
+      if (!scheme.product_id) {
+        // Order-wide percentage discount
+        if (scheme.min_order_value && subtotal < scheme.min_order_value) {
+          break;
+        }
+        discount = subtotal * (discountPct / 100);
+      } else {
+        // Product-specific percentage discount
+        for (const item of applicableItems) {
+          if (isQuantityConditionMet(scheme, item.quantity)) {
+            const itemTotal = item.rate * item.quantity;
+            const itemDiscount = itemTotal * (discountPct / 100);
+            discount += itemDiscount;
+            itemDiscounts[item.id] = (itemDiscounts[item.id] || 0) + itemDiscount;
+          }
+        }
+      }
+      break;
+    }
+    
+    case 'flat_discount':
+    case 'flat': {
+      const discountAmt = scheme.discount_amount || 0;
+      
+      if (!scheme.product_id) {
+        // Order-wide flat discount
+        if (scheme.min_order_value && subtotal < scheme.min_order_value) {
+          break;
+        }
+        discount = Math.min(discountAmt, subtotal);
+      } else {
+        // Product-specific flat discount
+        for (const item of applicableItems) {
+          if (isQuantityConditionMet(scheme, item.quantity)) {
+            const itemTotal = item.rate * item.quantity;
+            const itemDiscount = Math.min(discountAmt, itemTotal);
+            discount += itemDiscount;
+            itemDiscounts[item.id] = (itemDiscounts[item.id] || 0) + itemDiscount;
+          }
+        }
+      }
+      break;
+    }
+    
+    case 'buy_x_get_y_free':
+    case 'buy_get_free': {
+      const buyQty = scheme.buy_quantity || 0;
+      const freeQty = scheme.free_quantity || 0;
+      
+      if (buyQty <= 0 || freeQty <= 0) break;
+      
+      for (const item of applicableItems) {
+        if (item.quantity >= buyQty) {
+          const setsQualified = Math.floor(item.quantity / buyQty);
+          const freeItemsCount = setsQualified * freeQty;
+          const freeValue = freeItemsCount * item.rate;
+          
+          discount += freeValue;
+          itemDiscounts[item.id] = (itemDiscounts[item.id] || 0) + freeValue;
+          
+          freeItems = freeItems || [];
+          freeItems.push({
+            product_name: scheme.free_product_name || item.name || 'Free Item',
+            quantity: freeItemsCount
+          });
+        }
+      }
+      break;
+    }
+    
+    case 'bundle_discount':
+    case 'bundle': {
+      // Bundle discount applies when all specified conditions are met
+      const totalQty = applicableItems.reduce((sum, item) => sum + item.quantity, 0);
+      if (isQuantityConditionMet(scheme, totalQty)) {
+        const discountPct = scheme.discount_percentage || 0;
+        const bundleTotal = applicableItems.reduce((sum, item) => sum + (item.rate * item.quantity), 0);
+        discount = bundleTotal * (discountPct / 100);
+      }
+      break;
+    }
+    
+    case 'tiered_discount':
+    case 'tiered': {
+      // Tiered discount based on quantity thresholds
+      for (const item of applicableItems) {
+        if (isQuantityConditionMet(scheme, item.quantity)) {
+          const discountPct = scheme.discount_percentage || 0;
+          const itemTotal = item.rate * item.quantity;
+          const itemDiscount = itemTotal * (discountPct / 100);
+          discount += itemDiscount;
+          itemDiscounts[item.id] = (itemDiscounts[item.id] || 0) + itemDiscount;
+        }
+      }
+      break;
+    }
+    
+    default:
+      // Default to percentage if type is unknown
+      if (scheme.discount_percentage) {
+        const discountPct = scheme.discount_percentage;
+        if (!scheme.product_id) {
+          discount = subtotal * (discountPct / 100);
+        } else {
+          for (const item of applicableItems) {
+            if (isQuantityConditionMet(scheme, item.quantity)) {
+              const itemTotal = item.rate * item.quantity;
+              const itemDiscount = itemTotal * (discountPct / 100);
+              discount += itemDiscount;
+              itemDiscounts[item.id] = (itemDiscounts[item.id] || 0) + itemDiscount;
+            }
+          }
+        }
+      }
+      break;
+  }
+
+  return { discount, itemDiscounts, freeItems };
+}
+
+/**
+ * Main function: Calculate order total with all applicable schemes
+ */
+export function calculateOrderWithSchemes(
+  items: SchemeItem[],
+  allSchemes: ProductScheme[],
+  appliedSchemeIds: string[] = []
+): SchemeCalculationResult {
+  // Calculate subtotal
+  const subtotal = items.reduce((sum, item) => sum + (item.rate * item.quantity), 0);
+  
+  // Get active schemes
+  const activeSchemes = getActiveSchemes(allSchemes);
+  
+  // Filter to only applied schemes if specified, otherwise use all applicable active schemes
+  const schemesToApply = appliedSchemeIds.length > 0
+    ? activeSchemes.filter(s => appliedSchemeIds.includes(s.id))
+    : activeSchemes;
+  
+  let totalDiscount = 0;
+  const appliedSchemes: AppliedScheme[] = [];
+  const itemDiscounts: Record<string, number> = {};
+  
+  for (const scheme of schemesToApply) {
+    const { discount, itemDiscounts: schemeItemDiscounts, freeItems } = calculateSchemeDiscount(
+      scheme, 
+      items, 
+      subtotal
+    );
+    
+    if (discount > 0) {
+      totalDiscount += discount;
+      
+      // Merge item discounts
+      for (const [itemId, discountAmt] of Object.entries(schemeItemDiscounts)) {
+        itemDiscounts[itemId] = (itemDiscounts[itemId] || 0) + discountAmt;
+      }
+      
+      appliedSchemes.push({
+        id: scheme.id,
+        name: scheme.name,
+        scheme_type: scheme.scheme_type,
+        discount_amount: discount,
+        discount_percentage: scheme.discount_percentage || undefined,
+        product_id: scheme.product_id,
+        free_items: freeItems
+      });
+    }
+  }
+  
+  // Ensure discount doesn't exceed subtotal
+  totalDiscount = Math.min(totalDiscount, subtotal);
+  
+  return {
+    subtotal,
+    totalDiscount,
+    finalTotal: subtotal - totalDiscount,
+    appliedSchemes,
+    itemDiscounts
+  };
+}
+
+/**
+ * Get applicable schemes for given items (schemes that could apply based on products)
+ */
+export function getApplicableSchemes(
+  items: SchemeItem[],
+  allSchemes: ProductScheme[]
+): ProductScheme[] {
+  const activeSchemes = getActiveSchemes(allSchemes);
+  
+  return activeSchemes.filter(scheme => {
+    // Order-wide schemes are always applicable
+    if (!scheme.product_id) return true;
+    
+    // Check if any item matches the scheme's product
+    return items.some(item => schemeAppliesToItem(scheme, item));
+  });
+}
+
+/**
+ * Format scheme details for invoice display
+ */
+export function formatSchemeDetailsForInvoice(appliedSchemes: AppliedScheme[]): string {
+  if (appliedSchemes.length === 0) return '';
+  
+  return appliedSchemes.map(scheme => {
+    let detail = `✓ ${scheme.name}`;
+    
+    if (scheme.discount_percentage) {
+      detail += ` (${scheme.discount_percentage}% off)`;
+    }
+    
+    detail += ` - Saved ₹${scheme.discount_amount.toFixed(2)}`;
+    
+    if (scheme.free_items && scheme.free_items.length > 0) {
+      const freeDesc = scheme.free_items
+        .map(f => `${f.quantity}x ${f.product_name}`)
+        .join(', ');
+      detail += ` + FREE: ${freeDesc}`;
+    }
+    
+    return detail;
+  }).join('\n');
+}

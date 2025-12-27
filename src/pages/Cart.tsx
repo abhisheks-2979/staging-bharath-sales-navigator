@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import InvoiceTemplateRenderer from "@/components/invoice/InvoiceTemplateRenderer";
-import { Trash2, Gift, ShoppingCart, Eye, Camera, FileText } from "lucide-react";
+import { Trash2, Gift, ShoppingCart, Eye, Camera, FileText, Tag, Sparkles } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { CartItemDetail } from "@/components/CartItemDetail";
@@ -26,6 +26,10 @@ import { retailerStatusRegistry } from "@/lib/retailerStatusRegistry";
 import { visitStatusCache } from "@/lib/visitStatusCache";
 import { syncOrdersToVanStock, getTodayDateString } from "@/utils/vanStockSync";
 import { getLocalTodayDate } from "@/utils/dateUtils";
+import { useOfflineSchemes } from "@/hooks/useOfflineSchemes";
+import { useAppliedSchemes } from "@/hooks/useAppliedSchemes";
+import { calculateOrderWithSchemes, SchemeItem, formatSchemeDetailsForInvoice } from "@/utils/schemeEngine";
+
 interface CartItem {
   id: string;
   name: string;
@@ -97,7 +101,6 @@ export const Cart = () => {
   };
 
   // Initialize states with immediate values - NO loading state needed
-  const [allSchemes, setAllSchemes] = React.useState<any[]>([]);
   const [cartItems, setCartItems] = React.useState<CartItem[]>(getInitialCartItems);
   const [userId, setUserId] = React.useState<string | null>(null);
   const [loggedInUserName, setLoggedInUserName] = React.useState<string>("User");
@@ -105,6 +108,10 @@ export const Cart = () => {
   const [selectedItem, setSelectedItem] = React.useState<CartItem | null>(null);
   const [showItemDetail, setShowItemDetail] = React.useState(false);
   const [pendingAmountFromPrevious, setPendingAmountFromPrevious] = React.useState<number>(0);
+  
+  // Use scheme engine for calculations
+  const { schemes, loading: schemesLoading } = useOfflineSchemes();
+  const { appliedSchemeIds, clearSchemes } = useAppliedSchemes(validVisitId || '', validRetailerId || '');
 
   // Reload cart items when storage key changes, on mount, or when storage updates
   React.useEffect(() => {
@@ -158,61 +165,31 @@ export const Cart = () => {
   const [retailerData, setRetailerData] = React.useState<any>(null);
   const [selectedTemplate, setSelectedTemplate] = React.useState<any>(null);
   const [selectedTemplateItems, setSelectedTemplateItems] = React.useState<any[]>([]);
-  // Background fetch for schemes and pending amount - non-blocking
+  // Background fetch for pending amount - non-blocking (schemes now come from useOfflineSchemes)
   React.useEffect(() => {
     // Only fetch if online
-    if (!navigator.onLine) return;
+    if (!navigator.onLine || !validRetailerId) return;
     
-    // Fetch schemes and pending amount in parallel, non-blocking
-    Promise.all([
-      supabase.from('product_schemes').select(`*, products(name), product_variants(variant_name)`).eq('is_active', true),
-      validRetailerId ? supabase.from('retailers').select('pending_amount').eq('id', validRetailerId).single() : Promise.resolve({ data: null })
-    ]).then(([schemesRes, pendingRes]) => {
-      if (schemesRes.data) setAllSchemes(schemesRes.data);
-      if (pendingRes.data) setPendingAmountFromPrevious(Number(pendingRes.data.pending_amount ?? 0));
-    }).catch(console.error);
-  }, [validRetailerId]);
-  const getItemScheme = (item: AnyCartItem) => {
-    try {
-      // First check if item has pre-calculated scheme data
-      const active = item.schemes?.find(s => s.is_active);
-      if (active) {
-        return {
-          condition: active.condition_quantity ? Number(active.condition_quantity) : undefined,
-          discountPct: active.discount_percentage ? Number(active.discount_percentage) : undefined
-        };
-      }
-
-      // Then check from database schemes by matching product name
-      const matchingScheme = allSchemes.find(scheme => {
-        if (!scheme || !scheme.is_active) return false;
-        const productName = scheme.products?.name;
-        if (!productName || !item.name) return false;
-
-        // Simple name matching to avoid complex logic
-        const nameMatches = item.name.toLowerCase().includes(productName.toLowerCase()) || productName.toLowerCase().includes(item.name.toLowerCase());
-        return nameMatches;
+    supabase.from('retailers').select('pending_amount').eq('id', validRetailerId).single()
+      .then(({ data }) => {
+        if (data) setPendingAmountFromPrevious(Number(data.pending_amount ?? 0));
       });
-      if (matchingScheme) {
-        return {
-          condition: matchingScheme.condition_quantity ? Number(matchingScheme.condition_quantity) : undefined,
-          discountPct: matchingScheme.discount_percentage ? Number(matchingScheme.discount_percentage) : undefined
-        };
-      }
+  }, [validRetailerId]);
 
-      // Fallback to item's own scheme data
-      return {
-        condition: item.schemeConditionQuantity ? Number(item.schemeConditionQuantity) : undefined,
-        discountPct: item.schemeDiscountPercentage ? Number(item.schemeDiscountPercentage) : undefined
-      };
-    } catch (error) {
-      console.error('Error in getItemScheme:', error);
-      return {
-        condition: undefined,
-        discountPct: undefined
-      };
-    }
-  };
+  // Calculate order totals using scheme engine
+  const orderCalculation = React.useMemo(() => {
+    const schemeItems: SchemeItem[] = cartItems.map(item => ({
+      id: item.id,
+      product_id: item.id.includes('_variant_') ? item.id.split('_variant_')[0] : item.id,
+      variant_id: item.id.includes('_variant_') ? item.id.split('_variant_')[1] : undefined,
+      quantity: item.quantity,
+      rate: getDisplayRate(item),
+      name: item.name
+    }));
+    
+    return calculateOrderWithSchemes(schemeItems, schemes, appliedSchemeIds);
+  }, [cartItems, schemes, appliedSchemeIds]);
+
   const computeItemSubtotal = (item: AnyCartItem) => {
     try {
       if (!item || !item.rate || !item.quantity) return 0;
@@ -223,30 +200,18 @@ export const Cart = () => {
       return 0;
     }
   };
+
   const computeItemDiscount = (item: AnyCartItem) => {
-    try {
-      if (!item || !item.quantity) return 0;
-      const {
-        condition,
-        discountPct
-      } = getItemScheme(item);
-      if (condition && discountPct && Number(item.quantity) >= condition) {
-        const subtotal = computeItemSubtotal(item);
-        const discount = subtotal * discountPct / 100;
-        return Math.max(0, discount); // Ensure non-negative
-      }
-      return 0;
-    } catch (error) {
-      console.error('Error computing discount:', error);
-      return 0;
-    }
+    // Use scheme engine's item discounts
+    return orderCalculation.itemDiscounts[item.id] || 0;
   };
+
   const computeItemTotal = (item: AnyCartItem) => {
     try {
       if (!item) return 0;
       const subtotal = computeItemSubtotal(item);
       const discount = computeItemDiscount(item);
-      return Math.max(0, subtotal - discount); // Ensure non-negative
+      return Math.max(0, subtotal - discount);
     } catch (error) {
       console.error('Error computing total:', error);
       return 0;
@@ -418,15 +383,8 @@ export const Cart = () => {
     }
   };
   const getDiscount = () => {
-    try {
-      return cartItems.reduce((sum, item) => {
-        if (!item) return sum;
-        return sum + computeItemDiscount(item);
-      }, 0);
-    } catch (error) {
-      console.error('Error computing discount:', error);
-      return 0;
-    }
+    // Use scheme engine's calculated total discount
+    return orderCalculation.totalDiscount;
   };
   const getAmountAfterDiscount = () => {
     try {
@@ -755,6 +713,9 @@ export const Cart = () => {
         }
       }
 
+      // Prepare scheme details for invoice
+      const schemeDetailsText = formatSchemeDetailsForInvoice(orderCalculation.appliedSchemes);
+
       // Prepare order data - use currentUserId which works both online and offline
       const orderData = {
         user_id: currentUserId,
@@ -771,20 +732,28 @@ export const Cart = () => {
         credit_paid_amount: creditPaid,
         previous_pending_cleared: previousPendingCleared,
         payment_method: orderPaymentMethod,
-        payment_proof_url: paymentProofUrl || null, // Allow null for offline orders
-        upi_last_four_code: paymentMethod === 'upi' ? upiLastFourCode : null
+        payment_proof_url: paymentProofUrl || null,
+        upi_last_four_code: paymentMethod === 'upi' ? upiLastFourCode : null,
+        scheme_details: schemeDetailsText || null
       };
 
-      const orderItems = cartItems.map(item => ({
-        product_id: item.id,
-        product_name: item.name,
-        category: item.category,
-        // Store rate per selected unit (KG or grams) so invoices match cart
-        rate: getDisplayRate(item),
-        unit: item.unit,
-        quantity: item.quantity,
-        total: computeItemTotal(item)
-      }));
+      const orderItems = cartItems.map(item => {
+        const itemDiscount = orderCalculation.itemDiscounts[item.id] || 0;
+        const originalRate = getDisplayRate(item);
+        const discountPerItem = item.quantity > 0 ? itemDiscount / item.quantity : 0;
+        
+        return {
+          product_id: item.id,
+          product_name: item.name,
+          category: item.category,
+          rate: originalRate - discountPerItem, // Store discounted rate
+          original_rate: originalRate,
+          discount_amount: itemDiscount,
+          unit: item.unit,
+          quantity: item.quantity,
+          total: computeItemTotal(item)
+        };
+      });
 
       // Submit order using offline-capable utility
       const result = await submitOrderWithOfflineSupport(orderData, orderItems, {
@@ -830,10 +799,11 @@ export const Cart = () => {
         }
       }
 
-      // Clear cart storage AND table form storage for this visit/retailer (only after successful order)
+      // Clear cart storage AND table form storage AND applied schemes for this visit/retailer
       localStorage.removeItem(activeStorageKey);
       localStorage.removeItem(tableFormStorageKey);
-      console.log('[Cart] Cleared both cart and table form storage after successful order');
+      clearSchemes(); // Clear applied schemes
+      console.log('[Cart] Cleared cart, table form, and applied schemes after successful order');
       
       // COMPREHENSIVE STATE CLEARING - Reset all cart and payment states for fresh order entry
       setCartItems([]);
