@@ -654,9 +654,10 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
     .from("orders")
     .select("*, order_items(*)")
     .eq("id", orderId)
-    .single();
+    .maybeSingle();
 
   if (orderError) throw orderError;
+  if (!order) throw new Error("Order not found. It may not have synced yet.");
 
   // Fetch company with template selection
   const { data: company } = await supabase
