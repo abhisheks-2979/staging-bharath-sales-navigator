@@ -241,25 +241,13 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
     
     if (existingRow && existingRow.quantity >= minQuantity) {
       // Already meets condition
-      toast({
-        title: "Offer Applied!",
-        description: `${scheme.name} is now active on your order`,
-      });
       onApplyScheme(scheme);
     } else if (targetProduct) {
       // Add or update product with minimum quantity
       onApplyScheme(scheme, targetProduct, minQuantity);
-      toast({
-        title: "Product Added",
-        description: `Added ${targetProduct.name} (${minQuantity} qty) for ${scheme.name}`,
-      });
     } else {
       // Generic scheme (all products)
       onApplyScheme(scheme);
-      toast({
-        title: "Offer Applied!",
-        description: scheme.description || `${scheme.name} will be applied at checkout`,
-      });
     }
   };
 
