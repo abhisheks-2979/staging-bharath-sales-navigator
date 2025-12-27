@@ -1,10 +1,13 @@
-import { Menu, LogOut, ArrowLeft, Database } from "lucide-react";
+import { Menu, X, LogOut, ArrowLeft, Wifi, WifiOff } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState, useMemo, useCallback, memo } from "react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { NetworkBadge } from "@/components/NetworkBadge";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { useConnectivity } from "@/hooks/useConnectivity";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTranslation } from 'react-i18next';
 import { useActivePerformanceModule } from "@/hooks/useActivePerformanceModule";
 import bharathLogo from '@/assets/bharath-logo.png';
@@ -93,91 +96,61 @@ export const Navbar = memo(() => {
 
   // Get user display name and initials
   const displayName = userProfile?.full_name || userProfile?.username || 'User';
+  const userInitials = displayName.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
 
   const handleMenuItemClick = useCallback(() => {
     setIsMenuOpen(false);
   }, []);
 
-  const isOnline = connectivityStatus === 'online';
-
   return (
     <>
-      {/* Premium Header - positioned below safe area top */}
-      <nav className="navbar-safe-area z-50">
-        {/* Gradient background with rounded bottom corners and shadow */}
-        <div 
-          className="relative px-4 py-3"
-          style={{
-            background: 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-glow)) 50%, hsl(var(--primary)) 100%)',
-            borderBottomLeftRadius: '16px',
-            borderBottomRightRadius: '16px',
-            boxShadow: '0 4px 20px -4px rgba(0, 0, 0, 0.25), 0 2px 8px -2px rgba(0, 0, 0, 0.15)',
-          }}
-        >
+      {/* Navbar - positioned below safe area top */}
+      <nav className="navbar-safe-area bg-gradient-primary text-white shadow-lg z-50">
+        <div className="px-4 py-3">
           <div className="flex items-center justify-between">
-            {/* Left: Back Button in Circular Card */}
-            <div className="w-10 h-10 flex items-center justify-center">
-              {showBackButton ? (
+            <div className="flex items-center gap-2">
+              {showBackButton && (
                 <button
                   onClick={() => navigate(-1)}
-                  className="w-10 h-10 rounded-full flex items-center justify-center bg-white/15 backdrop-blur-sm shadow-lg active:scale-95 transition-all duration-150 hover:bg-white/25"
-                  style={{
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.1)',
-                  }}
+                  className="p-1 rounded-lg hover:bg-white/10 transition-colors text-white"
                   title="Go back"
                 >
-                  <ArrowLeft size={20} strokeWidth={2.5} className="text-white" />
+                  <ArrowLeft size={16} />
                 </button>
-              ) : (
-                <div className="w-10 h-10" /> // Placeholder for alignment
               )}
+              
+              <NavLink to="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity text-white">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center overflow-hidden bg-white p-0.5">
+                  <img 
+                    src={bharathLogo} 
+                    alt="Bharath Beverages" 
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1">
+                    <h1 className="text-base font-semibold text-white">Bharath Beverages</h1>
+                    <SyncStatusIndicator />
+                  </div>
+                  <div className="flex items-center gap-0.5 text-white">
+                    {connectivityStatus === 'online' ? (
+                      <Wifi className="h-2.5 w-2.5 opacity-80" />
+                    ) : connectivityStatus === 'offline' ? (
+                      <>
+                        <WifiOff className="h-2.5 w-2.5 opacity-80" />
+                        <p className="text-[10px] opacity-80">No Connection</p>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              </NavLink>
             </div>
             
-            {/* Center: Logo + Company Name */}
-            <NavLink 
-              to="/dashboard" 
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2.5 hover:opacity-90 transition-opacity"
-            >
-              {/* Logo Container */}
-              <div 
-                className="relative w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden bg-white"
-                style={{ padding: '3px' }}
-              >
-                <img 
-                  src={bharathLogo} 
-                  alt="Bharath Beverages" 
-                  className="w-full h-full object-contain"
-                />
-                {/* Online/Offline Status Dot */}
-                <div 
-                  className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white shadow-sm ${
-                    isOnline ? 'bg-green-500' : 'bg-red-500'
-                  }`}
-                  style={{ boxShadow: `0 0 6px ${isOnline ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)'}` }}
-                />
-              </div>
-              
-              {/* Company Name + Sync Status */}
-              <div className="flex flex-col items-start">
-                <div className="flex items-center gap-1.5">
-                  <h1 className="text-base font-semibold text-white tracking-tight">
-                    Bharath Beverages
-                  </h1>
-                  <Database size={14} className="text-white/70" />
-                  <SyncStatusIndicator />
-                </div>
-              </div>
-            </NavLink>
-            
-            {/* Right: Menu Button in Circular Card */}
             <button 
               onClick={() => setIsMenuOpen(true)}
-              className="w-10 h-10 rounded-full flex items-center justify-center bg-white/15 backdrop-blur-sm shadow-lg active:scale-95 transition-all duration-150 hover:bg-white/25"
-              style={{
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.1)',
-              }}
+              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white"
             >
-              <Menu size={20} strokeWidth={2} className="text-white" />
+              <Menu size={20} />
             </button>
           </div>
         </div>
