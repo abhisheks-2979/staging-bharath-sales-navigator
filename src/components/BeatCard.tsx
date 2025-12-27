@@ -33,31 +33,29 @@ export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsigh
   return (
     <Card className="hover:shadow-lg transition-all duration-200 hover:scale-105">
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="space-y-2 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="default" className="text-xs font-semibold">
-                Beat #{beat.beat_number}
-              </Badge>
-              <Badge 
-                className={`text-xs ${
-                  beat.retailer_count >= 30 ? 'bg-yellow-100 text-yellow-800' : 
-                  beat.retailer_count >= 20 ? 'bg-gray-100 text-gray-800' : 
-                  beat.retailer_count >= 15 ? 'bg-orange-100 text-orange-800' : 
-                  'bg-amber-100 text-amber-800'
-                }`}
-              >
-                {beat.retailer_count >= 30 ? 'Platinum' : 
-                 beat.retailer_count >= 20 ? 'Silver' : 
-                 beat.retailer_count >= 15 ? 'Gold' : 'Bronze'}
-              </Badge>
-            </div>
-            <CardTitle 
-              className="text-lg leading-tight cursor-pointer hover:text-primary transition-colors"
-              onClick={handleBeatNameClick}
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle 
+            className="text-base leading-tight cursor-pointer hover:text-primary transition-colors flex-1"
+            onClick={handleBeatNameClick}
+          >
+            {beat.name}
+          </CardTitle>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Badge variant="default" className="text-[10px] px-1.5 py-0.5 font-medium">
+              #{beat.beat_number}
+            </Badge>
+            <Badge 
+              className={`text-[10px] px-1.5 py-0.5 ${
+                beat.retailer_count >= 30 ? 'bg-yellow-100 text-yellow-800' : 
+                beat.retailer_count >= 20 ? 'bg-gray-100 text-gray-800' : 
+                beat.retailer_count >= 15 ? 'bg-orange-100 text-orange-800' : 
+                'bg-amber-100 text-amber-800'
+              }`}
             >
-              {beat.name}
-            </CardTitle>
+              {beat.retailer_count >= 30 ? 'Platinum' : 
+               beat.retailer_count >= 20 ? 'Silver' : 
+               beat.retailer_count >= 15 ? 'Gold' : 'Bronze'}
+            </Badge>
           </div>
         </div>
       </CardHeader>
