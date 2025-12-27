@@ -184,15 +184,13 @@ registerRoute(
   }),
 );
 
-// Skip caching for dynamic routes and API endpoints that should always be fresh
+// Skip caching for non-GET requests (Workbox strategies only handle GET)
+// Keep a small cache only for GET requests to our own API/function routes.
 registerRoute(
   ({ url, request }) => {
     return (
-      request.method === 'POST' ||
-      request.method === 'PUT' ||
-      request.method === 'DELETE' ||
-      url.pathname.includes('/api/') ||
-      url.pathname.includes('/functions/')
+      request.method === 'GET' &&
+      (url.pathname.includes('/api/') || url.pathname.includes('/functions/'))
     );
   },
   new NetworkFirst({
@@ -205,5 +203,5 @@ registerRoute(
         purgeOnQuotaError: true,
       }),
     ],
-  })
+  }),
 );
