@@ -117,8 +117,33 @@ export const VisitCard = ({
   const [feedbackEditId, setFeedbackEditId] = useState<string | null>(null);
   const [feedbackEditData, setFeedbackEditData] = useState<any>(null);
   const { user } = useAuth();
-  const [hasOrderToday, setHasOrderToday] = useState(!!visit.hasOrder);
-  const [actualOrderValue, setActualOrderValue] = useState<number>(0);
+  // Initialize from cache or props - will be set after getInitialStatusData is called
+  const [hasOrderToday, setHasOrderToday] = useState<boolean>(() => {
+    // Check cache first for order value
+    const retailerId = visit.retailerId || visit.id;
+    const cachedUserId = typeof window !== 'undefined' ? localStorage.getItem('cached_user_id') : null;
+    const targetDate = getLocalTodayDate();
+    if (cachedUserId && visitStatusCache.isReady()) {
+      const cached = visitStatusCache.getSync(retailerId, cachedUserId, targetDate);
+      if (cached?.orderValue && cached.orderValue > 0) {
+        return true;
+      }
+    }
+    return !!visit.hasOrder;
+  });
+  const [actualOrderValue, setActualOrderValue] = useState<number>(() => {
+    // Check cache first for order value
+    const retailerId = visit.retailerId || visit.id;
+    const cachedUserId = typeof window !== 'undefined' ? localStorage.getItem('cached_user_id') : null;
+    const targetDate = getLocalTodayDate();
+    if (cachedUserId && visitStatusCache.isReady()) {
+      const cached = visitStatusCache.getSync(retailerId, cachedUserId, targetDate);
+      if (cached?.orderValue && cached.orderValue > 0) {
+        return cached.orderValue;
+      }
+    }
+    return visit.orderValue || 0;
+  });
   const [distributorName, setDistributorName] = useState<string>('');
   const [hasStockRecords, setHasStockRecords] = useState(false);
   const [stockRecordCount, setStockRecordCount] = useState(0);
