@@ -1,25 +1,44 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 const STORAGE_KEY_PREFIX = 'applied_schemes:';
 
 /**
  * Hook to manage applied schemes for an order
  * Persists to localStorage for offline support
+ * Each retailer/visit combination has independent scheme state
  */
 export function useAppliedSchemes(visitId: string, retailerId: string) {
   const storageKey = `${STORAGE_KEY_PREFIX}${visitId || 'temp'}:${retailerId || 'unknown'}`;
   
-  const [appliedSchemeIds, setAppliedSchemeIds] = useState<string[]>(() => {
+  const [appliedSchemeIds, setAppliedSchemeIds] = useState<string[]>([]);
+  const isInitialSync = useRef(true);
+  const previousStorageKey = useRef<string | null>(null);
+
+  // Re-sync state when storage key changes (different retailer/visit)
+  useEffect(() => {
+    // Only sync if the key actually changed
+    if (previousStorageKey.current === storageKey) return;
+    previousStorageKey.current = storageKey;
+    isInitialSync.current = true;
+    
     try {
       const stored = localStorage.getItem(storageKey);
-      return stored ? JSON.parse(stored) : [];
+      const parsed = stored ? JSON.parse(stored) : [];
+      setAppliedSchemeIds(parsed);
+      console.log('[useAppliedSchemes] Synced for key:', storageKey, 'Schemes:', parsed.length);
     } catch {
-      return [];
+      setAppliedSchemeIds([]);
     }
-  });
+  }, [storageKey]);
 
   // Persist to localStorage whenever appliedSchemeIds changes
   useEffect(() => {
+    // Skip first save after sync to prevent overwriting
+    if (isInitialSync.current) {
+      isInitialSync.current = false;
+      return;
+    }
+    
     try {
       if (appliedSchemeIds.length > 0) {
         localStorage.setItem(storageKey, JSON.stringify(appliedSchemeIds));
