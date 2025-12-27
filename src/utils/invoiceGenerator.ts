@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
+import { offlineStorage, STORES } from "@/lib/offlineStorage";
 
 interface InvoiceData {
   orderId: string;
@@ -649,15 +650,32 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
   // Fallback to generating from order data (original behavior)
   console.log("📦 Generating invoice from order data");
   
-  // Fetch order with beat info
-  const { data: order, error: orderError } = await supabase
+  // Fetch order (try online first, then fall back to offline cache)
+  const { data: dbOrder, error: orderError } = await supabase
     .from("orders")
     .select("*, order_items(*)")
     .eq("id", orderId)
     .maybeSingle();
 
   if (orderError) throw orderError;
-  if (!order) throw new Error("Order not found. It may not have synced yet.");
+
+  let order: any = dbOrder;
+
+  // If order is not in DB yet (not synced), use offline cached order
+  if (!order) {
+    const offlineOrder = await offlineStorage.getById<any>(STORES.ORDERS, orderId);
+    if (offlineOrder) {
+      console.log("💾 Using offline cached order for invoice generation");
+      order = {
+        ...offlineOrder,
+        order_items: offlineOrder.order_items || offlineOrder.items || [],
+      };
+    }
+  }
+
+  if (!order) {
+    throw new Error("Order not found in database or offline cache.");
+  }
 
   // Fetch company with template selection
   const { data: company } = await supabase
