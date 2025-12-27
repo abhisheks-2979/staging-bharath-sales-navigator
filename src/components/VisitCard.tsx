@@ -159,6 +159,7 @@ export const VisitCard = ({
     total_amount: number;
     is_credit_order: boolean;
     credit_paid_amount: number;
+    invoice_number?: string;
   }>>([]);
   const [previousPendingCleared, setPreviousPendingCleared] = useState<number>(0);
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
@@ -2047,7 +2048,7 @@ export const VisitCard = ({
       // First try Supabase
       const {
         data: dbOrders
-      } = await supabase.from('orders').select('id, created_at, total_amount, is_credit_order, credit_paid_amount').eq('user_id', user.id).eq('retailer_id', retailerId).eq('status', 'confirmed').gte('created_at', dayStart.toISOString()).lte('created_at', dayEnd.toISOString());
+      } = await supabase.from('orders').select('id, created_at, total_amount, is_credit_order, credit_paid_amount, invoice_number').eq('user_id', user.id).eq('retailer_id', retailerId).eq('status', 'confirmed').gte('created_at', dayStart.toISOString()).lte('created_at', dayEnd.toISOString());
       
       // Also check offline storage for orders not yet synced
       let offlineOrders: any[] = [];
@@ -2467,8 +2468,13 @@ export const VisitCard = ({
                   </div>
                   
                   {/* Invoice Generation Button */}
-                  {lastOrderId && <div className="mt-3 pt-2 border-t">
-                      <VisitInvoicePDFGenerator orderId={lastOrderId} customerPhone={visit.phone} className="w-full" />
+                  {ordersTodayList.length > 0 && <div className="mt-3 pt-2 border-t">
+                      <VisitInvoicePDFGenerator orders={ordersTodayList.map(o => ({
+                        id: o.id,
+                        invoice_number: o.invoice_number,
+                        total_amount: o.total_amount,
+                        created_at: o.created_at
+                      }))} customerPhone={visit.phone} className="w-full" />
                     </div>}
                 </>}
             </div>}
