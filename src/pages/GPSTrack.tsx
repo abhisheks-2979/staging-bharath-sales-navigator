@@ -4,9 +4,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CalendarIcon, MapPin, User } from 'lucide-react';
+import { CalendarIcon, MapPin } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -15,11 +14,6 @@ import { CurrentLocationMap } from '@/components/CurrentLocationMap';
 import { toast } from 'sonner';
 import { UserSelector } from '@/components/UserSelector';
 import { useSubordinates } from '@/hooks/useSubordinates';
-
-interface TeamMember {
-  id: string;
-  full_name: string;
-}
 
 interface GPSData {
   latitude: number;
@@ -40,42 +34,40 @@ interface RetailerLocation {
 }
 
 export default function GPSTrack() {
-  const { user, userRole } = useAuth();
+  const { user } = useAuth();
   const [date, setDate] = useState<Date>(new Date());
-  const [selectedMember, setSelectedMember] = useState<string>('');
-  const [currentLocationUser, setCurrentLocationUser] = useState<string>('');
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [gpsData, setGpsData] = useState<GPSData[]>([]);
   const [retailers, setRetailers] = useState<RetailerLocation[]>([]);
   const [loading, setLoading] = useState(false);
   
-  const isAdmin = userRole === 'admin';
+  // Hierarchical user filter using useSubordinates hook
+  const { isManager, subordinates, isLoading: subordinatesLoading } = useSubordinates();
   
-  // Hierarchical user filter (for managers)
-  const { isManager, subordinateIds, subordinates } = useSubordinates();
-  const [managerSelectedUserId, setManagerSelectedUserId] = useState<string>('self');
+  // State for user selection - 'self' means current user
+  const [selectedUserId, setSelectedUserId] = useState<string>('self');
+  const [currentLocationUserId, setCurrentLocationUserId] = useState<string>('self');
   
-  // Determine if user can select team members
-  const canSelectTeamMembers = isAdmin || isManager;
+  // Determine if user can select team members (is a manager with subordinates)
+  const canSelectTeamMembers = isManager;
 
-  useEffect(() => {
-    if (isAdmin) {
-      loadTeamMembers();
-    } else if (isManager) {
-      // For managers, use subordinates as team members
-      const managerTeam: TeamMember[] = [
-        { id: user?.id || '', full_name: 'My Data' },
-        ...subordinates.map(s => ({ id: s.subordinate_user_id, full_name: s.full_name }))
-      ];
-      setTeamMembers(managerTeam);
-      setCurrentLocationUser(user?.id || '');
-      setSelectedMember(user?.id || '');
-    } else if (user?.id) {
-      // Non-admin/non-manager users only see their own location
-      setCurrentLocationUser(user.id);
-      setSelectedMember(user.id);
+  // Get the actual user ID for data fetching
+  const getActualUserId = (selectorValue: string): string => {
+    if (selectorValue === 'self' || !selectorValue) {
+      return user?.id || '';
     }
-  }, [isAdmin, isManager, user?.id, subordinates]);
+    return selectorValue;
+  };
+
+  const selectedMember = getActualUserId(selectedUserId);
+  const currentLocationUser = getActualUserId(currentLocationUserId);
+
+  // Initialize selection when user loads
+  useEffect(() => {
+    if (user?.id && !subordinatesLoading) {
+      setSelectedUserId('self');
+      setCurrentLocationUserId('self');
+    }
+  }, [user?.id, subordinatesLoading]);
 
   useEffect(() => {
     if (selectedMember) {
@@ -88,8 +80,6 @@ export default function GPSTrack() {
   useEffect(() => {
     if (!selectedMember) return;
 
-    const dateStr = date.toISOString().split('T')[0];
-    
     const channel = supabase
       .channel('visit-updates')
       .on(
@@ -111,28 +101,6 @@ export default function GPSTrack() {
       supabase.removeChannel(channel);
     };
   }, [selectedMember, date]);
-
-  const loadTeamMembers = async () => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, full_name')
-      .order('full_name');
-
-    if (error) {
-      console.error('Error loading team members:', error);
-      toast.error('Failed to load team members');
-      return;
-    }
-
-    if (data) {
-      setTeamMembers(data as TeamMember[]);
-      // Auto-select current user if available
-      if (user?.id) {
-        setSelectedMember(user.id);
-        setCurrentLocationUser(user.id);
-      }
-    }
-  };
 
   const loadGPSData = async () => {
     if (!selectedMember) return;
@@ -303,29 +271,17 @@ export default function GPSTrack() {
 
           {/* Current Location Tab */}
           <TabsContent value="current" className="space-y-6 mt-6">
-            {/* User Selector - For Admin or Manager */}
+            {/* User Selector - For Managers with subordinates */}
             {canSelectTeamMembers && (
               <Card className="p-6">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Select Team Member</label>
-                  <Select value={currentLocationUser} onValueChange={setCurrentLocationUser}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a team member">
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          {teamMembers.find((m) => m.id === currentLocationUser)?.full_name || 'Select member'}
-                        </div>
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teamMembers.map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
-                          {member.full_name}
-                          {member.id === user?.id && ' (You)'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <UserSelector
+                    selectedUserId={currentLocationUserId}
+                    onUserChange={setCurrentLocationUserId}
+                    showAllOption={false}
+                    className="w-full max-w-full h-10"
+                  />
                 </div>
               </Card>
             )}
@@ -360,28 +316,16 @@ export default function GPSTrack() {
                   </Popover>
                 </div>
 
-                {/* Team Member Selector - For Admin or Manager */}
+                {/* Team Member Selector - For Managers with subordinates */}
                 {canSelectTeamMembers && (
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Select Team Member</label>
-                    <Select value={selectedMember} onValueChange={setSelectedMember}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose a team member">
-                          <div className="flex items-center gap-2">
-                            <User className="h-4 w-4" />
-                            {teamMembers.find((m) => m.id === selectedMember)?.full_name || 'Select member'}
-                          </div>
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {teamMembers.map((member) => (
-                          <SelectItem key={member.id} value={member.id}>
-                            {member.full_name}
-                            {member.id === user?.id && ' (You)'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <UserSelector
+                      selectedUserId={selectedUserId}
+                      onUserChange={setSelectedUserId}
+                      showAllOption={false}
+                      className="w-full max-w-full h-10"
+                    />
                   </div>
                 )}
               </div>
