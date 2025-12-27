@@ -4,7 +4,6 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,11 +14,8 @@ import { toast } from 'sonner';
 import { CurrentLocationMap } from '@/components/CurrentLocationMap';
 import { JourneyMap } from '@/components/JourneyMap';
 import { cn } from '@/lib/utils';
-
-interface TeamMember {
-  id: string;
-  full_name: string;
-}
+import { UserSelector } from '@/components/UserSelector';
+import { useSubordinates } from '@/hooks/useSubordinates';
 
 interface GPSData {
   latitude: number;
@@ -34,10 +30,8 @@ interface AttendanceData {
 }
 
 const GPSTrackManagement = () => {
-  const { userRole, loading } = useAuth();
+  const { user, userRole, loading } = useAuth();
   const navigate = useNavigate();
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [selectedMember, setSelectedMember] = useState<string>('');
   const [date, setDate] = useState<Date>(new Date());
   const [gpsData, setGpsData] = useState<GPSData[]>([]);
   const [attendanceData, setAttendanceData] = useState<AttendanceData | null>(null);
@@ -46,25 +40,21 @@ const GPSTrackManagement = () => {
   const [startTime, setStartTime] = useState<string>('09:00');
   const [endTime, setEndTime] = useState<string>('19:00');
 
-  // Load team members
-  useEffect(() => {
-    const loadTeamMembers = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .order('full_name');
+  // Use hierarchy-based subordinates
+  const { subordinates, isManager, isLoading: subordinatesLoading } = useSubordinates();
+  
+  // State for user selection - 'self' means current user
+  const [selectedUserId, setSelectedUserId] = useState<string>('self');
 
-        if (error) throw error;
-        setTeamMembers(data || []);
-      } catch (error) {
-        console.error('Error loading team members:', error);
-        toast.error('Failed to load team members');
-      }
-    };
+  // Get the actual user ID for data fetching
+  const getActualUserId = (selectorValue: string): string => {
+    if (selectorValue === 'self' || !selectorValue) {
+      return user?.id || '';
+    }
+    return selectorValue;
+  };
 
-    loadTeamMembers();
-  }, []);
+  const selectedMember = getActualUserId(selectedUserId);
 
   // Load GPS data based on selected member, date, and time range
   useEffect(() => {
@@ -186,7 +176,7 @@ const GPSTrackManagement = () => {
               <CardHeader>
                 <CardTitle>Live Location Monitoring</CardTitle>
                 <CardDescription>
-                  View real-time location of team members
+                  View real-time location of team members based on your hierarchy
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -195,18 +185,17 @@ const GPSTrackManagement = () => {
                     <label className="text-sm font-medium mb-2 block">
                       Select Team Member
                     </label>
-                    <Select value={selectedMember} onValueChange={setSelectedMember}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose a team member" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {teamMembers.map((member) => (
-                          <SelectItem key={member.id} value={member.id}>
-                            {member.full_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <UserSelector
+                      selectedUserId={selectedUserId}
+                      onUserChange={setSelectedUserId}
+                      showAllOption={false}
+                      className="w-full max-w-full h-10"
+                    />
+                    {!isManager && !subordinatesLoading && (
+                      <p className="text-sm text-muted-foreground mt-2">
+                        You can only view your own location data.
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -223,7 +212,7 @@ const GPSTrackManagement = () => {
               <CardHeader>
                 <CardTitle>Historical GPS Tracking</CardTitle>
                 <CardDescription>
-                  View past location tracking data with customizable time ranges
+                  View past location tracking data based on your hierarchy
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -233,18 +222,12 @@ const GPSTrackManagement = () => {
                     <label className="text-sm font-medium mb-2 block">
                       Select Team Member
                     </label>
-                    <Select value={selectedMember} onValueChange={setSelectedMember}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose a team member" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {teamMembers.map((member) => (
-                          <SelectItem key={member.id} value={member.id}>
-                            {member.full_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <UserSelector
+                      selectedUserId={selectedUserId}
+                      onUserChange={setSelectedUserId}
+                      showAllOption={false}
+                      className="w-full max-w-full h-10"
+                    />
                   </div>
 
                   <div>
