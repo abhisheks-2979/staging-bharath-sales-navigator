@@ -546,7 +546,7 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
     .select("*, invoice_items(*)")
     .eq("order_id", orderId)
     .eq("is_edited", true)
-    .single();
+    .maybeSingle();
 
   if (editedInvoice) {
     // Use edited invoice data
