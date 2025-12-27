@@ -2043,15 +2043,40 @@ export const VisitCard = ({
       dayStart.setHours(0, 0, 0, 0);
       const dayEnd = new Date(targetDate);
       dayEnd.setHours(23, 59, 59, 999);
+      
+      // First try Supabase
       const {
-        data: orders
+        data: dbOrders
       } = await supabase.from('orders').select('id, created_at, total_amount, is_credit_order, credit_paid_amount').eq('user_id', user.id).eq('retailer_id', retailerId).eq('status', 'confirmed').gte('created_at', dayStart.toISOString()).lte('created_at', dayEnd.toISOString());
-      setOrdersTodayList((orders || []) as any);
-      if ((orders || []).length > 0) {
+      
+      // Also check offline storage for orders not yet synced
+      let offlineOrders: any[] = [];
+      try {
+        const cachedOrders = await offlineStorage.getAll<any>(STORES.ORDERS);
+        offlineOrders = cachedOrders.filter((o: any) => {
+          const orderDate = new Date(o.created_at);
+          return (
+            o.user_id === user.id &&
+            o.retailer_id === retailerId &&
+            orderDate >= dayStart &&
+            orderDate <= dayEnd
+          );
+        });
+      } catch (e) {
+        console.log('[VisitCard] Error reading offline orders:', e);
+      }
+      
+      // Merge orders, avoiding duplicates (prefer DB version)
+      const dbOrderIds = new Set((dbOrders || []).map(o => o.id));
+      const uniqueOfflineOrders = offlineOrders.filter(o => !dbOrderIds.has(o.id));
+      const orders = [...(dbOrders || []), ...uniqueOfflineOrders];
+      
+      setOrdersTodayList(orders as any);
+      if (orders.length > 0) {
         // CRITICAL FIX: Also calculate and set order totals when loading order details
-        const totalOrderValue = (orders || []).reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
-        const creditOrders = (orders || []).filter((o: any) => !!o.is_credit_order);
-        const cashOrders = (orders || []).filter((o: any) => !o.is_credit_order);
+        const totalOrderValue = orders.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
+        const creditOrders = orders.filter((o: any) => !!o.is_credit_order);
+        const cashOrders = orders.filter((o: any) => !o.is_credit_order);
         const paidFromCash = cashOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
         const totalPaidFromCredit = creditOrders.reduce((sum: number, o: any) => sum + Number(o.credit_paid_amount || 0), 0);
         const totalPaidToday = paidFromCash + totalPaidFromCredit;
@@ -2070,10 +2095,29 @@ export const VisitCard = ({
         // Store the most recent order ID for invoice generation
         setLastOrderId(orders[0].id);
         
-        const orderIds = (orders || []).map(o => o.id);
-        const {
-          data: items
-        } = await supabase.from('order_items').select('product_name, quantity, rate, total, order_id').in('order_id', orderIds);
+        // For order items, first try from DB
+        const dbOrderIds_arr = (dbOrders || []).map(o => o.id);
+        let allItems: any[] = [];
+        
+        if (dbOrderIds_arr.length > 0) {
+          const { data: items } = await supabase.from('order_items').select('product_name, quantity, rate, total, order_id').in('order_id', dbOrderIds_arr);
+          allItems = items || [];
+        }
+        
+        // For offline orders, get items from order.items property (stored with order)
+        uniqueOfflineOrders.forEach((order: any) => {
+          if (order.items && Array.isArray(order.items)) {
+            order.items.forEach((item: any) => {
+              allItems.push({
+                product_name: item.product_name || item.name,
+                quantity: item.quantity,
+                rate: item.rate,
+                total: item.total || (item.quantity * item.rate),
+                order_id: order.id
+              });
+            });
+          }
+        });
 
         // Group items by product for a clean summary
         const grouped = new Map<string, {
@@ -2082,7 +2126,7 @@ export const VisitCard = ({
           rate: number;
           actualRate: number;
         }>();
-        (items || []).forEach(it => {
+        allItems.forEach(it => {
           const key = it.product_name;
           const existing = grouped.get(key);
           const actualRate = Number(it.total || 0) / Number(it.quantity || 1); // Calculate actual price paid per unit
