@@ -235,7 +235,15 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
     doc.text(salesmanName, pageWidth - 15, invoiceY, { align: "right" });
   }
 
-  // Items table with green header
+  // Calculate total discount for savings display
+  let totalDiscount = 0;
+  
+  // Items table with green header - show MRP and Offer Price if discounts exist
+  const hasAnyDiscount = cartItems.some(item => 
+    (item.original_rate && item.discount_amount && item.discount_amount > 0) ||
+    (item.original_rate && item.rate && item.original_rate > item.rate)
+  );
+  
   const tableData = cartItems.map((item, index) => {
     const qty = Number(item.quantity) || 0;
 
@@ -243,67 +251,108 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
     const hasStoredValues = item.taxable_amount != null && item.sgst_amount != null && item.cgst_amount != null;
     
     let effectiveRate: number;
+    let originalRate: number;
     let rowTotal: number;
+    let itemDiscount: number = 0;
     
     if (hasStoredValues) {
       // Use stored values directly - they're already correct, no conversion needed
       effectiveRate = Number(item.price || item.rate) || 0;
+      originalRate = Number(item.original_rate) || effectiveRate;
       rowTotal = Number(item.taxable_amount) || 0;
+      itemDiscount = Number(item.discount_amount) || 0;
     } else {
       // Calculate from base values with unit conversion
       effectiveRate = getDisplayRate(item);
+      originalRate = Number(item.original_rate) || effectiveRate;
+      itemDiscount = Number(item.discount_amount) || 0;
       rowTotal = effectiveRate * qty;
     }
-
-    return [
-      (index + 1).toString(),
-      getDisplayName(item),
-      item.hsn_code || "-",
-      item.unit || "Piece",
-      qty.toString(),
-      `Rs.${formatAmount(effectiveRate)}`,
-      `Rs.${formatAmount(rowTotal)}`,
-    ];
+    
+    totalDiscount += itemDiscount;
+    
+    // If there are discounts in the order, show MRP and Offer columns
+    if (hasAnyDiscount) {
+      return [
+        (index + 1).toString(),
+        getDisplayName(item),
+        item.hsn_code || "-",
+        item.unit || "Piece",
+        qty.toString(),
+        `Rs.${formatAmount(originalRate)}`, // MRP
+        itemDiscount > 0 ? `Rs.${formatAmount(effectiveRate)}` : "-", // Offer Price (or "-" if no discount)
+        `Rs.${formatAmount(rowTotal)}`,
+      ];
+    } else {
+      return [
+        (index + 1).toString(),
+        getDisplayName(item),
+        item.hsn_code || "-",
+        item.unit || "Piece",
+        qty.toString(),
+        `Rs.${formatAmount(effectiveRate)}`,
+        `Rs.${formatAmount(rowTotal)}`,
+      ];
+    }
   });
+
+  // Table headers based on whether discounts exist
+  const tableHeaders = hasAnyDiscount 
+    ? [["NO", "PRODUCT", "HSN", "UNIT", "QTY", "MRP", "OFFER", "TOTAL"]]
+    : [["NO", "PRODUCT", "HSN/SAC", "UNIT", "QTY", "PRICE", "TOTAL"]];
+
+  // Column styles based on whether discounts exist
+  const columnStyles = hasAnyDiscount 
+    ? {
+        0: { cellWidth: 12, halign: "center" as const },
+        1: { cellWidth: 'auto' as const, halign: "left" as const },
+        2: { cellWidth: 16, halign: "center" as const },
+        3: { cellWidth: 14, halign: "center" as const },
+        4: { cellWidth: 12, halign: "center" as const },
+        5: { cellWidth: 22, halign: "right" as const },
+        6: { cellWidth: 22, halign: "right" as const },
+        7: { cellWidth: 24, halign: "right" as const },
+      }
+    : {
+        0: { cellWidth: 15, halign: "center" as const },
+        1: { cellWidth: 'auto' as const, halign: "left" as const },
+        2: { cellWidth: 20, halign: "center" as const },
+        3: { cellWidth: 18, halign: "center" as const },
+        4: { cellWidth: 15, halign: "center" as const },
+        5: { cellWidth: 25, halign: "right" as const },
+        6: { cellWidth: 28, halign: "right" as const },
+      };
 
   autoTable(doc, {
     startY: 102,
-    head: [["NO", "PRODUCT", "HSN/SAC", "UNIT", "QTY", "PRICE", "TOTAL"]],
+    head: tableHeaders,
     body: tableData,
     theme: "grid",
     styles: {
       lineColor: [200, 200, 200],
       lineWidth: 0.5,
-      fontSize: 9,
+      fontSize: 8,
       textColor: [0, 0, 0],
-      cellPadding: 3,
+      cellPadding: 2,
     },
     headStyles: {
       fillColor: [22, 163, 74], // Green header matching preview
       textColor: [255, 255, 255],
       fontStyle: "bold",
-      fontSize: 9,
+      fontSize: 8,
       halign: "center",
       lineWidth: 0.5,
       lineColor: [22, 163, 74],
     },
     bodyStyles: {
-      fontSize: 9,
+      fontSize: 8,
       textColor: [0, 0, 0],
       lineWidth: 0.5,
     },
     alternateRowStyles: {
       fillColor: [247, 247, 247],
     },
-    columnStyles: {
-      0: { cellWidth: 15, halign: "center" },
-      1: { cellWidth: 'auto', halign: "left" },
-      2: { cellWidth: 20, halign: "center" },
-      3: { cellWidth: 18, halign: "center" },
-      4: { cellWidth: 15, halign: "center" },
-      5: { cellWidth: 25, halign: "right" },
-      6: { cellWidth: 28, halign: "right" },
-    },
+    columnStyles: columnStyles,
     margin: { left: 15, right: 15 },
   });
 
@@ -348,6 +397,17 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   
   doc.text("SUB-TOTAL", labelCol, yPos);
   doc.text(`Rs.${formatAmount(subtotal)}`, rightCol, yPos, { align: "right" });
+  
+  // Show "You Saved" if there are discounts
+  if (totalDiscount > 0) {
+    yPos += 5;
+    doc.setTextColor(22, 163, 74); // Green text for savings
+    doc.setFont("helvetica", "bold");
+    doc.text("YOU SAVED", labelCol, yPos);
+    doc.text(`Rs.${formatAmount(totalDiscount)}`, rightCol, yPos, { align: "right" });
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "normal");
+  }
   
   yPos += 5;
   doc.text("SGST (2.5%)", labelCol, yPos);
