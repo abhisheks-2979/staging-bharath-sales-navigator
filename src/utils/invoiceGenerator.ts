@@ -71,24 +71,12 @@ const numberToWords = (num: number): string => {
 export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob> {
   const { orderId, company, retailer, cartItems, displayInvoiceNumber, displayInvoiceDate, displayInvoiceTime, beatName, salesmanName, schemeDetails } = data;
   
-  // Helper functions for consistent display (matches preview component)
-  const normalizeUnit = (u?: string) => (u || "").toLowerCase().replace(/\./g, "").trim();
-  
+  // Get the rate directly from stored order data - no conversion needed for invoices
+  // The rate is already stored correctly in order_items
+  // Get the rate directly from stored order data - no conversion needed for invoices
+  // The rate is already stored correctly in order_items
   const getDisplayRate = (item: any) => {
-    const baseRate = Number(item.rate || item.price) || 0;
-    const baseUnit = normalizeUnit(item.base_unit || item.unit);
-    const targetUnit = normalizeUnit(item.unit);
-    if (!baseUnit || !item.base_unit) return baseRate;
-
-    // KG ↔ Gram conversions
-    if (baseUnit === "kg" || baseUnit === "kilogram" || baseUnit === "kilograms") {
-      if (["gram", "grams", "g", "gm"].includes(targetUnit)) return baseRate / 1000;
-      if (targetUnit === "kg") return baseRate;
-    } else if (["g", "gm", "gram", "grams"].includes(baseUnit)) {
-      if (targetUnit === "kg") return baseRate * 1000;
-      if (["g", "gm", "gram", "grams"].includes(targetUnit)) return baseRate;
-    }
-    return baseRate;
+    return Number(item.rate || item.price) || 0;
   };
 
   // Get display name - show only variant name if it's a variant, or base product name
