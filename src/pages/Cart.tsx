@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import InvoiceTemplateRenderer from "@/components/invoice/InvoiceTemplateRenderer";
-import { Trash2, Gift, ShoppingCart, Eye, Camera, FileText } from "lucide-react";
+import { Trash2, Gift, ShoppingCart, Eye, Camera, FileText, Tag } from "lucide-react";
+import { CartSchemesModal } from "@/components/CartSchemesModal";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { CartItemDetail } from "@/components/CartItemDetail";
@@ -104,6 +105,7 @@ export const Cart = () => {
   const [visitDate, setVisitDate] = React.useState<string | null>(null);
   const [selectedItem, setSelectedItem] = React.useState<CartItem | null>(null);
   const [showItemDetail, setShowItemDetail] = React.useState(false);
+  const [showSchemesModal, setShowSchemesModal] = React.useState(false);
   const [pendingAmountFromPrevious, setPendingAmountFromPrevious] = React.useState<number>(0);
 
   // Reload cart items when storage key changes, on mount, or when storage updates
@@ -1195,8 +1197,17 @@ export const Cart = () => {
                 </div>
               </div>
               
-              {/* Right side - Preview and Cart info */}
+              {/* Right side - Preview, Schemes and Cart info */}
               <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowSchemesModal(true)}
+                  className="text-primary-foreground hover:bg-primary-foreground/20 p-1.5 sm:p-2 text-[10px] sm:text-xs h-auto"
+                >
+                  <Tag size={14} className="sm:w-4 sm:h-4 mr-1" />
+                  Offers
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1508,6 +1519,13 @@ export const Cart = () => {
         
         {/* Cart Item Detail Modal */}
         <CartItemDetail isOpen={showItemDetail} onClose={() => setShowItemDetail(false)} item={selectedItem} />
+
+        {/* Schemes & Offers Modal */}
+        <CartSchemesModal 
+          isOpen={showSchemesModal} 
+          onClose={() => setShowSchemesModal(false)} 
+          cartItems={cartItems.map(item => ({ id: item.id, name: item.name }))}
+        />
 
         <CameraCapture isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onCapture={handleCameraCapture} title={cameraMode === "cheque" ? "Capture Cheque Photo" : cameraMode === "upi" ? "Capture Payment Confirmation" : "Capture NEFT Confirmation"} />
         
