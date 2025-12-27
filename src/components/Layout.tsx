@@ -20,13 +20,21 @@ export const Layout = memo(({ children }: LayoutProps) => {
       hasCachedRef.current = true;
       console.log('🔄 Layout: Caching master data...');
       // Defer caching to not block UI
-      requestIdleCallback ? requestIdleCallback(() => {
-        cacheAllMasterData();
-        processSyncQueue();
-      }) : setTimeout(() => {
-        cacheAllMasterData();
-        processSyncQueue();
-      }, 100);
+      const ric = (window as any).requestIdleCallback as
+        | undefined
+        | ((cb: () => void) => number);
+
+      if (typeof ric === "function") {
+        ric(() => {
+          cacheAllMasterData();
+          processSyncQueue();
+        });
+      } else {
+        setTimeout(() => {
+          cacheAllMasterData();
+          processSyncQueue();
+        }, 100);
+      }
     }
   }, [isOnline, cacheAllMasterData, processSyncQueue]);
 
