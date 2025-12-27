@@ -16,6 +16,11 @@ interface InvoiceData {
   schemeDetails?: string;
 }
 
+// Helper function to format amount without decimals (rounded)
+const formatAmount = (amount: number): string => {
+  return Math.round(amount).toString();
+};
+
 // Helper function to convert number to words (Indian system)
 const numberToWords = (num: number): string => {
   if (num === 0) return "Zero";
@@ -268,8 +273,8 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
       item.hsn_code || "-",
       item.unit || "Piece",
       qty.toString(),
-      `Rs.${effectiveRate.toFixed(2)}`,
-      `Rs.${rowTotal.toFixed(2)}`,
+      `Rs.${formatAmount(effectiveRate)}`,
+      `Rs.${formatAmount(rowTotal)}`,
     ];
   });
 
@@ -340,9 +345,9 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
     ? cartItems.reduce((sum, item) => sum + (Number(item.total_amount) || 0), 0)
     : (subtotal + sgst + cgst);
   
-  // Convert total to words
-  const totalInWords = numberToWords(Math.floor(total)) + " Rupees" + 
-    (total % 1 > 0 ? " and " + numberToWords(Math.round((total % 1) * 100)) + " Paise" : "") + " Only";
+  // Convert total to words (use rounded total for consistency)
+  const roundedTotal = Math.round(total);
+  const totalInWords = numberToWords(roundedTotal) + " Rupees Only";
 
   // Totals section (right-aligned) - matching preview exactly
   yPos = (doc as any).lastAutoTable.finalY + 10;
@@ -354,15 +359,15 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setTextColor(0, 0, 0);
   
   doc.text("SUB-TOTAL", labelCol, yPos);
-  doc.text(`Rs.${subtotal.toFixed(2)}`, rightCol, yPos, { align: "right" });
+  doc.text(`Rs.${formatAmount(subtotal)}`, rightCol, yPos, { align: "right" });
   
   yPos += 5;
   doc.text("SGST (2.5%)", labelCol, yPos);
-  doc.text(`Rs.${sgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
+  doc.text(`Rs.${formatAmount(sgst)}`, rightCol, yPos, { align: "right" });
   
   yPos += 5;
   doc.text("CGST (2.5%)", labelCol, yPos);
-  doc.text(`Rs.${cgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
+  doc.text(`Rs.${formatAmount(cgst)}`, rightCol, yPos, { align: "right" });
 
   // Total amount box (green background - centered text)
   yPos += 6;
@@ -377,7 +382,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   // Center the text horizontally and vertically in the box
-  const totalText = `Total amount: Rs.${total.toFixed(2)}`;
+  const totalText = `Total amount: Rs.${formatAmount(total)}`;
   const textWidth = doc.getTextWidth(totalText);
   const centerX = totalBoxX + totalBoxWidth / 2 - textWidth / 2;
   const centerY = totalBoxY + totalBoxHeight / 2 + 3; // +3 to account for text baseline
