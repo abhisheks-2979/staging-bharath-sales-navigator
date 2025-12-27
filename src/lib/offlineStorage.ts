@@ -176,6 +176,15 @@ class OfflineStorage {
     };
     
     await this.save(STORES.SYNC_QUEUE, syncItem);
+
+    // Notify UI that sync queue changed (so it can trigger immediate sync while online)
+    try {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('syncQueueUpdated'));
+      }
+    } catch {
+      // no-op
+    }
   }
 
   async getSyncQueue(): Promise<any[]> {

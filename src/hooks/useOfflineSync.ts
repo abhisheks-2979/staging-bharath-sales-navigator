@@ -40,7 +40,7 @@ export function useOfflineSync() {
         return uuidRegex.test(id);
       };
 
-      // Clean up stale sync items (older than 1 hour OR 3+ retries)
+      // Clean up stale sync items (older than 1 hour OR 5+ retries)
       const cleanupStaleSyncItems = async (queue: any[]): Promise<any[]> => {
         const now = Date.now();
         const oneHourAgo = now - (60 * 60 * 1000);
@@ -48,7 +48,8 @@ export function useOfflineSync() {
         
         for (const item of queue) {
           const isStale = item.timestamp && item.timestamp < oneHourAgo;
-          const tooManyRetries = (item.retryCount || 0) >= 3;
+          // Keep retry behavior consistent with the main loop (max 5 attempts)
+          const tooManyRetries = (item.retryCount || 0) >= 5;
           
           if (isStale || tooManyRetries) {
             console.log(`🧹 Removing stale sync item: ${item.action}, age=${Math.round((now - item.timestamp) / 60000)}min, retries=${item.retryCount || 0}`);

@@ -105,12 +105,20 @@ export const SyncStatusIndicator = memo(() => {
       console.log('🌐 SyncStatusIndicator: Online detected, checking queue...');
       checkQueue();
     };
+
+    // Listen for queue updates to trigger immediate sync check (when items are added while already online)
+    const handleQueueUpdated = () => {
+      console.log('📥 SyncStatusIndicator: Queue updated, checking queue...');
+      checkQueue();
+    };
     
     window.addEventListener('online', handleOnline);
+    window.addEventListener('syncQueueUpdated', handleQueueUpdated);
 
     return () => {
       mountedRef.current = false;
       window.removeEventListener('online', handleOnline);
+      window.removeEventListener('syncQueueUpdated', handleQueueUpdated);
     };
   }, [checkQueue]);
 
