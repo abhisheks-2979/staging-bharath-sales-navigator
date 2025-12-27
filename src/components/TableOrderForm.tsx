@@ -136,6 +136,15 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
   
   // Track auto-applied schemes to prevent infinite loops
   const autoAppliedSchemesRef = useRef<Set<string>>(new Set());
+  // Track schemes the user explicitly removed so they don't instantly auto-apply again
+  const suppressedSchemesRef = useRef<Set<string>>(new Set());
+
+  const removeAppliedSchemeById = (schemeId: string) => {
+    // Suppress to keep user intent (don’t instantly auto-reapply while conditions remain met)
+    suppressedSchemesRef.current.add(schemeId);
+    autoAppliedSchemesRef.current.delete(schemeId);
+    removeScheme(schemeId);
+  };
 
   // Get unique categories from products (memoized for performance)
   const categories = useMemo(() => {
@@ -239,8 +248,9 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
     // Reset init so we don't immediately overwrite loaded state
     setHasInitialized(false);
 
-    // Reset auto-applied tracking for the new context
+    // Reset auto-apply tracking for the new context
     autoAppliedSchemesRef.current.clear();
+    suppressedSchemesRef.current.clear();
 
     // Load rows for this retailer/visit
     let rows: OrderRow[] = [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "KG", total: 0 }];
@@ -335,11 +345,21 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
       if (scheme.scheme_type === 'percentage_discount' && !schemeHasConditions(scheme)) {
         return;
       }
-      
+
       const conditionMet = isSchemeConditionMet(scheme, items, subtotal);
       const isApplied = appliedSchemeIds.includes(scheme.id);
       const wasAutoApplied = autoAppliedSchemesRef.current.has(scheme.id);
-      
+
+      // If the user no longer qualifies, clear suppression so it can auto-apply next time they qualify
+      if (!conditionMet) {
+        suppressedSchemesRef.current.delete(scheme.id);
+      }
+
+      // If user manually removed it, don't auto-apply again while the condition remains met
+      if (suppressedSchemesRef.current.has(scheme.id)) {
+        return;
+      }
+
       if (conditionMet && !isApplied) {
         // Auto-apply when condition is met
         autoAppliedSchemesRef.current.add(scheme.id);
@@ -360,7 +380,7 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
         });
       }
     });
-  }, [orderRows, schemes, hasInitialized]);
+  }, [orderRows, schemes, hasInitialized, appliedSchemeIds, applyScheme, removeScheme]);
 
   const findProductByCode = (code: string): { product: Product; variant?: any } | undefined => {
     // First check base products
@@ -499,9 +519,11 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
 
   // Handle applying a scheme - add product with minimum qualifying quantity and persist scheme
   const handleApplyScheme = (scheme: ProductScheme, product?: Product, quantity?: number) => {
-    // Always persist the scheme as applied
+    // User explicitly applied -> allow (unsuppress if previously removed)
+    suppressedSchemesRef.current.delete(scheme.id);
+    autoAppliedSchemesRef.current.delete(scheme.id);
     applyScheme(scheme.id);
-    
+
     if (!product) {
       // Order-wide scheme - just persist and show toast
       toast({
