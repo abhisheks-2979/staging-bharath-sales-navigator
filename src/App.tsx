@@ -188,12 +188,22 @@ const App = () => {
 
   useEffect(() => {
     const errorHandler = (event: ErrorEvent) => {
-      console.error('Global error:', event.error);
+      console.error("Global error:", event.error ?? event.message);
       setHasError(true);
     };
 
-    window.addEventListener('error', errorHandler);
-    return () => window.removeEventListener('error', errorHandler);
+    const rejectionHandler = (event: PromiseRejectionEvent) => {
+      console.error("Unhandled rejection:", event.reason);
+      setHasError(true);
+    };
+
+    window.addEventListener("error", errorHandler);
+    window.addEventListener("unhandledrejection", rejectionHandler);
+
+    return () => {
+      window.removeEventListener("error", errorHandler);
+      window.removeEventListener("unhandledrejection", rejectionHandler);
+    };
   }, []);
 
   return (
