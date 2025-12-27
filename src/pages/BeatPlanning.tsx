@@ -433,9 +433,6 @@ export const BeatPlanning = () => {
       }
       
       console.log('Successfully created/updated expense records:', data);
-      
-      // Show success message
-      toast.success(`Created expense records for ${selectedBeatIds.length} beat(s)`);
     } catch (error) {
       console.error('Error creating expense records:', error);
       toast.error('Failed to create expense records. Please check the console for details.', {
