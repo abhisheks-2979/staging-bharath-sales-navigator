@@ -9,7 +9,6 @@ import { Layout } from '@/components/Layout';
 import { CheckCircle, XCircle, Camera, MapPin, Clock, Plus, Filter, Navigation2, Route, CalendarDays, FileText, LogOut, LogIn } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { UserSelector } from '@/components/UserSelector';
 import { useSubordinates } from '@/hooks/useSubordinates';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
@@ -820,14 +819,7 @@ const Attendance = () => {
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Header Stats */}
           <div className="text-center space-y-4">
-            <div className="flex items-center justify-center gap-3">
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Attendance</h1>
-              <UserSelector
-                selectedUserId={selectedUserId}
-                onUserChange={setSelectedUserId}
-                showAllOption={false}
-              />
-            </div>
             <p className="text-muted-foreground">Track your daily attendance and working hours</p>
             
             {/* Main Stats */}
