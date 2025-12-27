@@ -972,6 +972,18 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
                 <p className="text-sm">Discount:</p>
               </div>
               <p className="text-sm font-medium text-green-600">-₹{getDiscountValue().toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+              <button
+                className="p-0.5 text-muted-foreground hover:text-destructive transition-colors"
+                onClick={() => {
+                  appliedSchemeIds.forEach(id => removeAppliedSchemeById(id));
+                  toast({
+                    title: "Offers Removed",
+                    description: "All applied offers have been removed",
+                  });
+                }}
+              >
+                <Trash2 size={12} />
+              </button>
             </div>
           )}
           
@@ -984,47 +996,6 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
           </p>
         </div>
       </div>
-
-      {/* Applied Offers Summary */}
-      {appliedSchemeIds.length > 0 && (
-        <Card className="border-green-200 bg-green-50 dark:bg-green-950/20">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <Sparkles size={14} className="text-green-600" />
-                <span className="text-sm font-medium text-green-700 dark:text-green-400">Applied Offers</span>
-              </div>
-              {getDiscountValue() > 0 && (
-                <span className="text-sm font-semibold text-green-600">
-                  -₹{getDiscountValue().toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                </span>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {orderCalculation.appliedSchemes.map(scheme => (
-                <div key={scheme.id} className="flex items-center gap-1 bg-white dark:bg-background/50 rounded px-2 py-1 text-xs">
-                  <span className="truncate max-w-[120px]">{scheme.name}</span>
-                  {scheme.discount_amount > 0 && (
-                    <span className="text-green-600 font-medium">-₹{scheme.discount_amount.toFixed(0)}</span>
-                  )}
-                  <button
-                    className="ml-0.5 p-0.5 text-muted-foreground hover:text-destructive transition-colors"
-                    onClick={() => {
-                      removeAppliedSchemeById(scheme.id);
-                      toast({
-                        title: "Offer Removed",
-                        description: `${scheme.name} has been removed`,
-                      });
-                    }}
-                  >
-                    <Trash2 size={10} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Apply Offers Section - Flipkart style */}
       <ApplyOfferSection
