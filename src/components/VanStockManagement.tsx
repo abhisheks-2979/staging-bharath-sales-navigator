@@ -1763,9 +1763,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                                 </Select>
                               </div>
                               
-                              <div className="w-20">
-                                <Label className="text-[9px] text-muted-foreground mb-0.5 block">
-                                  Qty {item.unit?.toLowerCase() === 'kg' ? '(decimals OK)' : ''}
+                              <div className="w-16 shrink-0">
+                                <Label className="text-[9px] text-muted-foreground mb-0.5 block truncate">
+                                  Qty
                                 </Label>
                                 <Input
                                   type="number"
