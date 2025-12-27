@@ -4,6 +4,7 @@ import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { useConnectivity } from './useConnectivity';
 import { useAuth } from './useAuth';
 import { getLocalTodayDate } from '@/utils/dateUtils';
+import { useManagedInterval } from '@/utils/intervalManager';
 
 // Progress callback type for cache warming UI
 export type CacheProgressCallback = (stepId: string, status: 'loading' | 'done' | 'error') => void;
@@ -604,17 +605,17 @@ export function useMasterDataCache() {
     }
   }, [isOnline, user, forceRefreshMasterData]);
 
-  // Background sync every 30 minutes when online to pick up admin changes silently
-  useEffect(() => {
-    if (!isOnline || !user) return;
-    
-    const intervalId = setInterval(() => {
-      console.log('[Cache] Background sync triggered (30-min interval)');
+  // Use managed interval for background sync (pauses when app is hidden)
+  // Increased from 30 min to 45 min to reduce network usage
+  useManagedInterval(
+    'master-data-cache-sync',
+    useCallback(() => {
+      console.log('[Cache] Background sync triggered (45-min interval)');
       forceRefreshMasterData();
-    }, 30 * 60 * 1000); // 30 minutes (reduced from 15 to minimize UI disruption)
-    
-    return () => clearInterval(intervalId);
-  }, [isOnline, user, forceRefreshMasterData]);
+    }, [forceRefreshMasterData]),
+    45 * 60 * 1000, // 45 minutes (increased from 30)
+    { enabled: isOnline && !!user, runWhenHidden: false }
+  );
 
   return {
     cacheProducts,

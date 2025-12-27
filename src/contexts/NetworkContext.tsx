@@ -7,6 +7,7 @@ import {
   isNativePlatform,
   NetworkStatus 
 } from '@/utils/nativeNetworkService';
+import { useManagedInterval } from '@/utils/intervalManager';
 
 type ConnectionQuality = 'fast' | 'slow' | 'offline';
 type EffectiveType = '4g' | '3g' | '2g' | 'slow-2g' | 'unknown';
@@ -175,21 +176,22 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
     
     // Initial status check
     updateConnectionState();
-    
-    // Periodic check as backup (less frequent on native since we have listeners)
-    const intervalMs = isNativePlatform() ? 60000 : 30000; // 60s native, 30s web
-    const intervalId = setInterval(() => {
-      if (mountedRef.current) {
-        updateConnectionState();
-      }
-    }, intervalMs);
 
     return () => {
       mountedRef.current = false;
       removeListener();
-      clearInterval(intervalId);
     };
   }, [updateConnectionState]);
+
+  // Use managed interval for periodic checks (pauses when app is hidden)
+  // Less frequent on native since we have listeners
+  const intervalMs = isNativePlatform() ? 120000 : 60000; // 2min native, 1min web (increased from 30s/60s)
+  useManagedInterval(
+    'network-context-check',
+    updateConnectionState,
+    intervalMs,
+    { runWhenHidden: false }
+  );
 
   // Update when manual mode changes
   useEffect(() => {

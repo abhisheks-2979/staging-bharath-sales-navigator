@@ -8,6 +8,7 @@ import { SyncProgressModal } from "./SyncProgressModal";
 import { CacheWarmingProgress, useCacheWarming } from "./CacheWarmingProgress";
 import { useMasterDataCache } from "@/hooks/useMasterDataCache";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
+import { useManagedInterval } from "@/utils/intervalManager";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,37 +70,35 @@ export const SyncStatusIndicator = memo(() => {
     cleanupOldStuckItems();
   }, []); // Run only once on mount
 
-  // Check sync queue periodically - only count ACTUAL pending items (not old/stuck ones)
+  // Check sync queue with managed interval (pauses when app is hidden)
+  const checkQueue = useCallback(async () => {
+    if (!mountedRef.current) return;
+    try {
+      const queue = await offlineStorage.getSyncQueue();
+      
+      // Filter out old items (older than 1 hour) and items that failed 5+ times
+      // These are stuck items that shouldn't show the sync indicator
+      const oneHourAgo = Date.now() - 60 * 60 * 1000;
+      const actualPendingItems = queue.filter((item: any) => {
+        // Skip items that have failed 5+ times
+        if (item.retryCount >= 5) return false;
+        // Skip items older than 1 hour that haven't been synced
+        if (item.timestamp && item.timestamp < oneHourAgo && !item._syncing) return false;
+        return true;
+      });
+      
+      if (mountedRef.current) {
+        setSyncQueueCount(actualPendingItems.length);
+      }
+    } catch (error) {
+      console.error('Error checking sync queue:', error);
+    }
+  }, []);
+
+  // Initial check and online listener
   useEffect(() => {
     mountedRef.current = true;
-    
-    const checkQueue = async () => {
-      if (!mountedRef.current) return;
-      try {
-        const queue = await offlineStorage.getSyncQueue();
-        
-        // Filter out old items (older than 1 hour) and items that failed 5+ times
-        // These are stuck items that shouldn't show the sync indicator
-        const oneHourAgo = Date.now() - 60 * 60 * 1000;
-        const actualPendingItems = queue.filter((item: any) => {
-          // Skip items that have failed 5+ times
-          if (item.retryCount >= 5) return false;
-          // Skip items older than 1 hour that haven't been synced
-          if (item.timestamp && item.timestamp < oneHourAgo && !item._syncing) return false;
-          return true;
-        });
-        
-        if (mountedRef.current) {
-          setSyncQueueCount(actualPendingItems.length);
-        }
-      } catch (error) {
-        console.error('Error checking sync queue:', error);
-      }
-    };
-    
     checkQueue();
-    // Check every 3 seconds for faster response
-    const interval = setInterval(checkQueue, 3000);
 
     // Listen for online event to trigger immediate sync check
     const handleOnline = () => {
@@ -111,10 +110,17 @@ export const SyncStatusIndicator = memo(() => {
 
     return () => {
       mountedRef.current = false;
-      clearInterval(interval);
       window.removeEventListener('online', handleOnline);
     };
-  }, []);
+  }, [checkQueue]);
+
+  // Use managed interval - reduced frequency from 3s to 5s
+  useManagedInterval(
+    'sync-status-check',
+    checkQueue,
+    5000, // Increased from 3s to 5s
+    { runWhenHidden: false }
+  );
 
   // Monitor syncing status when coming online - SILENT mode with aggressive retry
   useEffect(() => {
