@@ -680,6 +680,39 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     setStockItems(stockItems.filter((_, i) => i !== index));
   };
 
+  // Helper to convert quantity between units
+  const convertBetweenUnits = (qty: number, fromUnit: string, toUnit: string): number => {
+    const from = (fromUnit || '').toLowerCase();
+    const to = (toUnit || '').toLowerCase();
+    
+    if (from === to) return qty;
+    
+    // kg to grams
+    if ((from === 'kg' || from === 'kilogram') && (to === 'grams' || to === 'gram' || to === 'g')) {
+      return qty * 1000;
+    }
+    // grams to kg
+    if ((from === 'grams' || from === 'gram' || from === 'g') && (to === 'kg' || to === 'kilogram')) {
+      return qty / 1000;
+    }
+    
+    return qty;
+  };
+
+  // Get display text showing equivalent in other unit
+  const getUnitEquivalent = (qty: number, unit: string): string => {
+    const u = (unit || '').toLowerCase();
+    if (u === 'kg' || u === 'kilogram') {
+      const grams = qty * 1000;
+      return `(${grams.toLocaleString()}g)`;
+    }
+    if (u === 'grams' || u === 'gram' || u === 'g') {
+      const kg = qty / 1000;
+      return `(${kg.toFixed(2)}kg)`;
+    }
+    return '';
+  };
+
   const handleProductChange = (index: number, field: keyof StockItem, value: any) => {
     const updated = [...stockItems];
     updated[index] = { ...updated[index], [field]: value };
@@ -692,9 +725,18 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       }
     }
 
+    // When unit changes, convert quantity to the new unit
+    if (field === 'unit') {
+      const oldUnit = stockItems[index].unit;
+      const newUnit = value;
+      if (oldUnit && newUnit && updated[index].start_qty > 0) {
+        updated[index].start_qty = convertBetweenUnits(updated[index].start_qty, oldUnit, newUnit);
+      }
+    }
+
     // Only auto-calculate left_qty when start_qty or returned_qty changes
     // ordered_qty is now auto-calculated from orders
-    if (field === 'start_qty' || field === 'returned_qty') {
+    if (field === 'start_qty' || field === 'returned_qty' || field === 'unit') {
       updated[index].left_qty = updated[index].start_qty - updated[index].ordered_qty + updated[index].returned_qty;
     }
     
@@ -1721,17 +1763,25 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                                 </Select>
                               </div>
                               
-                              <div className="w-14">
-                                <Label className="text-[9px] text-muted-foreground mb-0.5 block">Qty</Label>
+                              <div className="w-20">
+                                <Label className="text-[9px] text-muted-foreground mb-0.5 block">
+                                  Qty {item.unit?.toLowerCase() === 'kg' ? '(decimals OK)' : ''}
+                                </Label>
                                 <Input
                                   type="number"
                                   value={item.start_qty || ''}
-                                  onChange={(e) => handleProductChange(index, 'start_qty', parseInt(e.target.value) || 0)}
+                                  onChange={(e) => handleProductChange(index, 'start_qty', parseFloat(e.target.value) || 0)}
                                   onFocus={(e) => e.target.select()}
                                   placeholder="0"
+                                  step={item.unit?.toLowerCase() === 'kg' ? '0.1' : '1'}
                                   className="h-8 text-[11px] px-1.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   min="0"
                                 />
+                                {item.start_qty > 0 && (
+                                  <span className="text-[8px] text-muted-foreground mt-0.5 block">
+                                    {getUnitEquivalent(item.start_qty, item.unit)}
+                                  </span>
+                                )}
                               </div>
                               
                               <Button 
