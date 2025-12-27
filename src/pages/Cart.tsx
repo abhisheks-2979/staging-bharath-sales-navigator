@@ -46,8 +46,29 @@ interface CartItem {
     condition_quantity?: number;
     discount_percentage?: number;
   }>;
+  display_unit?: string; // Original unit selected by user (KG or Grams)
+  display_quantity?: number; // Original quantity in user's unit
 }
 type AnyCartItem = CartItem;
+
+// Helper to get display-friendly quantity and unit
+const getDisplayQuantityAndUnit = (item: CartItem) => {
+  // If display_unit and display_quantity are available, use them
+  if (item.display_unit && item.display_quantity !== undefined) {
+    return { qty: item.display_quantity, unit: item.display_unit };
+  }
+  // Fallback: If quantity is in grams, convert large amounts to KG for display
+  if (item.unit?.toLowerCase() === 'grams' && item.quantity >= 1000) {
+    return { qty: item.quantity / 1000, unit: 'KG' };
+  }
+  return { qty: item.quantity, unit: item.unit };
+};
+
+// Format quantity for display (show decimals only if needed)
+const formatDisplayQuantity = (qty: number) => {
+  if (Number.isInteger(qty)) return qty.toString();
+  return qty.toFixed(2).replace(/\.?0+$/, '');
+};
 
 // Unit conversion helper - rate is already stored per selected unit, just return it
 const getDisplayRate = (item: CartItem) => {
@@ -1202,16 +1223,23 @@ export const Cart = () => {
             const discount = computeItemDiscount(item);
             const finalPrice = computeItemTotal(item);
             const hasDiscount = discount > 0;
+            const { qty: displayQty, unit: displayUnit } = getDisplayQuantityAndUnit(item);
 
             // Extract just the variant name if it contains a dash
             const displayName = item.name.includes(' - ') ? item.name.split(' - ')[1] || item.name : item.name;
+            
+            // Calculate rate per display unit (if stored in grams but displaying KG)
+            const ratePerDisplayUnit = displayUnit?.toLowerCase() === 'kg' && item.unit?.toLowerCase() === 'grams'
+              ? getDisplayRate(item) * 1000
+              : getDisplayRate(item);
+            
             return <Card key={item.id} className="border-border/50">
                     <CardContent className="p-2.5">
                       <div className="flex items-center gap-1.5">
                         {/* Product Info - Compact */}
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-sm truncate leading-tight">{displayName}</h3>
-                          <p className="text-xs text-muted-foreground">₹{getDisplayRate(item).toFixed(2)}/{item.unit}</p>
+                          <p className="text-xs text-muted-foreground">₹{ratePerDisplayUnit.toFixed(2)}/{displayUnit}</p>
                         </div>
                         
                         {/* Quantity Controls - Compact */}
@@ -1220,8 +1248,8 @@ export const Cart = () => {
                             -
                           </Button>
                           <div className="min-w-[40px] text-center">
-                            <div className="text-xs font-medium leading-tight">{item.quantity}</div>
-                            <div className="text-[10px] text-muted-foreground leading-tight">{item.unit}</div>
+                            <div className="text-xs font-medium leading-tight">{formatDisplayQuantity(displayQty)}</div>
+                            <div className="text-[10px] text-muted-foreground leading-tight">{displayUnit}</div>
                           </div>
                           <Button variant="outline" size="icon" className="h-6 w-6 text-xs" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
                             +

@@ -154,7 +154,42 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
         : 'order_cart:fallback';
   };
 
+  // Helper to convert quantity between units
+  const convertBetweenUnits = (qty: number, fromUnit: string, toUnit: string): number => {
+    const from = (fromUnit || '').toLowerCase();
+    const to = (toUnit || '').toLowerCase();
+    
+    if (from === to) return qty;
+    
+    // kg to grams
+    if (from === 'kg' && (to === 'grams' || to === 'gram' || to === 'g')) {
+      return qty * 1000;
+    }
+    // grams to kg
+    if ((from === 'grams' || from === 'gram' || from === 'g') && to === 'kg') {
+      return qty / 1000;
+    }
+    
+    return qty;
+  };
+
+  // Get display text showing equivalent in other unit
+  const getUnitEquivalent = (qty: number, unit: string): string => {
+    if (!qty || qty <= 0) return '';
+    const u = (unit || '').toLowerCase();
+    if (u === 'kg') {
+      const grams = qty * 1000;
+      return `(${grams.toLocaleString()}g)`;
+    }
+    if (u === 'grams' || u === 'gram' || u === 'g') {
+      const kg = qty / 1000;
+      return `(${kg.toFixed(2)}kg)`;
+    }
+    return '';
+  };
+
   // Helper to sync current rows to cart storage
+  // IMPORTANT: Convert KG to Grams for internal storage to maintain integer compatibility
   const syncRowsToCart = (rows: OrderRow[]) => {
     const productRows = rows.filter(row => row.product && row.quantity > 0);
     const cartItems = productRows.map(row => {
@@ -164,23 +199,35 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
       const selectedUnit = row.unit || 'KG';
       const ratePerSelectedUnit = getPricePerUnit(row.product!, row.variant, selectedUnit);
       
+      // Convert quantity to grams if unit is KG for internal storage
+      const quantityInGrams = selectedUnit.toLowerCase() === 'kg' 
+        ? Math.round(row.quantity * 1000)  // Round to avoid floating point issues
+        : Number(row.quantity) || 0;
+      
+      // Rate per gram for storage (price per kg / 1000)
+      const ratePerGram = selectedUnit.toLowerCase() === 'kg'
+        ? ratePerSelectedUnit / 1000
+        : ratePerSelectedUnit;
+      
       return {
         id: itemId,
         name: displayName || 'Unknown Product',
         category: row.product!.category?.name || 'Uncategorized',
-        rate: ratePerSelectedUnit,
-        unit: selectedUnit,
-        base_unit: selectedUnit,
-        quantity: Number(row.quantity) || 0,
+        rate: ratePerGram, // Store rate per gram
+        unit: 'Grams', // Always store as grams internally
+        base_unit: 'Grams',
+        quantity: quantityInGrams, // Store quantity in grams
         total: Number(row.total) || 0,
         closingStock: Number(stock) || 0,
-        schemes: row.product!.schemes || []
+        schemes: row.product!.schemes || [],
+        display_unit: selectedUnit, // Keep original unit for display purposes
+        display_quantity: Number(row.quantity) || 0 // Keep original quantity for display
       };
     });
     
     onCartUpdate(cartItems);
     localStorage.setItem(getCartStorageKey(), JSON.stringify(cartItems));
-    DEV_LOG && console.log('[syncRowsToCart] Synced to cart:', cartItems.length, 'items');
+    DEV_LOG && console.log('[syncRowsToCart] Synced to cart:', cartItems.length, 'items (stored as grams)');
   };
 
   // Re-link products from live products array when products load (only once after init)
@@ -466,8 +513,14 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
             // Use row.unit (current unit) since quantity is being updated
             updatedRow.total = computeTotal(row.product, row.variant, value, row.unit);
           } else if (field === "unit") {
-            // When unit changes, use the NEW unit value and CURRENT quantity from row
-            updatedRow.total = computeTotal(row.product, row.variant, row.quantity, value);
+            // When unit changes, convert quantity to the new unit automatically
+            const oldUnit = row.unit;
+            const newUnit = value as string;
+            if (oldUnit && newUnit && row.quantity > 0) {
+              updatedRow.quantity = convertBetweenUnits(row.quantity, oldUnit, newUnit);
+            }
+            // Recalculate total with the NEW unit and converted quantity
+            updatedRow.total = computeTotal(row.product, row.variant, updatedRow.quantity, value);
           }
           return updatedRow;
         }
@@ -756,15 +809,21 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
                     </div>
                     
                     {/* Qty Column */}
-                    <div>
+                    <div className="flex flex-col">
                       <Input
                         type="number"
                         placeholder="0"
                         value={row.quantity || ""}
-                        onChange={(e) => updateRow(row.id, "quantity", parseInt(e.target.value) || 0)}
+                        onChange={(e) => updateRow(row.id, "quantity", parseFloat(e.target.value) || 0)}
+                        step={row.unit?.toLowerCase() === 'kg' ? '0.1' : '1'}
                         className="h-9 md:h-11 text-xs md:text-sm text-center bg-background px-1 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
                         disabled={!row.product}
                       />
+                      {row.quantity > 0 && (
+                        <span className="text-[9px] text-muted-foreground text-center mt-0.5">
+                          {getUnitEquivalent(row.quantity, row.unit)}
+                        </span>
+                      )}
                     </div>
                     
                     {/* Stock Column */}
