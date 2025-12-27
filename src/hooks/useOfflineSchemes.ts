@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { supabase } from '@/integrations/supabase/client';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface ProductScheme {
   id: string;
@@ -29,6 +30,7 @@ export const useOfflineSchemes = () => {
   const [schemes, setSchemes] = useState<ProductScheme[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   // Monitor online status
   useEffect(() => {
@@ -44,38 +46,10 @@ export const useOfflineSchemes = () => {
     };
   }, []);
 
-  // Load schemes with offline-first approach
-  const loadSchemes = useCallback(async () => {
-    setLoading(true);
-    
-    try {
-      // 1. Try to load from cache first for instant display
-      const cachedSchemes = await offlineStorage.getAll<ProductScheme>(STORES.SCHEMES);
-      
-      if (cachedSchemes && cachedSchemes.length > 0) {
-        // Filter active schemes and set immediately
-        const activeSchemes = cachedSchemes.filter(s => s.is_active !== false);
-        setSchemes(activeSchemes);
-        setLoading(false);
-      }
-
-      // 2. If online, sync from Supabase in background
-      if (isOnline) {
-        await syncSchemesFromSupabase();
-      } else if (!cachedSchemes || cachedSchemes.length === 0) {
-        // Offline with no cache
-        setSchemes([]);
-        setLoading(false);
-      }
-    } catch (error) {
-      console.error('[useOfflineSchemes] Error loading schemes:', error);
-      setLoading(false);
-    }
-  }, [isOnline]);
-
   // Sync schemes from Supabase
-  const syncSchemesFromSupabase = async () => {
+  const syncSchemesFromSupabase = useCallback(async () => {
     try {
+      console.log('[useOfflineSchemes] Syncing schemes from Supabase...');
       const { data: schemesData, error } = await supabase
         .from('product_schemes')
         .select('*')
@@ -85,6 +59,8 @@ export const useOfflineSchemes = () => {
       if (error) throw error;
 
       if (!schemesData || schemesData.length === 0) {
+        // Clear cache if no active schemes
+        await offlineStorage.clear(STORES.SCHEMES);
         setSchemes([]);
         setLoading(false);
         return;
@@ -121,18 +97,83 @@ export const useOfflineSchemes = () => {
         free_product_name: scheme.free_product_id ? productsMap[scheme.free_product_id] || null : null,
       }));
 
-      // Cache for offline use
+      // Clear old cache and save new schemes
+      await offlineStorage.clear(STORES.SCHEMES);
       for (const scheme of formattedSchemes) {
         await offlineStorage.save(STORES.SCHEMES, scheme);
       }
 
+      console.log('[useOfflineSchemes] Synced', formattedSchemes.length, 'schemes');
       setSchemes(formattedSchemes);
     } catch (error) {
       console.error('[useOfflineSchemes] Error syncing from Supabase:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Load schemes with offline-first approach
+  const loadSchemes = useCallback(async () => {
+    setLoading(true);
+    
+    try {
+      // 1. Try to load from cache first for instant display
+      const cachedSchemes = await offlineStorage.getAll<ProductScheme>(STORES.SCHEMES);
+      
+      if (cachedSchemes && cachedSchemes.length > 0) {
+        // Filter active schemes and set immediately
+        const activeSchemes = cachedSchemes.filter(s => s.is_active !== false);
+        setSchemes(activeSchemes);
+        setLoading(false);
+      }
+
+      // 2. If online, sync from Supabase in background
+      if (isOnline) {
+        await syncSchemesFromSupabase();
+      } else if (!cachedSchemes || cachedSchemes.length === 0) {
+        // Offline with no cache
+        setSchemes([]);
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error('[useOfflineSchemes] Error loading schemes:', error);
+      setLoading(false);
+    }
+  }, [isOnline, syncSchemesFromSupabase]);
+
+  // Set up real-time subscription
+  useEffect(() => {
+    if (!isOnline) return;
+
+    console.log('[useOfflineSchemes] Setting up real-time subscription...');
+    
+    channelRef.current = supabase
+      .channel('product_schemes_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'product_schemes'
+        },
+        (payload) => {
+          console.log('[useOfflineSchemes] Real-time update:', payload.eventType);
+          // Re-sync schemes when any change occurs
+          syncSchemesFromSupabase();
+        }
+      )
+      .subscribe((status) => {
+        console.log('[useOfflineSchemes] Subscription status:', status);
+      });
+
+    return () => {
+      if (channelRef.current) {
+        console.log('[useOfflineSchemes] Cleaning up subscription');
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [isOnline, syncSchemesFromSupabase]);
 
   // Initial load
   useEffect(() => {

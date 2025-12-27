@@ -38,7 +38,12 @@ export const ApplyOfferSection: React.FC<ApplyOfferSectionProps> = ({
     return schemes.filter(scheme => {
       if (!scheme.is_active) return false;
       const startDate = scheme.start_date ? new Date(scheme.start_date) : null;
-      const endDate = scheme.end_date ? new Date(scheme.end_date) : null;
+      // Set end_date to end of day (23:59:59) so scheme is valid for the entire day
+      let endDate: Date | null = null;
+      if (scheme.end_date) {
+        endDate = new Date(scheme.end_date);
+        endDate.setHours(23, 59, 59, 999);
+      }
       if (startDate && now < startDate) return false;
       if (endDate && now > endDate) return false;
       return true;
