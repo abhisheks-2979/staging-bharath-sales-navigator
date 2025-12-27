@@ -1685,7 +1685,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                         
                         return (
                           <Card key={index} className="p-1.5">
-                            <div className="flex items-end gap-1">
+                            <div className="flex items-start gap-1">
                               <div className="flex-1 min-w-0">
                                 <Label className="text-[9px] text-muted-foreground mb-0.5 block">Product</Label>
                                 <Popover 
@@ -1697,12 +1697,11 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                                       variant="outline"
                                       role="combobox"
                                       aria-expanded={openProductPopovers[index]}
-                                      className="w-full justify-between h-auto py-1.5 px-2 font-normal"
+                                      className="w-full justify-between h-8 px-2 font-normal"
                                     >
                                       {selectedProduct ? (
                                         <div className="flex flex-col items-start text-left flex-1 min-w-0">
                                           <span className="truncate text-[11px] leading-tight w-full">{selectedProduct.name}</span>
-                                          <span className="text-[9px] text-muted-foreground leading-tight">₹{pricePerUnit.toFixed(2)} per {selectedProduct.unit}</span>
                                         </div>
                                       ) : (
                                         <span className="text-muted-foreground text-[11px]">Select...</span>
@@ -1745,9 +1744,12 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                                     </Command>
                                   </PopoverContent>
                                 </Popover>
+                                {selectedProduct && (
+                                  <span className="text-[9px] text-muted-foreground mt-0.5 block">₹{pricePerUnit.toFixed(2)}/kg</span>
+                                )}
                               </div>
                               
-                              <div className="w-12">
+                              <div className="w-14 shrink-0">
                                 <Label className="text-[9px] text-muted-foreground mb-0.5 block">Unit</Label>
                                 <Select
                                   value={item.unit}
@@ -1764,9 +1766,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                               </div>
                               
                               <div className="w-16 shrink-0">
-                                <Label className="text-[9px] text-muted-foreground mb-0.5 block truncate">
-                                  Qty
-                                </Label>
+                                <Label className="text-[9px] text-muted-foreground mb-0.5 block">Qty</Label>
                                 <Input
                                   type="number"
                                   value={item.start_qty || ''}
@@ -1784,15 +1784,17 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                                 )}
                               </div>
                               
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                onClick={() => handleRemoveProduct(index)}
-                                className="h-7 w-7 p-0 shrink-0"
-                                title="Remove product"
-                              >
-                                <Trash2 className="h-3 w-3 text-destructive" />
-                              </Button>
+                              <div className="shrink-0 pt-4">
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  onClick={() => handleRemoveProduct(index)}
+                                  className="h-8 w-8 p-0"
+                                  title="Remove product"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                </Button>
+                              </div>
                             </div>
                           </Card>
                         );
