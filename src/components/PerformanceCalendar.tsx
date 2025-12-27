@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter } from "lucide-react";
@@ -13,6 +13,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
+import { UserSelector } from "@/components/UserSelector";
+import { useSubordinates } from "@/hooks/useSubordinates";
 
 interface DayData {
   date: Date;
@@ -32,12 +34,12 @@ type ViewMode = "day" | "week" | "month";
 
 export const PerformanceCalendar = () => {
   const navigate = useNavigate();
-  const { userRole, userProfile } = useAuth();
+  const { userRole, userProfile, user } = useAuth();
+  const { isManager, subordinateIds } = useSubordinates();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [calendarData, setCalendarData] = useState<Map<string, DayData>>(new Map());
   const [loading, setLoading] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string>("self");
-  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
@@ -50,43 +52,18 @@ export const PerformanceCalendar = () => {
     leaves: true
   });
 
-  const isAdmin = userRole === 'admin';
-
-  const fetchTeamMembers = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      if (isAdmin) {
-        // For admin users, fetch ALL users from profiles
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .order('full_name');
-
-        const formattedProfiles = profiles?.map(p => ({
-          id: p.id,
-          name: p.full_name || 'Unknown'
-        })) || [];
-
-        setTeamMembers(formattedProfiles);
-        // Set default to "all" for admin
-        setSelectedUserId("all");
-      } else {
-        // For normal users, no team members (they can only see their own data)
-        setTeamMembers([]);
-        setSelectedUserId("self");
-      }
-    } catch (error) {
-      console.error('Error fetching team members:', error);
-    }
-  };
+  // Calculate effective user ID for data filtering using useSubordinates
+  const effectiveUserId = useMemo(() => {
+    if (!user?.id) return null;
+    if (selectedUserId === 'self') return user.id;
+    if (selectedUserId === 'all' && isManager) return null; // null means all subordinates
+    return selectedUserId;
+  }, [selectedUserId, user?.id, isManager]);
 
   const fetchCalendarData = async () => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user?.id) return;
 
       let rangeStart: Date;
       let rangeEnd: Date;
@@ -102,21 +79,14 @@ export const PerformanceCalendar = () => {
         rangeEnd = endOfMonth(currentDate);
       }
 
-      // Determine which user ID to use for data fetching
-      let targetUserId = user.id;
+      // Determine which user IDs to use for data fetching based on hierarchy
       let userIds: string[] = [user.id];
 
-      if (selectedUserId === "all" && isAdmin) {
-        // For admin viewing all users, get all user IDs
-        const { data: allProfiles } = await supabase
-          .from('profiles')
-          .select('id');
-        
-        if (allProfiles) {
-          userIds = allProfiles.map(p => p.id);
-        }
-      } else if (selectedUserId !== "self") {
-        targetUserId = selectedUserId;
+      if (selectedUserId === "all" && isManager) {
+        // For managers viewing all subordinates
+        userIds = [user.id, ...subordinateIds];
+      } else if (selectedUserId !== "self" && selectedUserId !== "all") {
+        // Viewing specific user
         userIds = [selectedUserId];
       }
 
@@ -296,14 +266,9 @@ export const PerformanceCalendar = () => {
   };
 
   useEffect(() => {
-    if (isAdmin !== undefined) {
-      fetchTeamMembers();
-    }
-  }, [isAdmin]);
-
-  useEffect(() => {
     fetchCalendarData();
-  }, [currentDate, selectedUserId, viewMode, filters]);
+  }, [currentDate, selectedUserId, viewMode, filters, subordinateIds]);
+
 
   useEffect(() => {
     // Sync currentDate with selectedYear and selectedMonth
@@ -778,26 +743,14 @@ export const PerformanceCalendar = () => {
               </Button>
             </div>
 
-            {/* Team Member Selector - Only for Admin */}
-            {isAdmin && (
-              <div className="flex items-center gap-1.5 md:gap-2">
-                <label className="text-xs md:text-sm font-medium whitespace-nowrap">View:</label>
-                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                  <SelectTrigger className="w-[120px] md:w-[150px] h-8 text-xs md:text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="self">Self</SelectItem>
-                    <SelectItem value="all">All Users</SelectItem>
-                    {teamMembers.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            {/* User Selector - Following hierarchy */}
+            <UserSelector
+              selectedUserId={selectedUserId}
+              onUserChange={setSelectedUserId}
+              showAllOption={true}
+              allOptionLabel="All Team"
+              className="h-8 min-w-[100px] max-w-[140px] text-xs"
+            />
           </div>
 
           {/* Legend - Compact on mobile, only in month view */}
