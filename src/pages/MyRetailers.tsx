@@ -482,13 +482,14 @@ export const MyRetailers = () => {
     <Layout>
       <section className="container mx-auto p-4 space-y-4">
         <Card className="bg-gradient-primary text-primary-foreground">
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="space-y-3">
             <CardTitle className="text-xl">My Retailers</CardTitle>
             <UserSelector
               selectedUserId={selectedUserId}
               onUserChange={setSelectedUserId}
               showAllOption={true}
               allOptionLabel="All Team"
+              className="w-fit"
             />
           </CardHeader>
         </Card>
