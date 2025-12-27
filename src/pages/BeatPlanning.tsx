@@ -582,24 +582,22 @@ export const BeatPlanning = () => {
           <div className="flex items-center justify-between w-full">
               <div className="flex items-start gap-2 sm:gap-3">
                 <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {/* User Selector for managers - inline with title */}
-                    <UserSelector
-                      selectedUserId={selectedUserId}
-                      onUserChange={setSelectedUserId}
-                      showAllOption={false}
-                      allOptionLabel="All Team"
-                      className="h-7 min-w-[100px] max-w-[140px] text-xs bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground [&>span]:text-primary-foreground"
-                    />
-                    <CardTitle className="text-lg sm:text-xl font-bold">
-                      {(() => {
-                        const dateKey = selectedDate.toLocaleDateString('en-US', { weekday: 'short' });
-                        return plannedBeats[dateKey]?.length > 0 
-                          ? `Journey: ${plannedBeats[dateKey].slice(0, 2).map(beatId => beats.find(b => b.id === beatId)?.name || beatId).join(', ')}${plannedBeats[dateKey].length > 2 ? '...' : ''}`
-                          : 'Plan My Journey';
-                      })()}
-                    </CardTitle>
-                  </div>
+                  <CardTitle className="text-lg sm:text-xl font-bold">
+                    {(() => {
+                      const dateKey = selectedDate.toLocaleDateString('en-US', { weekday: 'short' });
+                      return plannedBeats[dateKey]?.length > 0 
+                        ? `Journey: ${plannedBeats[dateKey].slice(0, 2).map(beatId => beats.find(b => b.id === beatId)?.name || beatId).join(', ')}${plannedBeats[dateKey].length > 2 ? '...' : ''}`
+                        : 'Plan My Journey';
+                    })()}
+                  </CardTitle>
+                  {/* User Selector for managers - below title */}
+                  <UserSelector
+                    selectedUserId={selectedUserId}
+                    onUserChange={setSelectedUserId}
+                    showAllOption={false}
+                    allOptionLabel="All Team"
+                    className="h-7 min-w-[100px] max-w-[140px] text-xs mt-1 bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground [&>span]:text-primary-foreground"
+                  />
                   <p className="text-xs sm:text-sm text-primary-foreground/80 mt-1">
                     {(() => {
                       const dateKey = selectedDate.toLocaleDateString('en-US', { weekday: 'short' });
