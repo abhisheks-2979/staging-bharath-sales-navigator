@@ -233,7 +233,34 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
     DEV_LOG && console.log('[syncRowsToCart] Synced to cart:', cartItems.length, 'items (stored as grams)');
   };
 
+
+  // When retailer/visit changes, reload rows for that context (prevents schemes leaking across retailers)
+  useEffect(() => {
+    // Reset init so we don't immediately overwrite loaded state
+    setHasInitialized(false);
+
+    // Reset auto-applied tracking for the new context
+    autoAppliedSchemesRef.current.clear();
+
+    // Load rows for this retailer/visit
+    let rows: OrderRow[] = [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "KG", total: 0 }];
+    try {
+      const savedData = localStorage.getItem(tableFormStorageKey);
+      const parsedData = savedData ? JSON.parse(savedData) : null;
+      if (Array.isArray(parsedData) && parsedData.length > 0) {
+        rows = parsedData;
+      }
+    } catch (error) {
+      console.error('[TableOrderForm] Error loading rows for key:', tableFormStorageKey, error);
+    }
+
+    setOrderRows(rows);
+    syncRowsToCart(rows);
+    DEV_LOG && console.log('[TableOrderForm] Context switched, loaded rows:', rows.length, tableFormStorageKey);
+  }, [tableFormStorageKey]);
+
   // Re-link products from live products array when products load (only once after init)
+
   useEffect(() => {
     if (products.length === 0 || hasInitialized) return; // Wait for products to load, only run once
     
