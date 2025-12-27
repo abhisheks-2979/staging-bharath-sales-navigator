@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
-import { Card } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -255,13 +255,29 @@ export default function GPSTrack() {
 
   return (
     <Layout>
-      <div className="container mx-auto p-4 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">GPS Track</h1>
-            <p className="text-muted-foreground">Monitor field movement with GPS tracking</p>
-          </div>
-        </div>
+      <div className="container mx-auto p-2 sm:p-4 space-y-4 sm:space-y-6">
+        {/* Header Card with inline UserSelector */}
+        <Card className="shadow-card bg-gradient-primary text-primary-foreground">
+          <CardHeader className="pb-2 px-2 sm:px-6 pt-2 sm:pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base sm:text-xl font-bold">GPS Track</CardTitle>
+                <p className="text-xs sm:text-sm opacity-90 mt-0.5">Monitor field movement</p>
+              </div>
+              {canSelectTeamMembers && (
+                <UserSelector
+                  selectedUserId={selectedUserId}
+                  onUserChange={(value) => {
+                    setSelectedUserId(value);
+                    setCurrentLocationUserId(value);
+                  }}
+                  showAllOption={false}
+                  className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+                />
+              )}
+            </div>
+          </CardHeader>
+        </Card>
 
         <Tabs defaultValue="current" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
@@ -270,23 +286,8 @@ export default function GPSTrack() {
           </TabsList>
 
           {/* Current Location Tab */}
-          <TabsContent value="current" className="space-y-6 mt-6">
-            {/* User Selector - For Managers with subordinates */}
-            {canSelectTeamMembers && (
-              <Card className="p-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Select Team Member</label>
-                  <UserSelector
-                    selectedUserId={currentLocationUserId}
-                    onUserChange={setCurrentLocationUserId}
-                    showAllOption={false}
-                    className="w-full max-w-full h-10"
-                  />
-                </div>
-              </Card>
-            )}
-
-            <Card className="p-6 relative z-0">
+          <TabsContent value="current" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
+            <Card className="p-4 sm:p-6 relative z-0">
               <CurrentLocationMap 
                 height="600px" 
                 userId={currentLocationUser} 
@@ -296,38 +297,22 @@ export default function GPSTrack() {
           </TabsContent>
 
           {/* Day Tracking Tab */}
-          <TabsContent value="day" className="space-y-6 mt-6">
-            {/* Filters */}
-            <Card className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Date Selector */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Select Date</label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start text-left font-normal">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {format(date, 'PPP')}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                {/* Team Member Selector - For Managers with subordinates */}
-                {canSelectTeamMembers && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Select Team Member</label>
-                    <UserSelector
-                      selectedUserId={selectedUserId}
-                      onUserChange={setSelectedUserId}
-                      showAllOption={false}
-                      className="w-full max-w-full h-10"
-                    />
-                  </div>
-                )}
+          <TabsContent value="day" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
+            {/* Date Selector */}
+            <Card className="p-4 sm:p-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Select Date</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-left font-normal">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(date, 'PPP')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} />
+                  </PopoverContent>
+                </Popover>
               </div>
             </Card>
 
