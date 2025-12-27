@@ -682,12 +682,12 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
                   <div 
                   key={row.id} 
                   className={cn(
-                    "grid grid-cols-[1.5fr_0.8fr_0.6fr_0.6fr_auto] md:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 md:gap-4 px-2 md:px-4 py-2 md:py-3 items-center",
+                    "grid grid-cols-[1.5fr_0.8fr_0.6fr_0.6fr_auto] md:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 md:gap-4 px-2 md:px-4 py-2 md:py-3 items-start",
                     index % 2 === 0 ? "bg-background" : "bg-muted/20"
                   )}
                 >
                     {/* Product Column */}
-                    <div>
+                    <div className="flex flex-col">
                       <Popover 
                         open={openComboboxes[row.id]} 
                         onOpenChange={(open) => setOpenComboboxes(prev => ({ ...prev, [row.id]: open }))}
@@ -697,50 +697,26 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
                             variant="outline"
                             role="combobox"
                             aria-expanded={openComboboxes[row.id]}
-                            className="w-full justify-start h-auto min-h-[44px] md:min-h-[52px] text-xs md:text-sm font-normal bg-background px-3 py-2"
+                            className="w-full justify-start h-9 md:h-11 text-xs md:text-sm font-normal bg-background px-2"
                           >
                             {row.product ? (
-                              <div className="flex flex-col items-start w-full gap-2">
-                                <div className="flex items-center gap-1.5 w-full">
-                                  {(row.variant ? isFocusedProductActive(row.variant) : isFocusedProductActive(row.product)) && (
-                                    <Star size={14} className="fill-yellow-500 text-yellow-500 flex-shrink-0" />
-                                  )}
-                                  {hasActiveSchemes(row.product) && (
-                                    <Sparkles size={14} className="fill-orange-500 text-orange-500 flex-shrink-0" />
-                                  )}
-                                  <span className="truncate text-left flex-1 font-medium text-foreground">
-                                    {row.variant ? (() => {
-                                      let variantDisplayName = row.variant.variant_name;
-                                      if (variantDisplayName.toLowerCase().startsWith(row.product.name.toLowerCase())) {
-                                        variantDisplayName = variantDisplayName.substring(row.product.name.length).trim();
-                                        variantDisplayName = variantDisplayName.replace(/^[-\s]+/, '');
-                                      }
-                                      return variantDisplayName || row.variant.variant_name;
-                                    })() : row.product.name}
-                                  </span>
-                                </div>
-                                {row.product.base_unit ? (() => {
-                                  const pricePerUnit = getPricePerUnit(row.product!, row.variant, row.unit);
-                                  const baseUnit = (row.product!.base_unit || row.product!.unit || '').toLowerCase();
-                                  const selectedUnit = (row.unit || row.product!.unit || '').toLowerCase();
-                                  const showBase = baseUnit && selectedUnit && baseUnit !== selectedUnit;
-                                  return (
-                                    <div className="flex flex-col gap-0.5 w-full">
-                                      <span className="text-[10px] md:text-xs text-muted-foreground">
-                                        ₹{pricePerUnit.toFixed(2)} per {row.unit}
-                                      </span>
-                                      {showBase && (
-                                        <span className="text-[9px] md:text-[10px] text-muted-foreground/70">
-                                          (₹{Number(row.variant?.price || row.product!.rate).toFixed(2)} per {row.product!.base_unit})
-                                        </span>
-                                      )}
-                                    </div>
-                                  );
-                                })() : (
-                                  <span className="text-[10px] md:text-xs text-muted-foreground">
-                                    ₹{Number(row.variant?.price || row.product.rate || 0).toFixed(2)} per {row.unit || row.product?.unit}
-                                  </span>
+                              <div className="flex items-center gap-1.5 w-full overflow-hidden">
+                                {(row.variant ? isFocusedProductActive(row.variant) : isFocusedProductActive(row.product)) && (
+                                  <Star size={12} className="fill-yellow-500 text-yellow-500 flex-shrink-0" />
                                 )}
+                                {hasActiveSchemes(row.product) && (
+                                  <Sparkles size={12} className="fill-orange-500 text-orange-500 flex-shrink-0" />
+                                )}
+                                <span className="truncate text-left flex-1 font-medium text-foreground">
+                                  {row.variant ? (() => {
+                                    let variantDisplayName = row.variant.variant_name;
+                                    if (variantDisplayName.toLowerCase().startsWith(row.product.name.toLowerCase())) {
+                                      variantDisplayName = variantDisplayName.substring(row.product.name.length).trim();
+                                      variantDisplayName = variantDisplayName.replace(/^[-\s]+/, '');
+                                    }
+                                    return variantDisplayName || row.variant.variant_name;
+                                  })() : row.product.name}
+                                </span>
                               </div>
                             ) : (
                               <span className="text-muted-foreground text-xs md:text-sm">Select...</span>
@@ -790,6 +766,11 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
                           </Command>
                         </PopoverContent>
                       </Popover>
+                      {row.product && (
+                        <span className="text-[9px] text-muted-foreground mt-0.5">
+                          ₹{getPricePerUnit(row.product, row.variant, row.unit).toFixed(2)} per {row.unit}
+                        </span>
+                      )}
                     </div>
                     
                     {/* Unit Column */}
