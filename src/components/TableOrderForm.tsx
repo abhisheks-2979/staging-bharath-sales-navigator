@@ -12,6 +12,9 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { isFocusedProductActive } from "@/utils/focusedProductChecker";
+import { ApplyOfferSection } from "@/components/ApplyOfferSection";
+import { OrderEntrySchemesModal } from "@/components/OrderEntrySchemesModal";
+import { useOfflineSchemes, ProductScheme } from "@/hooks/useOfflineSchemes";
 
 interface Product {
   id: string;
@@ -122,6 +125,10 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
   const [openComboboxes, setOpenComboboxes] = useState<{ [key: string]: boolean }>({});
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [showSchemesModal, setShowSchemesModal] = useState(false);
+  
+  // Load schemes with offline support
+  const { schemes, loading: schemesLoading, isOnline } = useOfflineSchemes();
 
   // Get unique categories from products (memoized for performance)
   const categories = useMemo(() => {
@@ -354,6 +361,33 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
       total: 0,
     };
     setOrderRows([...orderRows, newRow]);
+  };
+
+  // Handle applying a scheme - add product with minimum qualifying quantity
+  const handleApplyScheme = (scheme: ProductScheme, product?: Product, quantity?: number) => {
+    if (!product) return;
+    
+    // Check if product already exists in order
+    const existingRowIndex = orderRows.findIndex(row => row.product?.id === product.id);
+    
+    if (existingRowIndex >= 0) {
+      // Update existing row quantity if needed
+      const existingRow = orderRows[existingRowIndex];
+      const newQuantity = Math.max(existingRow.quantity, quantity || 1);
+      updateRow(existingRow.id, 'quantity', newQuantity);
+    } else {
+      // Add new row with the product
+      const newRow: OrderRow = {
+        id: Date.now().toString(),
+        productCode: product.sku,
+        product: product,
+        quantity: quantity || 1,
+        closingStock: product.closing_stock,
+        unit: "KG",
+        total: product.rate * (quantity || 1),
+      };
+      setOrderRows(prev => [...prev, newRow]);
+    }
   };
 
   const removeRow = (id: string) => {
@@ -746,6 +780,14 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
         </div>
       </div>
 
+      {/* Apply Offers Section - Flipkart style */}
+      <ApplyOfferSection
+        schemes={schemes}
+        orderRows={orderRows}
+        onClick={() => setShowSchemesModal(true)}
+        loading={schemesLoading}
+      />
+
       <Button
         onClick={addToCart}
         className="w-full"
@@ -767,6 +809,18 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
       <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded border border-border">
         <strong>Note:</strong> All base prices are stored per KG. Rates auto-adjust when selling in grams or other units.
       </p>
+
+      {/* Schemes Modal */}
+      <OrderEntrySchemesModal
+        isOpen={showSchemesModal}
+        onClose={() => setShowSchemesModal(false)}
+        schemes={schemes}
+        loading={schemesLoading}
+        isOnline={isOnline}
+        orderRows={orderRows}
+        products={products}
+        onApplyScheme={handleApplyScheme}
+      />
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -6,6 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,36 +18,37 @@ import {
   ShoppingCart, 
   Package, 
   Search,
-  Loader2
+  Loader2,
+  Check,
+  Plus,
+  WifiOff
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import { ProductScheme } from "@/hooks/useOfflineSchemes";
 
-interface ProductScheme {
+interface Product {
   id: string;
   name: string;
-  description: string | null;
-  scheme_type: string;
-  product_id: string | null;
-  variant_id: string | null;
-  discount_percentage: number | null;
-  discount_amount: number | null;
-  buy_quantity: number | null;
-  free_quantity: number | null;
-  condition_quantity: number | null;
-  quantity_condition_type: string | null;
-  min_order_value: number | null;
-  start_date: string | null;
-  end_date: string | null;
-  is_active: boolean | null;
-  is_first_order_only: boolean | null;
-  product_name?: string;
-  free_product_name?: string;
+  sku: string;
+  rate: number;
+  unit: string;
 }
 
-interface CartSchemesModalProps {
+interface OrderRow {
+  id: string;
+  product?: Product;
+  quantity: number;
+}
+
+interface OrderEntrySchemesModalProps {
   isOpen: boolean;
   onClose: () => void;
-  cartItems?: Array<{ id: string; name: string }>;
+  schemes: ProductScheme[];
+  loading: boolean;
+  isOnline: boolean;
+  orderRows: OrderRow[];
+  products: Product[];
+  onApplyScheme: (scheme: ProductScheme, product?: Product, quantity?: number) => void;
 }
 
 const getSchemeTypeIcon = (type: string) => {
@@ -132,84 +134,48 @@ const isSchemeActive = (scheme: ProductScheme) => {
   return true;
 };
 
-export const CartSchemesModal: React.FC<CartSchemesModalProps> = ({
+export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
   isOpen,
   onClose,
-  cartItems = []
+  schemes,
+  loading,
+  isOnline,
+  orderRows,
+  products,
+  onApplyScheme
 }) => {
-  const [schemes, setSchemes] = useState<ProductScheme[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-
-  useEffect(() => {
-    if (isOpen) {
-      fetchSchemes();
-    }
-  }, [isOpen]);
-
-  const fetchSchemes = async () => {
-    setLoading(true);
-    try {
-      const { data: schemesData, error } = await supabase
-        .from('product_schemes')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Fetch product names
-      const productIds = [...new Set((schemesData || [])
-        .map(s => s.product_id)
-        .filter(Boolean))] as string[];
-      
-      const freeProductIds = [...new Set((schemesData || [])
-        .map(s => s.free_product_id)
-        .filter(Boolean))] as string[];
-
-      let productsMap: Record<string, string> = {};
-
-      if (productIds.length > 0 || freeProductIds.length > 0) {
-        const allProductIds = [...new Set([...productIds, ...freeProductIds])];
-        const { data: productsData } = await supabase
-          .from('products')
-          .select('id, name')
-          .in('id', allProductIds);
-        
-        productsMap = (productsData || []).reduce((acc, p) => {
-          acc[p.id] = p.name;
-          return acc;
-        }, {} as Record<string, string>);
-      }
-
-      const formattedSchemes: ProductScheme[] = (schemesData || []).map(scheme => ({
-        ...scheme,
-        product_name: scheme.product_id ? productsMap[scheme.product_id] || 'Product' : 'All Products',
-        free_product_name: scheme.free_product_id ? productsMap[scheme.free_product_id] || null : null,
-      }));
-
-      setSchemes(formattedSchemes);
-    } catch (error) {
-      console.error('Error fetching schemes:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [appliedSchemes, setAppliedSchemes] = useState<Set<string>>(new Set());
 
   const activeSchemes = useMemo(() => 
     schemes.filter(s => isSchemeActive(s)), [schemes]);
 
+  // Find applicable schemes based on current order items
   const applicableSchemes = useMemo(() => {
-    if (cartItems.length === 0) return [];
-    const cartProductNames = cartItems.map(item => item.name.toLowerCase());
+    if (orderRows.length === 0 || !orderRows.some(r => r.product)) return [];
+    
+    const orderProductIds = orderRows
+      .filter(row => row.product)
+      .map(row => row.product!.id);
+    
+    const orderProductNames = orderRows
+      .filter(row => row.product)
+      .map(row => row.product!.name.toLowerCase());
+    
     return activeSchemes.filter(scheme => {
-      if (!scheme.product_name || scheme.product_name === 'All Products') return true;
-      return cartProductNames.some(name => 
+      // If scheme is for all products
+      if (!scheme.product_id || scheme.product_name === 'All Products') return true;
+      
+      // Check if scheme product is in order
+      if (scheme.product_id && orderProductIds.includes(scheme.product_id)) return true;
+      
+      // Fuzzy match by name
+      return orderProductNames.some(name => 
         name.includes(scheme.product_name?.toLowerCase() || '') ||
         (scheme.product_name?.toLowerCase() || '').includes(name.split(' - ')[0])
       );
     });
-  }, [activeSchemes, cartItems]);
+  }, [activeSchemes, orderRows]);
 
   const filteredSchemes = useMemo(() => {
     return activeSchemes.filter(scheme => {
@@ -220,8 +186,53 @@ export const CartSchemesModal: React.FC<CartSchemesModalProps> = ({
     });
   }, [activeSchemes, searchTerm]);
 
-  const SchemeCard = ({ scheme }: { scheme: ProductScheme }) => {
+  // Handle apply scheme
+  const handleApply = (scheme: ProductScheme) => {
+    // Find the product for this scheme
+    let targetProduct: Product | undefined;
+    let minQuantity = 1;
+
+    if (scheme.product_id) {
+      targetProduct = products.find(p => p.id === scheme.product_id);
+    }
+
+    // Calculate minimum quantity to qualify
+    if (scheme.condition_quantity) {
+      minQuantity = scheme.condition_quantity;
+    } else if (scheme.buy_quantity) {
+      minQuantity = scheme.buy_quantity;
+    }
+
+    // Check if product is already in order
+    const existingRow = orderRows.find(row => row.product?.id === scheme.product_id);
+    
+    if (existingRow && existingRow.quantity >= minQuantity) {
+      // Already meets condition
+      toast({
+        title: "Offer Applied!",
+        description: `${scheme.name} is now active on your order`,
+      });
+    } else if (targetProduct) {
+      // Add or update product with minimum quantity
+      onApplyScheme(scheme, targetProduct, minQuantity);
+      toast({
+        title: "Product Added",
+        description: `Added ${targetProduct.name} (${minQuantity} qty) for ${scheme.name}`,
+      });
+    } else {
+      // Generic scheme (all products)
+      toast({
+        title: "Offer Applied!",
+        description: scheme.description || `${scheme.name} will be applied at checkout`,
+      });
+    }
+
+    setAppliedSchemes(prev => new Set(prev).add(scheme.id));
+  };
+
+  const SchemeCard = ({ scheme, showApplicable = false }: { scheme: ProductScheme; showApplicable?: boolean }) => {
     const isApplicable = applicableSchemes.some(s => s.id === scheme.id);
+    const isApplied = appliedSchemes.has(scheme.id);
     
     return (
       <Card className={`border ${isApplicable ? 'border-primary/50 bg-primary/5' : 'border-border/50'}`}>
@@ -248,16 +259,31 @@ export const CartSchemesModal: React.FC<CartSchemesModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-            <div className="flex items-center gap-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
               <Calendar className="w-3 h-3" />
               <span>{formatDate(scheme.start_date)} - {formatDate(scheme.end_date)}</span>
             </div>
-            {isApplicable && (
-              <Badge className="bg-primary/20 text-primary text-[9px] px-1.5">
-                Applicable
-              </Badge>
-            )}
+            
+            <Button
+              size="sm"
+              variant={isApplied ? "secondary" : "default"}
+              className="h-7 text-xs px-2.5"
+              onClick={() => handleApply(scheme)}
+              disabled={isApplied}
+            >
+              {isApplied ? (
+                <>
+                  <Check className="w-3 h-3 mr-1" />
+                  Applied
+                </>
+              ) : (
+                <>
+                  <Plus className="w-3 h-3 mr-1" />
+                  Apply
+                </>
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -271,6 +297,12 @@ export const CartSchemesModal: React.FC<CartSchemesModalProps> = ({
           <DialogTitle className="flex items-center gap-2">
             <Gift className="w-5 h-5 text-primary" />
             Schemes & Offers
+            {!isOnline && (
+              <Badge variant="outline" className="ml-2 text-[10px]">
+                <WifiOff className="w-3 h-3 mr-1" />
+                Offline
+              </Badge>
+            )}
           </DialogTitle>
         </DialogHeader>
         
@@ -293,7 +325,7 @@ export const CartSchemesModal: React.FC<CartSchemesModalProps> = ({
           <Tabs defaultValue={applicableSchemes.length > 0 ? "applicable" : "all"} className="flex-1 overflow-hidden flex flex-col">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="applicable" className="text-xs">
-                For Your Cart ({applicableSchemes.length})
+                For Your Order ({applicableSchemes.length})
               </TabsTrigger>
               <TabsTrigger value="all" className="text-xs">
                 All Offers ({filteredSchemes.length})
@@ -304,13 +336,13 @@ export const CartSchemesModal: React.FC<CartSchemesModalProps> = ({
               <TabsContent value="applicable" className="m-0 space-y-2">
                 {applicableSchemes.length > 0 ? (
                   applicableSchemes.map(scheme => (
-                    <SchemeCard key={scheme.id} scheme={scheme} />
+                    <SchemeCard key={scheme.id} scheme={scheme} showApplicable />
                   ))
                 ) : (
                   <div className="text-center py-8">
                     <Gift className="w-10 h-10 mx-auto text-muted-foreground mb-2 opacity-50" />
-                    <p className="text-sm text-muted-foreground">No schemes for cart items</p>
-                    <p className="text-xs text-muted-foreground mt-1">Check "All Offers" tab</p>
+                    <p className="text-sm text-muted-foreground">No schemes for your items</p>
+                    <p className="text-xs text-muted-foreground mt-1">Add products or check "All Offers"</p>
                   </div>
                 )}
               </TabsContent>
@@ -323,7 +355,12 @@ export const CartSchemesModal: React.FC<CartSchemesModalProps> = ({
                 ) : (
                   <div className="text-center py-8">
                     <Package className="w-10 h-10 mx-auto text-muted-foreground mb-2 opacity-50" />
-                    <p className="text-sm text-muted-foreground">No active schemes found</p>
+                    <p className="text-sm text-muted-foreground">
+                      {schemes.length === 0 
+                        ? (isOnline ? 'No active schemes found' : 'No cached schemes available')
+                        : 'No matching schemes'
+                      }
+                    </p>
                   </div>
                 )}
               </TabsContent>
