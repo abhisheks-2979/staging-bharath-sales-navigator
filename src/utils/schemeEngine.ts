@@ -333,11 +333,9 @@ export function calculateOrderWithSchemes(
   // Get active schemes
   const activeSchemes = getActiveSchemes(allSchemes);
   
-  // Filter to only applied schemes if specified, otherwise use all applicable active schemes
-  const schemesToApply = appliedSchemeIds.length > 0
-    ? activeSchemes.filter(s => appliedSchemeIds.includes(s.id))
-    : activeSchemes;
-  
+  // Only apply schemes explicitly selected (including auto-applied ones)
+  const schemesToApply = activeSchemes.filter(s => appliedSchemeIds.includes(s.id));
+
   let totalDiscount = 0;
   const appliedSchemes: AppliedScheme[] = [];
   const itemDiscounts: Record<string, number> = {};
