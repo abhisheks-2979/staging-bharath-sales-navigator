@@ -371,14 +371,16 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
                 {appliedSchemeIds.length} Applied
               </Badge>
             )}
-            {!isOnline && (
-              <Badge variant="outline" className="ml-2 text-[10px]">
-                <WifiOff className="w-3 h-3 mr-1" />
-                Offline
-              </Badge>
-            )}
           </DialogTitle>
         </DialogHeader>
+        
+        {/* Offline indicator banner */}
+        {!isOnline && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md text-amber-700 dark:text-amber-400 text-xs">
+            <WifiOff className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>Offline - showing cached offers</span>
+          </div>
+        )}
         
         {/* Search */}
         <div className="relative">
@@ -392,8 +394,9 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            <span className="text-sm text-muted-foreground">Loading offers...</span>
           </div>
         ) : (
           <Tabs defaultValue={applicableSchemes.length > 0 ? "applicable" : "all"} className="flex-1 overflow-hidden flex flex-col">

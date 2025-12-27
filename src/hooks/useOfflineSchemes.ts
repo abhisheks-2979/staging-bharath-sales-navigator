@@ -90,12 +90,14 @@ export const useOfflineSchemes = () => {
         }, {} as Record<string, string>);
       }
 
-      // Format schemes with product names
+      // Format schemes with product names - use "Unknown Product" fallback for better offline clarity
       const formattedSchemes: ProductScheme[] = schemesData.map(scheme => ({
         ...scheme,
-        product_name: scheme.product_id ? productsMap[scheme.product_id] || 'Product' : 'All Products',
-        free_product_name: scheme.free_product_id ? productsMap[scheme.free_product_id] || null : null,
+        product_name: scheme.product_id ? productsMap[scheme.product_id] || 'Unknown Product' : 'All Products',
+        free_product_name: scheme.free_product_id ? productsMap[scheme.free_product_id] || 'Unknown Product' : null,
       }));
+      
+      console.log('[useOfflineSchemes] Formatted schemes with product names:', formattedSchemes.length);
 
       // Clear old cache and save new schemes
       await offlineStorage.clear(STORES.SCHEMES);
