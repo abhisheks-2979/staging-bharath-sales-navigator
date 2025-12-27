@@ -5,7 +5,7 @@ import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { syncOrdersToVanStock, getTodayDateString } from '@/utils/vanStockSync';
 import { visitStatusCache } from '@/lib/visitStatusCache';
-import { isSlowConnection } from '@/utils/internetSpeedCheck';
+// Removed isSlowConnection import - sync should always attempt when online
 
 export function useOfflineSync() {
   const connectivityStatus = useConnectivity();
@@ -16,11 +16,8 @@ export function useOfflineSync() {
   // Process sync queue when coming back online
   const processSyncQueue = useCallback(async () => {
     // Don't sync if offline
-    if (connectivityStatus !== 'online') return;
-    
-    // On very slow connections, delay sync to not compete with user actions
-    if (isSlowConnection()) {
-      console.log('📶 Slow connection detected - delaying background sync');
+    if (connectivityStatus !== 'online') {
+      console.log('📴 Offline - skipping sync');
       return;
     }
     
@@ -29,6 +26,9 @@ export function useOfflineSync() {
       console.log('⏳ Sync already in progress, skipping...');
       return;
     }
+    
+    // NOTE: Removed slow connection check - we should always attempt sync when online
+    // The sync will happen in the background and won't block user actions
     
     isSyncingRef.current = true;
 
@@ -950,11 +950,39 @@ export function useOfflineSync() {
       console.log('🌐 Internet connected - starting immediate sync...');
       processSyncQueue();
       
-      // Retry sync after short delay to catch any items added during initial sync
-      const retryTimeout = setTimeout(() => {
-        console.log('🔄 Running follow-up sync check...');
-        processSyncQueue();
-      }, 3000);
+      // Retry sync multiple times to ensure all items are processed
+      const retryTimeouts = [
+        setTimeout(() => {
+          console.log('🔄 Running follow-up sync check (3s)...');
+          processSyncQueue();
+        }, 3000),
+        setTimeout(() => {
+          console.log('🔄 Running follow-up sync check (10s)...');
+          processSyncQueue();
+        }, 10000),
+        setTimeout(() => {
+          console.log('🔄 Running follow-up sync check (30s)...');
+          processSyncQueue();
+        }, 30000),
+      ];
+      
+      // Also sync when app becomes visible (user switches back to app)
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible' && connectivityStatus === 'online') {
+          console.log('👁️ App became visible - triggering sync...');
+          processSyncQueue();
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      
+      // Sync on focus (browser tab focused)
+      const handleFocus = () => {
+        if (connectivityStatus === 'online') {
+          console.log('🎯 Window focused - triggering sync...');
+          processSyncQueue();
+        }
+      };
+      window.addEventListener('focus', handleFocus);
       
       // Clean up old synced items (older than 3 days) after successful sync
       const cleanupOldData = async () => {
@@ -967,11 +995,13 @@ export function useOfflineSync() {
       };
       
       // Run cleanup after sync completes
-      const cleanupTimeout = setTimeout(cleanupOldData, 10000);
+      const cleanupTimeout = setTimeout(cleanupOldData, 15000);
       
       return () => {
-        clearTimeout(retryTimeout);
+        retryTimeouts.forEach(clearTimeout);
         clearTimeout(cleanupTimeout);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', handleFocus);
       };
     }
   }, [connectivityStatus, processSyncQueue]);
