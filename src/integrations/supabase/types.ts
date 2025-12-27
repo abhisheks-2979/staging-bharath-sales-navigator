@@ -5171,37 +5171,52 @@ export type Database = {
       order_items: {
         Row: {
           category: string
+          cgst_amount: number | null
           created_at: string
+          discount_amount: number | null
+          hsn_code: string | null
           id: string
           order_id: string
+          original_rate: number | null
           product_id: string
           product_name: string
           quantity: number
           rate: number
+          sgst_amount: number | null
           total: number
           unit: string
         }
         Insert: {
           category: string
+          cgst_amount?: number | null
           created_at?: string
+          discount_amount?: number | null
+          hsn_code?: string | null
           id?: string
           order_id: string
+          original_rate?: number | null
           product_id: string
           product_name: string
           quantity: number
           rate: number
+          sgst_amount?: number | null
           total: number
           unit: string
         }
         Update: {
           category?: string
+          cgst_amount?: number | null
           created_at?: string
+          discount_amount?: number | null
+          hsn_code?: string | null
           id?: string
           order_id?: string
+          original_rate?: number | null
           product_id?: string
           product_name?: string
           quantity?: number
           rate?: number
+          sgst_amount?: number | null
           total?: number
           unit?: string
         }

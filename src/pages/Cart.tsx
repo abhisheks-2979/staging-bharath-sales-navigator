@@ -762,6 +762,11 @@ export const Cart = () => {
         const itemDiscount = orderCalculation.itemDiscounts[item.id] || 0;
         const originalRate = getDisplayRate(item);
         const discountPerItem = item.quantity > 0 ? itemDiscount / item.quantity : 0;
+        const itemTotal = computeItemTotal(item);
+        
+        // Calculate per-item GST (2.5% SGST + 2.5% CGST)
+        const sgstAmount = itemTotal * 0.025;
+        const cgstAmount = itemTotal * 0.025;
         
         return {
           product_id: item.id,
@@ -772,7 +777,10 @@ export const Cart = () => {
           discount_amount: itemDiscount,
           unit: item.unit,
           quantity: item.quantity,
-          total: computeItemTotal(item)
+          total: itemTotal,
+          hsn_code: (item as any).hsn_code || null, // Include HSN if available
+          sgst_amount: sgstAmount,
+          cgst_amount: cgstAmount
         };
       });
 
