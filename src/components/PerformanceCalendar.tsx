@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter } from "lucide-react";
@@ -15,6 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
 import { UserSelector } from "@/components/UserSelector";
 import { useSubordinates } from "@/hooks/useSubordinates";
+import { debounce } from "@/utils/intervalManager";
 
 interface DayData {
   date: Date;
@@ -265,9 +266,31 @@ export const PerformanceCalendar = () => {
     }
   };
 
+  // Debounced fetch to prevent rapid re-fetching
+  const debouncedFetch = useMemo(
+    () => debounce(() => fetchCalendarData(), 300),
+    [currentDate, selectedUserId, viewMode, filters, subordinateIds]
+  );
+
+  // Track if dependencies changed
+  const prevDepsRef = useRef<string>('');
+  
   useEffect(() => {
-    fetchCalendarData();
-  }, [currentDate, selectedUserId, viewMode, filters, subordinateIds]);
+    // Create a stable dependency key
+    const depsKey = JSON.stringify({
+      currentDate: currentDate.toISOString(),
+      selectedUserId,
+      viewMode,
+      filters,
+      subordinateIdsLength: subordinateIds.length
+    });
+    
+    // Only fetch if dependencies actually changed
+    if (depsKey !== prevDepsRef.current) {
+      prevDepsRef.current = depsKey;
+      debouncedFetch();
+    }
+  }, [currentDate, selectedUserId, viewMode, filters, subordinateIds, debouncedFetch]);
 
 
   useEffect(() => {

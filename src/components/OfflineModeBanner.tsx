@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { WifiOff, Wifi, RefreshCw, X } from 'lucide-react';
 import { offlineStorage } from '@/lib/offlineStorage';
 import { toast } from '@/hooks/use-toast';
+import { useManagedInterval } from '@/utils/intervalManager';
 
 export function OfflineModeBanner() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -17,25 +18,32 @@ export function OfflineModeBanner() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Check sync queue periodically
-    const checkSyncQueue = async () => {
-      try {
-        const queue = await offlineStorage.getSyncQueue();
-        setSyncQueueCount(queue.length);
-      } catch (error) {
-        console.error('Error checking sync queue:', error);
-      }
-    };
-
-    checkSyncQueue();
-    const interval = setInterval(checkSyncQueue, 5000);
-
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      clearInterval(interval);
     };
   }, []);
+
+  // Check sync queue with managed interval (pauses when hidden)
+  const checkSyncQueue = useCallback(async () => {
+    try {
+      const queue = await offlineStorage.getSyncQueue();
+      setSyncQueueCount(queue.length);
+    } catch (error) {
+      console.error('Error checking sync queue:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkSyncQueue();
+  }, [checkSyncQueue]);
+
+  useManagedInterval(
+    'offline-banner-check',
+    checkSyncQueue,
+    10000, // Increased from 5s to 10s
+    { runWhenHidden: false }
+  );
 
   // Don't show if online and no pending syncs
   if (isOnline && syncQueueCount === 0) {

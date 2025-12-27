@@ -1,28 +1,34 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { offlineStorage } from "@/lib/offlineStorage";
 import { WifiOff } from "lucide-react";
+import { useManagedInterval } from "@/utils/intervalManager";
 
 export const StatusBar = () => {
   const connectivityStatus = useConnectivity();
   const [syncQueueCount, setSyncQueueCount] = useState(0);
   const isOnline = connectivityStatus === 'online';
 
-  // Check sync queue periodically
-  useEffect(() => {
-    const checkQueue = async () => {
-      try {
-        const queue = await offlineStorage.getSyncQueue();
-        setSyncQueueCount(queue.length);
-      } catch (error) {
-        console.error('Error checking sync queue:', error);
-      }
-    };
-
-    checkQueue();
-    const interval = setInterval(checkQueue, 2000);
-    return () => clearInterval(interval);
+  // Check sync queue with managed interval
+  const checkQueue = useCallback(async () => {
+    try {
+      const queue = await offlineStorage.getSyncQueue();
+      setSyncQueueCount(queue.length);
+    } catch (error) {
+      console.error('Error checking sync queue:', error);
+    }
   }, []);
+
+  useEffect(() => {
+    checkQueue();
+  }, [checkQueue]);
+
+  useManagedInterval(
+    'status-bar-queue-check',
+    checkQueue,
+    5000, // Increased from 2s to 5s
+    { runWhenHidden: false }
+  );
 
   // Only show when offline
   if (isOnline) {

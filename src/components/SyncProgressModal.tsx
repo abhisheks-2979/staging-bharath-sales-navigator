@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, AlertCircle, Clock, RefreshCw } from "lucide-react";
 import { offlineStorage } from "@/lib/offlineStorage";
+import { useManagedInterval } from "@/utils/intervalManager";
 
 interface SyncItem {
   id: string;
@@ -27,35 +28,40 @@ export const SyncProgressModal = ({ open, onOpenChange, onTriggerSync }: SyncPro
   const [totalItems, setTotalItems] = useState(0);
   const [syncedItems, setSyncedItems] = useState(0);
 
+  const loadSyncQueue = useCallback(async () => {
+    try {
+      const queue = await offlineStorage.getSyncQueue();
+      setTotalItems(queue.length);
+      setSyncItems(queue.map(item => ({
+        id: item.id,
+        action: item.action,
+        status: 'pending',
+        data: item.data,
+        timestamp: item.timestamp,
+        retryCount: item.retryCount
+      })));
+    } catch (error) {
+      console.error('Error loading sync queue:', error);
+    }
+  }, []);
+
   useEffect(() => {
     if (!open) return;
-
-    const loadSyncQueue = async () => {
-      try {
-        const queue = await offlineStorage.getSyncQueue();
-        setTotalItems(queue.length);
-        setSyncItems(queue.map(item => ({
-          id: item.id,
-          action: item.action,
-          status: 'pending',
-          data: item.data,
-          timestamp: item.timestamp,
-          retryCount: item.retryCount
-        })));
-      } catch (error) {
-        console.error('Error loading sync queue:', error);
-      }
-    };
 
     loadSyncQueue();
     // Trigger sync when modal opens
     if (onTriggerSync) {
       onTriggerSync();
     }
-    const interval = setInterval(loadSyncQueue, 1000);
+  }, [open, onTriggerSync, loadSyncQueue]);
 
-    return () => clearInterval(interval);
-  }, [open, onTriggerSync]);
+  // Use managed interval when modal is open (reduced from 1s to 2s)
+  useManagedInterval(
+    'sync-progress-modal',
+    loadSyncQueue,
+    2000,
+    { enabled: open, runWhenHidden: false }
+  );
 
   useEffect(() => {
     const successCount = syncItems.filter(item => item.status === 'success').length;

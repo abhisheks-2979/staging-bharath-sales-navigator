@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useManagedInterval } from '@/utils/intervalManager';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -847,20 +848,21 @@ const Operations = () => {
     })();
   }, [userFilter, checkinDateFilter, orderDateFilter, stockDateFilter, competitorDateFilter, returnStockDateFilter, checkinCustomRange, orderCustomRange, stockCustomRange]);
 
-  // Auto refresh
-  useEffect(() => {
-    if (!autoRefresh) return;
-
-    const interval = setInterval(() => {
-      if (activeTab === 'checkins') fetchCheckInData();
-      if (activeTab === 'orders') fetchOrderData();
-      if (activeTab === 'stock') fetchStockData();
-      if (activeTab === 'competitor') fetchCompetitorData();
-      if (activeTab === 'returnstock') fetchReturnStockData();
-    }, 30000); // Refresh every 30 seconds
-
-    return () => clearInterval(interval);
-  }, [activeTab, autoRefresh, userFilter, checkinDateFilter, orderDateFilter, stockDateFilter, competitorDateFilter, returnStockDateFilter, checkinCustomRange, orderCustomRange, stockCustomRange]);
+  // Use managed interval for auto-refresh (pauses when app is hidden)
+  const refreshActiveTab = useCallback(() => {
+    if (activeTab === 'checkins') fetchCheckInData();
+    if (activeTab === 'orders') fetchOrderData();
+    if (activeTab === 'stock') fetchStockData();
+    if (activeTab === 'competitor') fetchCompetitorData();
+    if (activeTab === 'returnstock') fetchReturnStockData();
+  }, [activeTab]);
+  
+  useManagedInterval(
+    `operations-refresh-${activeTab}`,
+    refreshActiveTab,
+    60000, // Increased from 30s to 60s
+    { enabled: autoRefresh, runWhenHidden: false }
+  );
 
   // Real-time subscriptions
   useEffect(() => {

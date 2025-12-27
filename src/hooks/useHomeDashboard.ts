@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { format } from 'date-fns';
 import { getLocalTodayDate, toLocalISODate } from '@/utils/dateUtils';
+import { useManagedInterval, useVisibility } from '@/utils/intervalManager';
 
 interface HomeDashboardData {
   todayData: {
@@ -501,21 +502,27 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
     }));
   };
 
+  // Initial load
   useEffect(() => {
     loadDashboardData();
+  }, [loadDashboardData]);
+
+  // Use managed interval for auto-refresh (pauses when app is hidden)
+  // Increased from 30s to 60s to reduce CPU usage
+  useManagedInterval(
+    `home-dashboard-${userId}`,
+    useCallback(() => {
+      if (navigator.onLine) {
+        console.log('⏰ [HOME] 60s auto-refresh for today');
+        loadDashboardData();
+      }
+    }, [loadDashboardData]),
+    60000, // Increased to 60 seconds
+    { enabled: isToday, runWhenHidden: false }
+  );
     
-    // Auto-refresh every 30 seconds (only for today) - matches My Visits
-    let interval: NodeJS.Timeout | undefined;
-    if (isToday) {
-      interval = setInterval(() => {
-        if (navigator.onLine) {
-          console.log('⏰ [HOME] 30s auto-refresh for today');
-          loadDashboardData();
-        }
-      }, 30000);
-    }
-    
-    // Listen for explicit visit data changes
+  // Listen for explicit visit data changes
+  useEffect(() => {
     const handleVisitDataChanged = () => {
       console.log('📢 [HOME] visitDataChanged event received, refreshing...');
       loadDashboardData();
@@ -533,11 +540,10 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
     window.addEventListener('syncComplete', handleSyncComplete);
     
     return () => {
-      if (interval) clearInterval(interval);
       window.removeEventListener('visitDataChanged', handleVisitDataChanged);
       window.removeEventListener('syncComplete', handleSyncComplete);
     };
-  }, [loadDashboardData, isToday]);
+  }, [loadDashboardData]);
 
   return { ...data, refresh: loadDashboardData };
 };

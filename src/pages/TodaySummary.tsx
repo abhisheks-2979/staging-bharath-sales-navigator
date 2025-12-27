@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Layout } from "@/components/Layout";
+import { useManagedInterval } from "@/utils/intervalManager";
 import { Download, Share, FileText, Clock, MapPin, CalendarIcon, ExternalLink, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -181,19 +182,22 @@ export const TodaySummary = () => {
     fetchTodaysData();
   }, [dateRangeKey, filterType, managerFilterKey]);
 
-  // Auto-refresh for today + sync complete listener
+  // Use managed interval for auto-refresh (pauses when app is hidden)
+  // Increased from 30s to 60s to reduce CPU usage
+  useManagedInterval(
+    'today-summary-refresh',
+    useCallback(() => {
+      if (navigator.onLine) {
+        console.log('⏰ [SUMMARY] 60s auto-refresh for today');
+        fetchTodaysData(true); // Background refresh
+      }
+    }, []),
+    60000, // Increased to 60 seconds
+    { enabled: filterType === 'today', runWhenHidden: false }
+  );
+
+  // Auto-refresh event listeners
   useEffect(() => {
-    // Auto-refresh every 30 seconds (only for today)
-    let interval: NodeJS.Timeout | undefined;
-    if (filterType === 'today') {
-      interval = setInterval(() => {
-        if (navigator.onLine) {
-          console.log('⏰ [SUMMARY] 30s auto-refresh for today');
-          fetchTodaysData(true); // Background refresh
-        }
-      }, 30000);
-    }
-    
     // Listen for sync complete event
     const handleSyncComplete = () => {
       console.log('🔄 [SUMMARY] Sync complete, refreshing...');
@@ -211,11 +215,10 @@ export const TodaySummary = () => {
     window.addEventListener('visitDataChanged', handleVisitDataChanged);
     
     return () => {
-      if (interval) clearInterval(interval);
       window.removeEventListener('syncComplete', handleSyncComplete);
       window.removeEventListener('visitDataChanged', handleVisitDataChanged);
     };
-  }, [filterType]);
+  }, []);
 
   // Real-time subscription for points updates
   useEffect(() => {
