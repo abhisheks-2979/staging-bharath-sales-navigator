@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +21,10 @@ import {
   Loader2,
   Check,
   Plus,
-  WifiOff
+  WifiOff,
+  X,
+  Target,
+  Globe
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { ProductScheme } from "@/hooks/useOfflineSchemes";
@@ -48,7 +51,9 @@ interface OrderEntrySchemesModalProps {
   isOnline: boolean;
   orderRows: OrderRow[];
   products: Product[];
+  appliedSchemeIds: string[];
   onApplyScheme: (scheme: ProductScheme, product?: Product, quantity?: number) => void;
+  onRemoveScheme: (schemeId: string) => void;
 }
 
 const getSchemeTypeIcon = (type: string) => {
@@ -147,13 +152,30 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
   isOnline,
   orderRows,
   products,
-  onApplyScheme
+  appliedSchemeIds,
+  onApplyScheme,
+  onRemoveScheme
 }) => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [appliedSchemes, setAppliedSchemes] = useState<Set<string>>(new Set());
+  const [searchTerm, setSearchTerm] = React.useState("");
 
   const activeSchemes = useMemo(() => 
     schemes.filter(s => isSchemeActive(s)), [schemes]);
+
+  // Check if a scheme is product-specific or order-wide
+  const isOrderWideScheme = (scheme: ProductScheme) => {
+    return !scheme.product_id || scheme.product_name === 'All Products';
+  };
+
+  // Check if product for a scheme is in cart
+  const isProductInCart = (scheme: ProductScheme) => {
+    if (isOrderWideScheme(scheme)) return true;
+    
+    const orderProductIds = orderRows
+      .filter(row => row.product)
+      .map(row => row.product!.id);
+    
+    return scheme.product_id && orderProductIds.includes(scheme.product_id);
+  };
 
   // Find applicable schemes based on current order items
   const applicableSchemes = useMemo(() => {
@@ -169,7 +191,7 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
     
     return activeSchemes.filter(scheme => {
       // If scheme is for all products
-      if (!scheme.product_id || scheme.product_name === 'All Products') return true;
+      if (isOrderWideScheme(scheme)) return true;
       
       // Check if scheme product is in order
       if (scheme.product_id && orderProductIds.includes(scheme.product_id)) return true;
@@ -217,6 +239,7 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
         title: "Offer Applied!",
         description: `${scheme.name} is now active on your order`,
       });
+      onApplyScheme(scheme);
     } else if (targetProduct) {
       // Add or update product with minimum quantity
       onApplyScheme(scheme, targetProduct, minQuantity);
@@ -226,26 +249,52 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
       });
     } else {
       // Generic scheme (all products)
+      onApplyScheme(scheme);
       toast({
         title: "Offer Applied!",
         description: scheme.description || `${scheme.name} will be applied at checkout`,
       });
     }
-
-    setAppliedSchemes(prev => new Set(prev).add(scheme.id));
   };
 
-  const SchemeCard = ({ scheme, showApplicable = false }: { scheme: ProductScheme; showApplicable?: boolean }) => {
+  // Handle remove scheme
+  const handleRemove = (scheme: ProductScheme) => {
+    onRemoveScheme(scheme.id);
+    toast({
+      title: "Offer Removed",
+      description: `${scheme.name} has been removed from your order`,
+    });
+  };
+
+  const SchemeCard = ({ scheme }: { scheme: ProductScheme }) => {
     const isApplicable = applicableSchemes.some(s => s.id === scheme.id);
-    const isApplied = appliedSchemes.has(scheme.id);
+    const isApplied = appliedSchemeIds.includes(scheme.id);
+    const isOrderWide = isOrderWideScheme(scheme);
+    const productInCart = isProductInCart(scheme);
     
     return (
-      <Card className={`border ${isApplicable ? 'border-primary/50 bg-primary/5' : 'border-border/50'}`}>
+      <Card className={`border ${isApplied ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : isApplicable ? 'border-primary/50 bg-primary/5' : 'border-border/50'}`}>
         <CardContent className="p-3 space-y-2">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-sm truncate">{scheme.name}</h3>
-              <p className="text-xs text-muted-foreground truncate">{scheme.product_name}</p>
+              {/* Product-specific label */}
+              <div className="flex items-center gap-1 mt-1">
+                {isOrderWide ? (
+                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0 flex items-center gap-0.5">
+                    <Globe className="w-2.5 h-2.5" />
+                    All Products
+                  </Badge>
+                ) : (
+                  <Badge 
+                    variant={productInCart ? "default" : "outline"} 
+                    className={`text-[9px] px-1.5 py-0 flex items-center gap-0.5 ${!productInCart ? 'text-muted-foreground' : ''}`}
+                  >
+                    <Target className="w-2.5 h-2.5" />
+                    {scheme.product_name}
+                  </Badge>
+                )}
+              </div>
             </div>
             <Badge variant="outline" className="shrink-0 text-[10px] px-1.5 py-0.5 flex items-center gap-1">
               {getSchemeTypeIcon(scheme.scheme_type)}
@@ -270,25 +319,40 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
               <span>{formatDate(scheme.start_date)} - {formatDate(scheme.end_date)}</span>
             </div>
             
-            <Button
-              size="sm"
-              variant={isApplied ? "secondary" : "default"}
-              className="h-7 text-xs px-2.5"
-              onClick={() => handleApply(scheme)}
-              disabled={isApplied}
-            >
-              {isApplied ? (
-                <>
-                  <Check className="w-3 h-3 mr-1" />
-                  Applied
-                </>
-              ) : (
-                <>
+            {isApplied ? (
+              <Button
+                size="sm"
+                variant="destructive"
+                className="h-7 text-xs px-2.5"
+                onClick={() => handleRemove(scheme)}
+              >
+                <X className="w-3 h-3 mr-1" />
+                Remove
+              </Button>
+            ) : !isOrderWide && !productInCart ? (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground">Add product first</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs px-2.5"
+                  onClick={() => handleApply(scheme)}
+                >
                   <Plus className="w-3 h-3 mr-1" />
-                  Apply
-                </>
-              )}
-            </Button>
+                  Add & Apply
+                </Button>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                variant="default"
+                className="h-7 text-xs px-2.5"
+                onClick={() => handleApply(scheme)}
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Apply
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -302,6 +366,11 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
           <DialogTitle className="flex items-center gap-2">
             <Gift className="w-5 h-5 text-primary" />
             Schemes & Offers
+            {appliedSchemeIds.length > 0 && (
+              <Badge variant="default" className="ml-2 text-[10px]">
+                {appliedSchemeIds.length} Applied
+              </Badge>
+            )}
             {!isOnline && (
               <Badge variant="outline" className="ml-2 text-[10px]">
                 <WifiOff className="w-3 h-3 mr-1" />
@@ -341,7 +410,7 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
               <TabsContent value="applicable" className="m-0 space-y-2">
                 {applicableSchemes.length > 0 ? (
                   applicableSchemes.map(scheme => (
-                    <SchemeCard key={scheme.id} scheme={scheme} showApplicable />
+                    <SchemeCard key={scheme.id} scheme={scheme} />
                   ))
                 ) : (
                   <div className="text-center py-8">

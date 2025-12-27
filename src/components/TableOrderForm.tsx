@@ -830,13 +830,6 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
             </div>
           )}
           
-          {orderCalculation.appliedSchemes.length > 0 && (
-            <div className="text-xs text-green-600 flex items-center justify-end gap-1">
-              <Sparkles size={10} />
-              {orderCalculation.appliedSchemes.map(s => s.name).join(', ')}
-            </div>
-          )}
-          
           <div className="flex justify-end items-center gap-2 pt-1 border-t border-border">
             <p className="text-sm font-semibold">Total:</p>
             <p className="text-lg font-bold">₹{getFinalTotal().toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
@@ -846,6 +839,54 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
           </p>
         </div>
       </div>
+
+      {/* Applied Offers Summary */}
+      {appliedSchemeIds.length > 0 && (
+        <Card className="border-green-200 bg-green-50 dark:bg-green-950/20">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Sparkles size={14} className="text-green-600" />
+                <span className="text-sm font-medium text-green-700 dark:text-green-400">Applied Offers</span>
+              </div>
+              {getDiscountValue() > 0 && (
+                <span className="text-sm font-semibold text-green-600">
+                  -₹{getDiscountValue().toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                </span>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              {orderCalculation.appliedSchemes.map(scheme => (
+                <div key={scheme.id} className="flex items-center justify-between bg-white dark:bg-background/50 rounded px-2 py-1.5">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Check size={12} className="text-green-600 flex-shrink-0" />
+                    <span className="text-xs truncate">{scheme.name}</span>
+                    {scheme.discount_amount > 0 && (
+                      <Badge variant="secondary" className="text-[9px] px-1">
+                        -₹{scheme.discount_amount.toFixed(0)}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => {
+                      removeScheme(scheme.id);
+                      toast({
+                        title: "Offer Removed",
+                        description: `${scheme.name} has been removed`,
+                      });
+                    }}
+                  >
+                    <Trash2 size={12} />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Apply Offers Section - Flipkart style */}
       <ApplyOfferSection
@@ -886,7 +927,11 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
         isOnline={isOnline}
         orderRows={orderRows}
         products={products}
+        appliedSchemeIds={appliedSchemeIds}
         onApplyScheme={handleApplyScheme}
+        onRemoveScheme={(schemeId) => {
+          removeScheme(schemeId);
+        }}
       />
     </div>
   );
