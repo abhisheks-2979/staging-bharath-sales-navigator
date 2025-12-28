@@ -733,9 +733,12 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       
       cacheRef.current.set(selectedDate, offlineData);
       
-      // CRITICAL FIX: For today's date, ALWAYS sync immediately after loading from offline
-      // This ensures unproductive visits marked yesterday night show up in progress stats
-      if (navigator.onLine && isToday(selectedDate)) {
+      // SLOW NETWORK FIX: Check connection quality before triggering sync
+      const slowConn = isSlowConnection();
+      if (slowConn) {
+        console.log('[LoadData] ⚡ Using offline data only - slow connection detected');
+      } else if (navigator.onLine && isToday(selectedDate)) {
+        // Skip throttle check for today - visit status must always be fresh
         requestIdleCallback?.(() => smartDeltaSync(effectiveUserId, selectedDate)) || 
           setTimeout(() => smartDeltaSync(effectiveUserId, selectedDate), 50);
       } else if (navigator.onLine && shouldSyncNow(selectedDate)) {
@@ -747,7 +750,9 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
     }
 
     // 4. No local data - do initial full load from network
-    if (navigator.onLine) {
+    // SLOW NETWORK FIX: Skip network load if slow connection - show empty state instead
+    const isSlowConn = isSlowConnection();
+    if (navigator.onLine && !isSlowConn) {
       try {
         setIsLoading(true);
         await doFullInitialLoad(effectiveUserId, selectedDate);
@@ -756,7 +761,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
         setHasLoadedOnce(true);
       }
     } else {
-      // No cache, no network - show empty state
+      // No cache, no network, or slow connection - show empty state
+      if (isSlowConn) {
+        console.log('[LoadData] ⚡ Skipping network load - slow connection, showing empty state');
+      }
       setIsLoading(false);
       setHasLoadedOnce(true);
     }
@@ -766,13 +774,25 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
 
   // Full initial load - only used when no local data exists
   const doFullInitialLoad = useCallback(async (uid: string, date: string) => {
+    // SLOW NETWORK FIX: Skip if slow connection detected mid-load
+    if (isSlowConnection() || getManualSlowMode()) {
+      console.log('[FullLoad] ⚡ Skipping - slow connection detected');
+      return;
+    }
+    
     try {
+      // SLOW NETWORK FIX: Add timeout to prevent hanging on slow networks
+      const timeoutMs = 10000; // 10 second timeout for initial load
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      
       const [bpRes, vRes, oRes, pointsFetched] = await Promise.all([
         supabase.from('beat_plans').select('*').eq('user_id', uid).eq('plan_date', date),
         supabase.from('visits').select('*').eq('user_id', uid).eq('planned_date', date),
         supabase.from('orders').select('*').eq('user_id', uid).eq('order_date', date).eq('status', 'confirmed'),
         fetchPointsForDate(uid, date)
       ]);
+      clearTimeout(timeoutId);
 
       const beatPlansData = bpRes.data || [];
       const visitsData = vRes.data || [];
@@ -878,9 +898,12 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
         cacheRef.current.set(selectedDate, offlineData);
       }
       
-      // Then trigger background sync
-      if (navigator.onLine) {
+      // SLOW NETWORK FIX: Only trigger background sync if connection is good
+      const slowConn = isSlowConnection() || getManualSlowMode();
+      if (navigator.onLine && !slowConn) {
         smartDeltaSync(effectiveUserId, selectedDate);
+      } else if (slowConn) {
+        console.log('[InvalidateData] ⚡ Skipping sync - slow connection, using local data');
       }
     }
   }, [selectedDate, effectiveUserId, loadFromOfflineStorage, smartDeltaSync]);
