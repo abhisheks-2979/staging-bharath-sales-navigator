@@ -5239,6 +5239,7 @@ export type Database = {
           distributor_id: string | null
           distributor_name: string | null
           id: string
+          idempotency_key: string | null
           invoice_number: string | null
           is_credit_order: boolean | null
           order_date: string | null
@@ -5263,6 +5264,7 @@ export type Database = {
           distributor_id?: string | null
           distributor_name?: string | null
           id?: string
+          idempotency_key?: string | null
           invoice_number?: string | null
           is_credit_order?: boolean | null
           order_date?: string | null
@@ -5287,6 +5289,7 @@ export type Database = {
           distributor_id?: string | null
           distributor_name?: string | null
           id?: string
+          idempotency_key?: string | null
           invoice_number?: string | null
           is_credit_order?: boolean | null
           order_date?: string | null
