@@ -5,6 +5,7 @@ import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircl
 import { PointsDetailsModal } from "@/components/PointsDetailsModal";
 import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addWeeks, subWeeks, differenceInDays } from "date-fns";
 import { SearchInput } from "@/components/SearchInput";
+import { VoiceSearchButton } from "@/components/VoiceSearchButton";
 import { VisitCard } from "@/components/VisitCard";
 import { VirtualizedVisitList } from "@/components/VirtualizedVisitList";
 import { CreateNewVisitModal } from "@/components/CreateNewVisitModal";
@@ -1272,6 +1273,7 @@ export const MyVisits = () => {
               <div className="flex-1 min-w-0">
                 <SearchInput placeholder={t('visits.searchPlaceholder')} value={searchTerm} onChange={setSearchTerm} />
               </div>
+              <VoiceSearchButton onSearchResult={(text) => setSearchTerm(text)} />
               <VisitFilters filters={filters} onFiltersChange={setFilters} availableCategories={availableCategories} availableLocations={availableLocations} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
