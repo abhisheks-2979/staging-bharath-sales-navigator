@@ -868,7 +868,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
         visits: visitsData,
         retailers: retailersData,
         orders: ordersData,
-        progressStats: calculateStats(visitsData, ordersData, retailersData),
+        progressStats: calculateStats(visitsData, ordersData, retailersData, date),
         currentBeatName: beatPlansData.map(p => p.beat_name).join(', ')
       });
 
@@ -925,14 +925,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
   // LOCAL-FIRST EVENT HANDLING: Update state directly without network
   useEffect(() => {
     const handleStatusChange = (event: CustomEvent) => {
-      const { visitId, status, retailerId, order, noOrderReason } = event.detail || {};
+      const { visitId, status, retailerId, order, orderValue, noOrderReason } = event.detail || {};
       if (!visitId && !retailerId) return;
       
       // STALE CLOSURE FIX: Use refs for current values
       const currentUserId = userIdRef.current;
       const currentDate = selectedDateRef.current;
       
-      console.log('[LocalEvent] Status change:', { visitId, status, retailerId, noOrderReason, currentDate });
+      console.log('[LocalEvent] Status change:', { visitId, status, retailerId, noOrderReason, orderValue, hasOrder: !!order, currentDate });
       
       // Update visits state directly - NO NETWORK CALL
       setVisits(prev => {
@@ -995,7 +995,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
             visits: updated,
             retailers: updatedCache.retailers,
             orders: updatedCache.orders,
-            progressStats: calculateStats(updated, updatedCache.orders, updatedCache.retailers),
+            progressStats: calculateStats(updated, updatedCache.orders, updatedCache.retailers, currentDate),
             currentBeatName: updatedCache.beatPlans?.map((p: any) => p.beat_name).join(', ') || ''
           }).catch(() => {});
         }
@@ -1003,17 +1003,41 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
         return updated;
       });
 
-      // If order data included, update orders too
-      if (order) {
-        const currentDate = selectedDateRef.current;
-        const currentUserId = userIdRef.current;
+      // FIX: Handle order data - either from order object or create from orderValue
+      const orderToProcess = order || (orderValue && retailerId && status === 'productive' ? {
+        id: `order_${Date.now()}_${retailerId}`,
+        retailer_id: retailerId,
+        user_id: currentUserId,
+        total_amount: orderValue,
+        order_date: currentDate,
+        status: 'confirmed',
+        visit_id: visitId,
+        created_at: new Date().toISOString()
+      } : null);
+      
+      if (orderToProcess) {
         setOrders(prev => {
-          const existing = prev.find(o => o.id === order.id);
+          const existing = prev.find(o => o.id === orderToProcess.id);
           let updated;
           if (existing) {
-            updated = prev.map(o => o.id === order.id ? { ...order, updated_at: new Date().toISOString() } : o);
+            updated = prev.map(o => o.id === orderToProcess.id ? { ...orderToProcess, updated_at: new Date().toISOString() } : o);
           } else {
-            updated = [...prev, { ...order, updated_at: new Date().toISOString() }];
+            // Check if there's already an order for this retailer today (avoid duplicates)
+            const existingRetailerOrder = prev.find(o => 
+              o.retailer_id === orderToProcess.retailer_id && 
+              o.order_date === currentDate
+            );
+            if (existingRetailerOrder) {
+              // Update existing order value instead of adding duplicate
+              updated = prev.map(o => 
+                o.id === existingRetailerOrder.id 
+                  ? { ...o, total_amount: orderToProcess.total_amount, updated_at: new Date().toISOString() } 
+                  : o
+              );
+              console.log('[LocalEvent] Updated existing retailer order:', existingRetailerOrder.id);
+            } else {
+              updated = [...prev, { ...orderToProcess, updated_at: new Date().toISOString() }];
+            }
           }
           
           // Update cache using ref value
@@ -1027,7 +1051,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
           cacheRef.current.set(currentDate, updatedCache);
           
           // Persist
-          offlineStorage.save(STORES.ORDERS, order).catch(() => {});
+          offlineStorage.save(STORES.ORDERS, orderToProcess).catch(() => {});
           
           // FIX #4: Save snapshot for persistence
           if (currentUserId) {
@@ -1036,12 +1060,12 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
               visits: updatedCache.visits,
               retailers: updatedCache.retailers,
               orders: updated,
-              progressStats: calculateStats(updatedCache.visits, updated, updatedCache.retailers),
+              progressStats: calculateStats(updatedCache.visits, updated, updatedCache.retailers, currentDate),
               currentBeatName: updatedCache.beatPlans?.map((p: any) => p.beat_name).join(', ') || ''
             }).catch(() => {});
           }
           
-          console.log('[LocalEvent] Order updated/added:', order.id);
+          console.log('[LocalEvent] Order updated/added:', orderToProcess.id, 'Total orders:', updated.length, 'Value:', orderToProcess.total_amount);
           return updated;
         });
       }
@@ -1094,7 +1118,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
           visits: updatedCache.visits,
           retailers: updated,
           orders: updatedCache.orders,
-          progressStats: calculateStats(updatedCache.visits, updatedCache.orders, updated),
+          progressStats: calculateStats(updatedCache.visits, updatedCache.orders, updated, currentDate),
           currentBeatName: updatedCache.beatPlans?.map((p: any) => p.beat_name).join(', ') || ''
         }).catch(() => {});
         
