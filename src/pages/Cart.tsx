@@ -783,19 +783,17 @@ export const Cart = () => {
         const sgstAmount = itemTotal * 0.025;
         const cgstAmount = itemTotal * 0.025;
         
-        // FIX: Extract base product ID for variants to prevent DB insert failures
-        // Cart item.id may be "baseProductId_variant_variantId" for variants
+        // FIX: For variants, use the VARIANT UUID as product_id so van stock sync matches correctly
+        // Cart item.id format: "baseProductId_variant_variantId" for variants
+        // Van stock items store variant UUIDs directly, so we need to store the variant UUID
         let productId = item.id;
-        let variantId: string | null = null;
         if (item.id.includes('_variant_')) {
           const parts = item.id.split('_variant_');
-          productId = parts[0]; // Use base product UUID for product_id
-          variantId = parts[1]; // Store variant UUID separately
+          productId = parts[1]; // Use VARIANT UUID for product_id (matches van_stock_items.product_id)
         }
         
         return {
           product_id: productId,
-          variant_id: variantId, // Track variant separately (may be ignored by DB if column doesn't exist)
           product_name: item.name,
           category: item.category,
           rate: currentRate - discountPerItem, // Store discounted rate
