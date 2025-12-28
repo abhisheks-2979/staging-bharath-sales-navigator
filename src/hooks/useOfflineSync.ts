@@ -357,13 +357,42 @@ export function useOfflineSync() {
             delete orderToInsert.visit_id;
           }
           
+          // DUPLICATE PREVENTION: Check if order with same idempotency_key already exists
+          if (orderToInsert.idempotency_key) {
+            try {
+              // Use type assertion to avoid TS2589 (idempotency_key not in types yet)
+              const checkResult = await (supabase
+                .from('orders')
+                .select('id')
+                .eq('idempotency_key', orderToInsert.idempotency_key)
+                .limit(1) as any);
+              
+              if (checkResult.data && checkResult.data.length > 0) {
+                console.log('⚠️ Order with idempotency_key already exists, skipping duplicate:', orderToInsert.idempotency_key);
+                // Order already exists - this sync item should be removed without error
+                return; // Successfully "synced" (already existed)
+              }
+            } catch (dupCheckError) {
+              console.warn('Could not check for duplicate order (continuing):', dupCheckError);
+            }
+          }
+          
           // New format with separate order and items
           const { data: insertedOrder, error: orderError } = await supabase
             .from('orders')
             .insert(orderToInsert)
             .select()
             .single();
-          if (orderError) throw orderError;
+          
+          // Handle duplicate key error gracefully
+          if (orderError) {
+            if (orderError.code === '23505') {
+              // Duplicate key error - order already exists, treat as success
+              console.log('⚠️ Duplicate order detected via DB constraint, treating as success');
+              return;
+            }
+            throw orderError;
+          }
           
           // Use the new database-generated order ID for items
           const itemsWithCorrectOrderId = data.items.map((item: any) => {
