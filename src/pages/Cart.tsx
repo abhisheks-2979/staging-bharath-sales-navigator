@@ -25,6 +25,7 @@ import { useConnectivity } from "@/hooks/useConnectivity";
 import { retailerStatusRegistry } from "@/lib/retailerStatusRegistry";
 import { visitStatusCache } from "@/lib/visitStatusCache";
 import { syncOrdersToVanStock, getTodayDateString } from "@/utils/vanStockSync";
+import { calculateLocalVanStockUpdate } from "@/utils/localVanStockSync";
 import { getLocalTodayDate } from "@/utils/dateUtils";
 import { useOfflineSchemes } from "@/hooks/useOfflineSchemes";
 import { useAppliedSchemes } from "@/hooks/useAppliedSchemes";
@@ -916,18 +917,32 @@ export const Cart = () => {
       // Gamification, retailer sequences, and invoice DB records run in background
       (async () => {
         try {
-          // Van stock sync should happen even on slow network (as long as navigator.onLine is true)
-          // This ensures van stock is updated after order placement
-          const shouldSyncVanStock = navigator.onLine && currentUserId;
-          
-          if (shouldSyncVanStock) {
-            console.log('🚚 Syncing order to van stock...');
-            try {
-              await syncOrdersToVanStock(getTodayDateString(), currentUserId);
-              console.log('✅ Van stock sync completed');
-            } catch (vanStockError) {
-              console.error('Van stock sync failed:', vanStockError);
-              // Don't block other operations
+          // Van stock sync - online or local calculation for offline
+          if (currentUserId) {
+            if (navigator.onLine) {
+              console.log('🚚 Syncing order to van stock (online)...');
+              try {
+                await syncOrdersToVanStock(getTodayDateString(), currentUserId);
+                console.log('✅ Van stock sync completed');
+              } catch (vanStockError) {
+                console.error('Van stock sync failed:', vanStockError);
+              }
+            } else {
+              console.log('🚚 Calculating local van stock update (offline)...');
+              try {
+                await calculateLocalVanStockUpdate(
+                  orderItems.map(item => ({
+                    product_id: item.product_id,
+                    quantity: item.quantity,
+                    unit: item.unit
+                  })),
+                  currentUserId,
+                  getLocalTodayDate()
+                );
+                console.log('✅ Local van stock calculation queued');
+              } catch (vanStockError) {
+                console.error('Local van stock calculation failed:', vanStockError);
+              }
             }
           }
           
