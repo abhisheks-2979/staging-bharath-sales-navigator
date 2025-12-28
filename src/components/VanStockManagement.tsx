@@ -995,6 +995,21 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     const { data: companyData } = await supabase.from('companies').select('*').limit(1).single();
     const company = companyData as any || {};
     
+    // Fetch user's full name
+    const { data: { session } } = await supabase.auth.getSession();
+    let userName = '';
+    if (session?.user?.id) {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', session.user.id)
+        .single();
+      userName = profileData?.full_name || session.user.email || '';
+    }
+    
+    // Get beat name
+    const beatName = beats.find(b => b.id === selectedBeat)?.beat_name || '';
+    
     const printDateTime = new Date().toLocaleString('en-IN', {
       day: '2-digit', month: 'short', year: 'numeric',
       hour: '2-digit', minute: '2-digit', hour12: true
@@ -1045,14 +1060,16 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       [''],
       ['Date & Time:', printDateTime],
       ['Van:', vans.find(v => v.id === selectedVan)?.registration_number || ''],
+      ['Salesman:', userName],
+      ['Beat:', beatName],
       ['']
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(headerData);
-    XLSX.utils.sheet_add_json(ws, itemsData, { origin: 'A13' });
+    XLSX.utils.sheet_add_json(ws, itemsData, { origin: 'A15' });
     
     // Add totals at the end
-    const lastRow = 13 + itemsData.length + 1;
+    const lastRow = 15 + itemsData.length + 1;
     XLSX.utils.sheet_add_aoa(ws, [
       [''],
       ['', '', '', 'Taxable Amount:', `₹${totalTaxable.toFixed(2)}`],
@@ -1096,6 +1113,21 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       // Fetch company details
       const { data: companyData } = await supabase.from('companies').select('*').limit(1).single();
       const company = companyData as any || {};
+      
+      // Fetch user's full name
+      const { data: { session } } = await supabase.auth.getSession();
+      let userName = '';
+      if (session?.user?.id) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', session.user.id)
+          .single();
+        userName = profileData?.full_name || session.user.email || '';
+      }
+      
+      // Get beat name
+      const beatName = beats.find(b => b.id === selectedBeat)?.beat_name || '';
 
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
@@ -1176,6 +1208,13 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       doc.setFont('helvetica', 'normal');
       doc.text(`Date & Time: ${printDateTime}`, 14, yPos);
       doc.text(`Van: ${selectedVanData?.registration_number || ''} - ${selectedVanData?.make_model || ''}`, rightX, yPos, { align: 'right' });
+      yPos += 5;
+      
+      // Salesman and Beat info
+      doc.text(`Salesman: ${userName}`, 14, yPos);
+      if (beatName) {
+        doc.text(`Beat: ${beatName}`, rightX, yPos, { align: 'right' });
+      }
       yPos += 6;
 
       // Calculate totals
