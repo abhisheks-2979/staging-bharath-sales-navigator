@@ -2,6 +2,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { MapPin, CheckCircle, XCircle, Route, Calendar, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { RetailerStatus } from './RetailerListModal';
 
 interface GPSStatsCardProps {
   beatName: string | null;
@@ -10,6 +11,7 @@ interface GPSStatsCardProps {
   unproductiveVisits: number;
   totalKmTraveled: number;
   pendingVisits: number;
+  activeFilter?: RetailerStatus | null;
   onPlannedClick?: () => void;
   onProductiveClick?: () => void;
   onUnproductiveClick?: () => void;
@@ -23,6 +25,7 @@ export const GPSStatsCard: React.FC<GPSStatsCardProps> = ({
   unproductiveVisits,
   totalKmTraveled,
   pendingVisits,
+  activeFilter,
   onPlannedClick,
   onProductiveClick,
   onUnproductiveClick,
@@ -49,7 +52,8 @@ export const GPSStatsCard: React.FC<GPSStatsCardProps> = ({
             onClick={onPlannedClick}
             className={cn(
               "bg-background/80 rounded-lg p-3 text-center transition-all",
-              onPlannedClick && "cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30 hover:ring-2 hover:ring-blue-500/30"
+              onPlannedClick && "cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30",
+              activeFilter === 'planned' && "ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950/30"
             )}
           >
             <div className="flex items-center justify-center gap-1 mb-1">
@@ -64,7 +68,8 @@ export const GPSStatsCard: React.FC<GPSStatsCardProps> = ({
             onClick={onProductiveClick}
             className={cn(
               "bg-background/80 rounded-lg p-3 text-center transition-all",
-              onProductiveClick && "cursor-pointer hover:bg-green-50 dark:hover:bg-green-950/30 hover:ring-2 hover:ring-green-500/30"
+              onProductiveClick && "cursor-pointer hover:bg-green-50 dark:hover:bg-green-950/30",
+              activeFilter === 'productive' && "ring-2 ring-green-500 bg-green-50 dark:bg-green-950/30"
             )}
           >
             <div className="flex items-center justify-center gap-1 mb-1">
@@ -79,7 +84,8 @@ export const GPSStatsCard: React.FC<GPSStatsCardProps> = ({
             onClick={onUnproductiveClick}
             className={cn(
               "bg-background/80 rounded-lg p-3 text-center transition-all",
-              onUnproductiveClick && "cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/30 hover:ring-2 hover:ring-red-500/30"
+              onUnproductiveClick && "cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/30",
+              activeFilter === 'unproductive' && "ring-2 ring-red-500 bg-red-50 dark:bg-red-950/30"
             )}
           >
             <div className="flex items-center justify-center gap-1 mb-1">
@@ -94,7 +100,8 @@ export const GPSStatsCard: React.FC<GPSStatsCardProps> = ({
             onClick={onPendingClick}
             className={cn(
               "bg-background/80 rounded-lg p-3 text-center transition-all",
-              onPendingClick && "cursor-pointer hover:bg-orange-50 dark:hover:bg-orange-950/30 hover:ring-2 hover:ring-orange-500/30"
+              onPendingClick && "cursor-pointer hover:bg-orange-50 dark:hover:bg-orange-950/30",
+              activeFilter === 'pending' && "ring-2 ring-orange-500 bg-orange-50 dark:bg-orange-950/30"
             )}
           >
             <div className="flex items-center justify-center gap-1 mb-1">
