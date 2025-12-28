@@ -693,7 +693,7 @@ export const Cart = () => {
       // For phone orders, create a visit first
       let actualVisitId = validVisitId;
       if (isPhoneOrder && !validVisitId && validRetailerId) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalTodayDate();
         const isOnline = connectivityStatus === 'online' && navigator.onLine;
         
         if (isOnline) {
@@ -749,7 +749,7 @@ export const Cart = () => {
         visit_id: actualVisitId,
         retailer_id: validRetailerId,
         retailer_name: retailerName,
-        order_date: new Date().toISOString().split('T')[0],
+        order_date: getLocalTodayDate(),
         subtotal,
         discount_amount: discountAmount,
         total_amount: totalAmount,
@@ -872,7 +872,7 @@ export const Cart = () => {
         retailerStatusRegistry.markForRefresh(validRetailerId);
         
         // CRITICAL: Cache the productive status for immediate display
-        const orderDate = new Date().toISOString().split('T')[0];
+        const orderDate = getLocalTodayDate();
         await visitStatusCache.set(
           actualVisitId,
           validRetailerId,
