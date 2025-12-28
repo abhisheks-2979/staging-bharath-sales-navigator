@@ -1163,8 +1163,8 @@ export const VisitCard = ({
   const getStatusText = (status: string) => {
     switch (status) {
       case "productive":
-        // Show order value if available, otherwise just "Productive"
-        return actualOrderValue > 0 ? `₹${actualOrderValue.toLocaleString()}` : "Productive";
+        // Show order value if available (rounded), otherwise just "Productive"
+        return actualOrderValue > 0 ? `₹${Math.round(actualOrderValue).toLocaleString()}` : "Productive";
       case "in-progress":
         return "In Progress";
       case "planned":
