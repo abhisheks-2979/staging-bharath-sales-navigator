@@ -231,7 +231,8 @@ export function useOfflineOrderEntry() {
         created_at: new Date().toISOString(),
         order_date: localOrderDate,
         status: orderData.status || 'confirmed',
-        total_amount: Number(orderData.total_amount ?? 0),
+        // CRITICAL: Round total_amount consistently to prevent cache/snapshot inconsistencies
+        total_amount: Math.round(Number(orderData.total_amount ?? 0)),
       };
 
       const offlineItems = orderItems.map(item => ({
@@ -255,7 +256,8 @@ export function useOfflineOrderEntry() {
             id: offlineOrder.id,
             retailer_id: offlineOrder.retailer_id,
             user_id: offlineOrder.user_id,
-            total_amount: Number(offlineOrder.total_amount ?? 0),
+            // Use the already-rounded total_amount from offlineOrder
+            total_amount: offlineOrder.total_amount,
             order_date: localOrderDate,
             status: offlineOrder.status || 'confirmed',
             visit_id: offlineOrder.visit_id,
@@ -298,14 +300,16 @@ export function useOfflineOrderEntry() {
 
       // Persist locally so progress works immediately after navigation
       try {
-        const normalizedOrder = { ...order, items: orderItems, order_date: localOrderDate, status: order.status || 'confirmed' };
+        // CRITICAL: Round total_amount consistently
+        const roundedTotalAmount = Math.round(Number(order.total_amount ?? 0));
+        const normalizedOrder = { ...order, items: orderItems, order_date: localOrderDate, status: order.status || 'confirmed', total_amount: roundedTotalAmount };
         await offlineStorage.save(STORES.ORDERS, normalizedOrder);
         if (normalizedOrder.user_id) {
           await addOrderToSnapshot(normalizedOrder.user_id, localOrderDate, {
             id: normalizedOrder.id,
             retailer_id: normalizedOrder.retailer_id,
             user_id: normalizedOrder.user_id,
-            total_amount: Number(normalizedOrder.total_amount ?? 0),
+            total_amount: roundedTotalAmount,
             order_date: localOrderDate,
             status: normalizedOrder.status || 'confirmed',
             visit_id: normalizedOrder.visit_id,

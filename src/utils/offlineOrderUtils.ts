@@ -104,7 +104,8 @@ export async function submitOrderWithOfflineSupport(
         id: order.id,
         retailer_id: orderData.retailer_id,
         user_id: orderData.user_id,
-        total_amount: Number(order.total_amount ?? orderData.total_amount ?? orderValue ?? 0),
+        // CRITICAL: Round total_amount consistently to prevent cache/snapshot inconsistencies
+        total_amount: Math.round(Number(order.total_amount ?? orderData.total_amount ?? orderValue ?? 0)),
         order_date: normalizedOrderDate,
         status: order.status || orderData.status || 'confirmed',
         visit_id: orderData.visit_id || order.visit_id,
@@ -160,7 +161,8 @@ export async function submitOrderWithOfflineSupport(
     created_at: new Date().toISOString(),
     order_date: offlineOrderDate,
     status: orderData.status || 'confirmed',
-    total_amount: Number(orderData.total_amount ?? orderValue ?? 0),
+    // CRITICAL: Round total_amount consistently to prevent cache/snapshot inconsistencies
+    total_amount: Math.round(Number(orderData.total_amount ?? orderValue ?? 0)),
   };
 
   const offlineItems = orderItems.map(item => ({
@@ -182,7 +184,8 @@ export async function submitOrderWithOfflineSupport(
   // This ensures the VisitCard shows "Productive" right away without waiting for sync
   if (orderData.retailer_id && orderData.user_id) {
     const orderDate = offlineOrder.order_date || new Date().toISOString().split('T')[0];
-    const orderValue = orderItems.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+    // Use the rounded total_amount from offlineOrder for consistency
+    const orderValue = offlineOrder.total_amount;
     
     console.log('💾 [ORDER] Caching productive status for offline order:', {
       retailerId: orderData.retailer_id,

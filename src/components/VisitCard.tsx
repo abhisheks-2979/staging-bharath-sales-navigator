@@ -36,7 +36,7 @@ import { CreditScoreDisplay } from "./CreditScoreDisplay";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { visitStatusCache } from "@/lib/visitStatusCache";
 import { retailerStatusRegistry } from "@/lib/retailerStatusRegistry";
-import { updateVisitStatusInSnapshot } from "@/lib/myVisitsSnapshot";
+import { updateVisitStatusInSnapshot, syncOrderValueInSnapshot } from "@/lib/myVisitsSnapshot";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
 import { RetailerDetailModal } from "./RetailerDetailModal";
@@ -117,6 +117,21 @@ export const VisitCard = ({
   const [feedbackEditId, setFeedbackEditId] = useState<string | null>(null);
   const [feedbackEditData, setFeedbackEditData] = useState<any>(null);
   const { user } = useAuth();
+  // SOURCE PRIORITY for order values: db (4) > snapshot (3) > cache (2) > props (1)
+  // This prevents lower-priority sources from overwriting higher-priority ones
+  type OrderValueSource = 'db' | 'snapshot' | 'cache' | 'props' | null;
+  const [orderValueSource, setOrderValueSource] = useState<OrderValueSource>(null);
+  
+  const getSourcePriority = (source: OrderValueSource): number => {
+    switch (source) {
+      case 'db': return 4;
+      case 'snapshot': return 3;
+      case 'cache': return 2;
+      case 'props': return 1;
+      default: return 0;
+    }
+  };
+
   // Initialize from cache or props - will be set after getInitialStatusData is called
   const [hasOrderToday, setHasOrderToday] = useState<boolean>(() => {
     // Check cache first for order value
@@ -144,6 +159,25 @@ export const VisitCard = ({
     }
     return visit.orderValue || 0;
   });
+
+  // Consolidated order value update function with source priority
+  const updateOrderValue = useCallback((value: number, source: OrderValueSource) => {
+    const roundedValue = Math.round(value); // Ensure consistent rounding
+    const currentPriority = getSourcePriority(orderValueSource);
+    const newPriority = getSourcePriority(source);
+    
+    // Only update if new source has equal or higher priority
+    if (newPriority >= currentPriority) {
+      console.log(`💰 [VisitCard] Updating order value: ${roundedValue} from ${source} (priority ${newPriority} >= ${currentPriority})`);
+      setActualOrderValue(roundedValue);
+      setOrderValueSource(source);
+      if (roundedValue > 0) {
+        setHasOrderToday(true);
+      }
+    } else {
+      console.log(`⏭️ [VisitCard] Skipping order value update: ${roundedValue} from ${source} (priority ${newPriority} < ${currentPriority})`);
+    }
+  }, [orderValueSource]);
   const [distributorName, setDistributorName] = useState<string>('');
   const [hasStockRecords, setHasStockRecords] = useState(false);
   const [stockRecordCount, setStockRecordCount] = useState(0);
@@ -350,17 +384,17 @@ export const VisitCard = ({
         orderValue: visit.orderValue
       });
       setHasOrderToday(true);
-      setActualOrderValue(visit.orderValue || 0);
+      updateOrderValue(visit.orderValue || 0, 'props');
       setCurrentStatus('productive');
       setStatusLoadedFromDB(true);
       setPhase('completed');
     }
-    // Also sync if order value increased (new order added)
-    if (visit.hasOrder && visit.orderValue && visit.orderValue > actualOrderValue) {
-      console.log('💰 [VisitCard] Order value increased, updating:', visit.orderValue);
-      setActualOrderValue(visit.orderValue);
+    // Also sync if order value increased (new order added) - only from props
+    if (visit.hasOrder && visit.orderValue && visit.orderValue > actualOrderValue && orderValueSource === 'props') {
+      console.log('💰 [VisitCard] Order value increased from prop, updating:', visit.orderValue);
+      updateOrderValue(visit.orderValue, 'props');
     }
-  }, [visit.hasOrder, visit.orderValue, hasOrderToday, actualOrderValue]);
+  }, [visit.hasOrder, visit.orderValue, hasOrderToday, actualOrderValue, updateOrderValue, orderValueSource]);
 
   // Check if the selected date is today's date (use local timezone for accurate comparison)
   const today = new Date();
@@ -422,8 +456,7 @@ export const VisitCard = ({
         }
         lastFetchedStatusRef.current = cachedStatus.status;
         if (cachedStatus.orderValue && actualOrderValue !== cachedStatus.orderValue) {
-          setActualOrderValue(cachedStatus.orderValue);
-          setHasOrderToday(true);
+          updateOrderValue(cachedStatus.orderValue, 'cache');
         }
         if (cachedStatus.noOrderReason && noOrderReason !== cachedStatus.noOrderReason) {
           setIsNoOrderMarked(true);
@@ -535,8 +568,7 @@ export const VisitCard = ({
       lastFetchedStatusRef.current = cachedStatus.status;
       
       if (cachedStatus.orderValue && actualOrderValue !== cachedStatus.orderValue) {
-        setActualOrderValue(cachedStatus.orderValue);
-        setHasOrderToday(true);
+        updateOrderValue(cachedStatus.orderValue, 'cache');
       }
       if (cachedStatus.noOrderReason && noOrderReason !== cachedStatus.noOrderReason) {
         setIsNoOrderMarked(true);
@@ -779,16 +811,24 @@ export const VisitCard = ({
             setOrdersTodayList(ordersToday);
             // Store the most recent order ID for invoice generation
             setLastOrderId(ordersToday[0].id);
-            // Calculate totals for today
-            const totalOrderValue = ordersToday.reduce((sum, order) => sum + Number((order as any).total_amount || 0), 0);
-            console.log('💰 [VisitCard] Setting actualOrderValue:', {
+            // Calculate totals for today - round for consistency
+            const totalOrderValue = Math.round(ordersToday.reduce((sum, order) => sum + Number((order as any).total_amount || 0), 0));
+            console.log('💰 [VisitCard] Setting actualOrderValue from DB:', {
               visitId: visit.id,
               orderCount: ordersToday.length,
               totalOrderValue,
               orders: ordersToday.map((o: any) => ({ id: o.id, amount: o.total_amount }))
             });
-            setActualOrderValue(totalOrderValue);
-            setHasOrderToday(true);
+            
+            // Use updateOrderValue with 'db' source (highest priority)
+            updateOrderValue(totalOrderValue, 'db');
+
+            // ALSO sync this confirmed DB value back to snapshot to prevent future inconsistencies
+            try {
+              await syncOrderValueInSnapshot(currentUserId, targetDate, visitRetailerId, totalOrderValue);
+            } catch (e) {
+              console.warn('[VisitCard] Could not sync order value to snapshot:', e);
+            }
 
             // Calculate total previous pending cleared
             const totalPendingCleared = ordersToday.reduce((sum, order) => sum + Number((order as any).previous_pending_cleared || 0), 0);
@@ -816,7 +856,7 @@ export const VisitCard = ({
             setCurrentStatus('productive');
             setStatusLoadedFromDB(true); // Mark that we've loaded from DB
             
-            // Update cache with productive status and order value
+            // Update cache with productive status and order value (using rounded value)
             await visitStatusCache.set(
               visitData?.id || currentVisitId || visit.id,
               visitRetailerId,
@@ -852,8 +892,10 @@ export const VisitCard = ({
             setHasOrderToday(true);
           } else {
             setHasOrderToday(false);
+            // Reset order value only if we have db-level confirmation of no orders
             setActualOrderValue(0);
-            console.log('💰 Reset actualOrderValue to 0');
+            setOrderValueSource('db'); // Mark as from DB so cache can't overwrite
+            console.log('💰 Reset actualOrderValue to 0 (confirmed from DB)');
             setIsCreditOrder(false);
             setCreditPendingAmount(0);
             setCreditPaidAmount(0);
@@ -893,7 +935,7 @@ export const VisitCard = ({
       // Initialize from visit props since they're pre-loaded
       if (visit.hasOrder) {
         setHasOrderToday(true);
-        setActualOrderValue(visit.orderValue || 0);
+        updateOrderValue(visit.orderValue || 0, 'props');
         setCurrentStatus('productive');
         setStatusLoadedFromDB(true);
         setPhase('completed');
@@ -1060,11 +1102,10 @@ export const VisitCard = ({
           setStatusLoadedFromDB(true);
           lastFetchedStatusRef.current = newStatus;
           
-          // If we have order value from the event, set it immediately
+          // If we have order value from the event, set it immediately (cache priority since it comes from local event)
           if (event.detail?.orderValue && event.detail.orderValue > 0) {
             console.log('💰 [VisitCard] Setting order value from event:', event.detail.orderValue);
-            setActualOrderValue(event.detail.orderValue);
-            setHasOrderToday(true);
+            updateOrderValue(event.detail.orderValue, 'cache');
             setPhase('completed');
             setIsCheckedOut(true);
           }
@@ -2086,11 +2127,11 @@ export const VisitCard = ({
         
         // Update the order value and payment states
         if (totalOrderValue > 0) {
-          setActualOrderValue(totalOrderValue);
+          // This is from DB fetch, so use 'db' source
+          updateOrderValue(totalOrderValue, 'db');
           setPaidTodayAmount(totalPaidToday);
           setCreditPendingAmount(updatedPending);
           setIsCreditOrder(creditOrders.length > 0);
-          setHasOrderToday(true);
         }
         
         // Store the most recent order ID for invoice generation

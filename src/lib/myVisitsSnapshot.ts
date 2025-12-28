@@ -179,6 +179,12 @@ export const addOrderToSnapshot = async (
   }
 ): Promise<void> => {
   try {
+    // CRITICAL: Ensure consistent rounding of total_amount
+    const roundedOrder = {
+      ...order,
+      total_amount: Math.round(Number(order.total_amount) || 0)
+    };
+    
     const snapshot = await loadMyVisitsSnapshot(userId, date);
     if (!snapshot) {
       // Create new snapshot with this order
@@ -187,13 +193,13 @@ export const addOrderToSnapshot = async (
         beatPlans: [],
         visits: [],
         retailers: [],
-        orders: [order],
+        orders: [roundedOrder],
         progressStats: {
           planned: 0,
           productive: 1,
           unproductive: 0,
           totalOrders: 1,
-          totalOrderValue: order.total_amount
+          totalOrderValue: roundedOrder.total_amount
         },
         currentBeatName: ''
       });
@@ -201,27 +207,27 @@ export const addOrderToSnapshot = async (
     }
 
     // Check if order already exists
-    const existingOrderIndex = snapshot.orders.findIndex(o => o.id === order.id);
+    const existingOrderIndex = snapshot.orders.findIndex(o => o.id === roundedOrder.id);
     if (existingOrderIndex >= 0) {
       // Update existing order
-      snapshot.orders[existingOrderIndex] = order;
+      snapshot.orders[existingOrderIndex] = roundedOrder;
     } else {
       // Check for existing order for same retailer on same date
       const existingRetailerOrder = snapshot.orders.findIndex(o => 
-        o.retailer_id === order.retailer_id && o.order_date === order.order_date
+        o.retailer_id === roundedOrder.retailer_id && o.order_date === roundedOrder.order_date
       );
       if (existingRetailerOrder >= 0) {
         // Update existing order instead of adding duplicate
-        snapshot.orders[existingRetailerOrder] = order;
+        snapshot.orders[existingRetailerOrder] = roundedOrder;
       } else {
         // Add new order
-        snapshot.orders.push(order);
+        snapshot.orders.push(roundedOrder);
       }
     }
 
-    // Recalculate progress stats
+    // Recalculate progress stats with rounded values
     const totalOrders = snapshot.orders.length;
-    const totalOrderValue = snapshot.orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+    const totalOrderValue = Math.round(snapshot.orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0));
     
     // Update productive count based on unique retailers with orders
     const retailersWithOrders = new Set(snapshot.orders.map(o => o.retailer_id));
@@ -240,9 +246,44 @@ export const addOrderToSnapshot = async (
       value: JSON.stringify({ ...snapshot, timestamp: Date.now() })
     });
 
-    console.log('📸 [SNAPSHOT] Added/updated order in snapshot:', order.id, 'Total:', snapshot.orders.length, 'Value:', totalOrderValue);
+    console.log('📸 [SNAPSHOT] Added/updated order in snapshot:', roundedOrder.id, 'Total:', snapshot.orders.length, 'Value:', totalOrderValue);
   } catch (error) {
     console.error('[SNAPSHOT] Failed to add order:', error);
+  }
+};
+
+// Sync order value from database to snapshot (call when DB value is confirmed)
+export const syncOrderValueInSnapshot = async (
+  userId: string,
+  date: string,
+  retailerId: string,
+  confirmedTotalAmount: number
+): Promise<void> => {
+  try {
+    const snapshot = await loadMyVisitsSnapshot(userId, date);
+    if (!snapshot) return;
+
+    // Find and update the order for this retailer
+    const orderIndex = snapshot.orders.findIndex(o => o.retailer_id === retailerId);
+    if (orderIndex >= 0) {
+      const roundedAmount = Math.round(confirmedTotalAmount);
+      snapshot.orders[orderIndex].total_amount = roundedAmount;
+      
+      // Recalculate total value
+      const totalOrderValue = Math.round(snapshot.orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0));
+      snapshot.progressStats.totalOrderValue = totalOrderValue;
+      
+      // Save updated snapshot
+      const key = getSnapshotKey(userId, date);
+      await Preferences.set({
+        key,
+        value: JSON.stringify({ ...snapshot, timestamp: Date.now() })
+      });
+      
+      console.log('📸 [SNAPSHOT] Synced order value from DB:', retailerId, '->', roundedAmount);
+    }
+  } catch (error) {
+    console.error('[SNAPSHOT] Failed to sync order value:', error);
   }
 };
 
