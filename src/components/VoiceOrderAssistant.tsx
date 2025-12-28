@@ -49,6 +49,8 @@ export const VoiceOrderAssistant: React.FC<VoiceOrderAssistantProps> = ({
   // When auto-fill results are available, call the callback
   useEffect(() => {
     if (autoFillResults.length > 0) {
+      console.log('🎤 VoiceOrderAssistant: Auto-fill results received:', autoFillResults);
+      console.log('🎤 VoiceOrderAssistant: Products available:', products.length);
       onAutoFillProducts(autoFillResults);
       // Clear results after processing
       clearResults();
