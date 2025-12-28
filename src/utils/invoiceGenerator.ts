@@ -16,8 +16,13 @@ interface InvoiceData {
   schemeDetails?: string;
 }
 
-// Helper function to format amount without decimals (rounded)
-const formatAmount = (amount: number): string => {
+// Helper function to format amount with 2 decimal places (exact)
+const formatExact = (amount: number): string => {
+  return amount.toFixed(2);
+};
+
+// Helper function to format final total as rounded whole number
+const formatRounded = (amount: number): string => {
   return Math.round(amount).toString();
 };
 
@@ -355,9 +360,9 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
         item.hsn_code || "-",
         displayUnit,
         qtyStr,
-        `Rs.${formatAmount(originalRate)}`, // MRP
-        itemDiscount > 0 ? `Rs.${formatAmount(effectiveRate)}` : "-", // Offer Price (or "-" if no discount)
-        `Rs.${formatAmount(rowTotal)}`,
+        `Rs.${formatExact(originalRate)}`, // MRP - exact
+        itemDiscount > 0 ? `Rs.${formatExact(effectiveRate)}` : "-", // Offer Price (or "-" if no discount) - exact
+        `Rs.${formatExact(rowTotal)}`, // Row total - exact
       ];
     } else {
       return [
@@ -366,8 +371,8 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
         item.hsn_code || "-",
         displayUnit,
         qtyStr,
-        `Rs.${formatAmount(effectiveRate)}`,
-        `Rs.${formatAmount(rowTotal)}`,
+        `Rs.${formatExact(effectiveRate)}`, // Price - exact
+        `Rs.${formatExact(rowTotal)}`, // Row total - exact
       ];
     }
   });
@@ -472,7 +477,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setTextColor(0, 0, 0);
   
   doc.text("SUB-TOTAL", labelCol, yPos);
-  doc.text(`Rs.${formatAmount(subtotal)}`, rightCol, yPos, { align: "right" });
+  doc.text(`Rs.${formatExact(subtotal)}`, rightCol, yPos, { align: "right" });
   
   // Show "You Saved" if there are discounts
   if (totalDiscount > 0) {
@@ -480,18 +485,18 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
     doc.setTextColor(22, 163, 74); // Green text for savings
     doc.setFont("helvetica", "bold");
     doc.text("YOU SAVED", labelCol, yPos);
-    doc.text(`Rs.${formatAmount(totalDiscount)}`, rightCol, yPos, { align: "right" });
+    doc.text(`Rs.${formatExact(totalDiscount)}`, rightCol, yPos, { align: "right" });
     doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "normal");
   }
   
   yPos += 5;
   doc.text("SGST (2.5%)", labelCol, yPos);
-  doc.text(`Rs.${formatAmount(sgst)}`, rightCol, yPos, { align: "right" });
+  doc.text(`Rs.${formatExact(sgst)}`, rightCol, yPos, { align: "right" });
   
   yPos += 5;
   doc.text("CGST (2.5%)", labelCol, yPos);
-  doc.text(`Rs.${formatAmount(cgst)}`, rightCol, yPos, { align: "right" });
+  doc.text(`Rs.${formatExact(cgst)}`, rightCol, yPos, { align: "right" });
 
   // Total amount box (green background - centered text)
   yPos += 6;
@@ -506,7 +511,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   // Center the text horizontally and vertically in the box
-  const totalText = `Total amount: Rs.${formatAmount(total)}`;
+  const totalText = `Total amount: Rs.${formatRounded(total)}`;
   const textWidth = doc.getTextWidth(totalText);
   const centerX = totalBoxX + totalBoxWidth / 2 - textWidth / 2;
   const centerY = totalBoxY + totalBoxHeight / 2 + 3; // +3 to account for text baseline

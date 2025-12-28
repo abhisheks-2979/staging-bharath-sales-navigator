@@ -76,8 +76,14 @@ const getDisplayRate = (item: CartItem) => {
   return Number(item.rate) || 0;
 };
 
-// Currency formatter - rounded to whole number (no decimals)
-const formatINRTrunc2 = (value: number) => {
+// Currency formatter - exact with 2 decimals for item-level values
+const formatExact = (value: number) => {
+  const num = Number(value) || 0;
+  return num.toFixed(2);
+};
+
+// Currency formatter - rounded to whole number for final totals only
+const formatRounded = (value: number) => {
   const num = Number(value) || 0;
   const rounded = Math.round(num);
   return rounded.toLocaleString('en-IN');
@@ -1292,8 +1298,8 @@ export const Cart = () => {
                         
                         {/* Price - Compact */}
                         <div className="text-right min-w-[60px] shrink-0">
-                          <div className="font-bold text-xs">₹{formatINRTrunc2(finalPrice)}</div>
-                          {hasDiscount && <div className="text-[10px] text-green-600 font-medium">-₹{formatINRTrunc2(discount)}</div>}
+                          <div className="font-bold text-xs">₹{formatExact(finalPrice)}</div>
+                          {hasDiscount && <div className="text-[10px] text-green-600 font-medium">-₹{formatExact(discount)}</div>}
                         </div>
                         
                         {/* Action Buttons - Compact */}
@@ -1324,7 +1330,7 @@ export const Cart = () => {
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal:</span>
-                  <span className="font-semibold">₹{formatINRTrunc2(getSubtotal())}</span>
+                  <span className="font-semibold">₹{formatExact(getSubtotal())}</span>
                 </div>
 
                 {getDiscount() > 0 && <div className="p-2 bg-success/10 rounded-lg border border-success/20">
@@ -1334,38 +1340,38 @@ export const Cart = () => {
                     </div>
                     <div className="flex justify-between text-xs">
                       <span>Discount:</span>
-                      <span className="text-success font-medium">-₹{formatINRTrunc2(getDiscount())}</span>
+                      <span className="text-success font-medium">-₹{formatExact(getDiscount())}</span>
                     </div>
                   </div>}
 
                 <div className="border-t pt-2 space-y-1">
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>CGST (2.5%):</span>
-                    <span>₹{formatINRTrunc2(getCGST())}</span>
+                    <span>₹{formatExact(getCGST())}</span>
                   </div>
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>SGST (2.5%):</span>
-                    <span>₹{formatINRTrunc2(getSGST())}</span>
+                    <span>₹{formatExact(getSGST())}</span>
                   </div>
                 </div>
 
                 <div className="flex justify-between text-base font-bold border-t pt-2">
                   <span>Total:</span>
-                  <span>₹{formatINRTrunc2(getFinalTotal())}</span>
+                  <span>₹{formatRounded(getFinalTotal())}</span>
                 </div>
 
                 {pendingAmountFromPrevious > 0 && <div className="space-y-1.5 p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
                     <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">Previous Pending:</span>
-                      <span className="font-semibold text-warning">₹{formatINRTrunc2(pendingAmountFromPrevious)}</span>
+                      <span className="font-semibold text-warning">₹{formatRounded(pendingAmountFromPrevious)}</span>
                     </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">Current Order:</span>
-                      <span className="font-semibold">₹{formatINRTrunc2(getFinalTotal())}</span>
+                      <span className="font-semibold">₹{formatRounded(getFinalTotal())}</span>
                     </div>
                     <div className="flex justify-between text-xs pt-1.5 border-t border-amber-200 dark:border-amber-800">
                       <span className="font-medium">Total Due:</span>
-                      <span className="font-bold">₹{formatINRTrunc2(pendingAmountFromPrevious + getFinalTotal())}</span>
+                      <span className="font-bold">₹{formatRounded(pendingAmountFromPrevious + getFinalTotal())}</span>
                     </div>
                   </div>}
 
@@ -1401,11 +1407,11 @@ export const Cart = () => {
                     {partialAmount && parseFloat(partialAmount) > 0 && <div className="p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800 space-y-1">
                         <div className="flex justify-between text-xs">
                           <span className="text-success">Paying Now:</span>
-                          <span className="font-semibold text-success">₹{formatINRTrunc2(parseFloat(partialAmount))}</span>
+                          <span className="font-semibold text-success">₹{formatRounded(parseFloat(partialAmount))}</span>
                         </div>
                         <div className="flex justify-between text-xs pt-1 border-t border-amber-200 dark:border-amber-800">
                           <span className="font-medium text-warning">Remaining:</span>
-                          <span className="font-bold text-warning">₹{formatINRTrunc2(Math.max(0, getFinalTotal() + pendingAmountFromPrevious - parseFloat(partialAmount)))}</span>
+                          <span className="font-bold text-warning">₹{formatRounded(Math.max(0, getFinalTotal() + pendingAmountFromPrevious - parseFloat(partialAmount)))}</span>
                         </div>
                       </div>}
                   </div>}

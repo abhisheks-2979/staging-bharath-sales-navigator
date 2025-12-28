@@ -280,7 +280,7 @@ export default function InvoicePreview({
             <span className="text-xs">₹{cgst.toFixed(2)}</span>
           </div>
           <div className={`${styles.totalBox} p-2 rounded flex justify-center items-center`}>
-            <span className="font-bold text-sm">Total amount: ₹{total.toFixed(2)}</span>
+            <span className="font-bold text-sm">Total amount: ₹{Math.round(total)}</span>
           </div>
         </div>
       </div>
