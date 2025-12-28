@@ -645,7 +645,9 @@ export const Cart = () => {
       const discountAmount = getDiscount();
       const cgstAmount = getCGST();
       const sgstAmount = getSGST();
-      const totalAmount = getFinalTotal();
+      // CRITICAL: Round total amount ONCE at the source to ensure consistency
+      // This prevents different values being stored in DB vs cache vs snapshot
+      const totalAmount = Math.round(getFinalTotal());
       // Prepare IDs
       const validRetailerId = retailerId && /^[0-9a-fA-F-]{36}$/.test(retailerId) ? retailerId : null;
       const validVisitId = visitId && /^[0-9a-fA-F-]{36}$/.test(visitId) ? visitId : null;
