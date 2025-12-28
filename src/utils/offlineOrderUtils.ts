@@ -120,7 +120,15 @@ export async function submitOrderWithOfflineSupport(
 
       if (orderData.user_id) {
         try {
-          await addOrderToSnapshot(orderData.user_id, normalizedOrderDate, normalizedOrder);
+          await addOrderToSnapshot(orderData.user_id, normalizedOrderDate, {
+            id: normalizedOrder.id,
+            retailer_id: normalizedOrder.retailer_id,
+            user_id: normalizedOrder.user_id,
+            total_amount: normalizedOrder.total_amount,
+            order_date: normalizedOrder.order_date,
+            status: normalizedOrder.status,
+            visit_id: normalizedOrder.visit_id,
+          });
         } catch (e) {
           console.warn('[ORDER] Could not update snapshot with online order (non-fatal):', e);
         }
@@ -217,8 +225,6 @@ export async function submitOrderWithOfflineSupport(
         order_date: offlineOrderDate,
         status: offlineOrder.status || 'confirmed',
         visit_id: offlineOrder.visit_id,
-        created_at: offlineOrder.created_at,
-        items: offlineItems,
       });
       console.log('📸 [ORDER] Updated My Visits snapshot with offline order');
     } catch (snapshotError) {
