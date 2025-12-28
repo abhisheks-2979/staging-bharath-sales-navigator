@@ -1675,17 +1675,16 @@ export const OrderEntry = () => {
 
       <div className="w-full px-2 sm:px-4 space-y-3">
 
-        {/* Order Mode Toggle */}
+        {/* Order Mode Toggle - Burger Style Layout */}
         <Card>
           <CardContent className="p-2">
             <div className="space-y-1.5">
-              {/* First Row: Grid, Table, AI Stock */}
+              {/* Row 1: Grid, Table, AI Stock */}
               <div className="flex gap-1.5">
-              <Button 
+                <Button 
                   variant={orderMode === "grid" ? "default" : "outline"} 
                   onClick={() => {
                     setOrderMode("grid");
-                    // Run tracking in background - don't block UI
                     if (!hasTrackedVisit && userId) {
                       startTracking('order', isPhoneOrder).then(() => setHasTrackedVisit(true));
                     } else {
@@ -1702,7 +1701,6 @@ export const OrderEntry = () => {
                   variant={orderMode === "table" ? "default" : "outline"} 
                   onClick={() => {
                     setOrderMode("table");
-                    // Run tracking in background - don't block UI
                     if (!hasTrackedVisit && userId) {
                       startTracking('order', isPhoneOrder).then(() => setHasTrackedVisit(true));
                     } else {
@@ -1719,7 +1717,6 @@ export const OrderEntry = () => {
                   variant="outline" 
                   onClick={() => {
                     setShowImageCapture(true);
-                    // Run tracking in background - don't block UI
                     if (!hasTrackedVisit && userId) {
                       startTracking('order', isPhoneOrder).then(() => setHasTrackedVisit(true));
                     } else {
@@ -1735,8 +1732,8 @@ export const OrderEntry = () => {
                 </Button>
               </div>
               
-              {/* Second Row: Voice Order, Return Stock, No Order, Competition */}
-              <div className="flex gap-1.5">
+              {/* Row 2: Voice Order (Full Width) */}
+              <div className="flex">
                 <VoiceOrderAssistant
                   products={cachedProducts.map(p => ({
                     id: p.id,
@@ -1748,11 +1745,9 @@ export const OrderEntry = () => {
                     variants: p.variants
                   }))}
                   onAutoFillProducts={(results) => {
-                    // In table mode, use the TableOrderForm's applyVoiceAutoFill method
                     if (orderMode === "table" && tableFormRef.current) {
                       tableFormRef.current.applyVoiceAutoFill(results);
                     } else {
-                      // Grid mode fallback - update quantities directly
                       results.forEach(result => {
                         handleQuantityChange(result.productId, result.quantity);
                         if (result.unit) {
@@ -1771,12 +1766,16 @@ export const OrderEntry = () => {
                     }
                   }}
                   disabled={!isActuallyOnline || cachedProducts.length === 0}
+                  className="flex-1"
                 />
+              </div>
+              
+              {/* Row 3: Return, No Order, Competition */}
+              <div className="flex gap-1.5">
                 <Button 
                   variant={orderMode === "return-stock" ? "default" : "outline"} 
                   onClick={() => {
                     setOrderMode("return-stock");
-                    // Run tracking in background - don't block UI
                     if (!hasTrackedVisit && userId) {
                       startTracking('order', isPhoneOrder).then(() => setHasTrackedVisit(true));
                     } else {
@@ -1793,7 +1792,6 @@ export const OrderEntry = () => {
                   variant={orderMode === "no-order" ? "default" : "outline"} 
                   onClick={() => {
                     setOrderMode("no-order");
-                    // Run tracking in background - don't block UI
                     if (!hasTrackedVisit && userId) {
                       startTracking('order', isPhoneOrder).then(() => setHasTrackedVisit(true));
                     } else {
@@ -1810,7 +1808,6 @@ export const OrderEntry = () => {
                   variant={orderMode === "competition" ? "default" : "outline"} 
                   onClick={() => {
                     setOrderMode("competition");
-                    // Run tracking in background - don't block UI
                     if (!hasTrackedVisit && userId) {
                       startTracking('order', isPhoneOrder).then(() => setHasTrackedVisit(true));
                     } else {
