@@ -519,23 +519,40 @@ export function useMasterDataCache() {
     }
   }, [user]);
 
-  // Cache essential master data (NOT historical data)
+  // Cache essential master data with priority loading
+  // Critical data loads first (beat plans, retailers) for My Visit to work
+  // Then important data (products, schemes) for order entry
+  // Finally defer non-essential data (competition) to background
   const cacheAllMasterData = useCallback(async () => {
     if (!isOnline || !user) {
       console.log('[Cache] Offline or no user - skipping cache update');
       return;
     }
 
-    console.log('[Cache] 🔄 Syncing essential offline data...');
+    console.log('[Cache] 🔄 Syncing essential offline data with priority...');
     try {
+      // Phase 1: CRITICAL - Load beat plans and retailers first (needed for My Visit)
+      console.log('[Cache] Phase 1: Loading critical data (beat plans + retailers)...');
+      await Promise.all([
+        cacheBeatPlans(),
+        cacheRetailers(),
+        cacheBeats()
+      ]);
+      
+      // Phase 2: IMPORTANT - Load products and schemes (needed for order entry)
+      console.log('[Cache] Phase 2: Loading important data (products + schemes)...');
       await Promise.all([
         cacheProducts(),
-        cacheSchemes(),
-        cacheBeats(),
-        cacheRetailers(),
-        cacheBeatPlans(),
-        cacheCompetitionData()
+        cacheSchemes()
       ]);
+      
+      // Phase 3: DEFERRED - Load competition data in background (not urgent)
+      // Use setTimeout to defer and not block UI
+      setTimeout(() => {
+        console.log('[Cache] Phase 3: Loading deferred data (competition)...');
+        cacheCompetitionData();
+      }, 2000);
+      
       console.log('[Cache] ✅ Essential offline data synced successfully');
     } catch (error) {
       console.error('[Cache] Error syncing offline data:', error);

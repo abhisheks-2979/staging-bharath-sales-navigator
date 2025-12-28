@@ -170,13 +170,17 @@ const queryClient = new QueryClient({
   },
 });
 
-// Master data cache initializer
+// Master data cache initializer - delayed to let UI render first
 const MasterDataCacheInitializer = () => {
   const { cacheAllMasterData, isOnline } = useMasterDataCache();
   
   useEffect(() => {
     if (isOnline) {
-      cacheAllMasterData();
+      // Delay background sync by 1.5s to let UI render first for faster perceived startup
+      const timeoutId = setTimeout(() => {
+        cacheAllMasterData();
+      }, 1500);
+      return () => clearTimeout(timeoutId);
     }
   }, [isOnline, cacheAllMasterData]);
   
