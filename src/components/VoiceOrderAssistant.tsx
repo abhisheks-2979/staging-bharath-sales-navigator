@@ -12,12 +12,14 @@ interface VoiceOrderAssistantProps {
   products: VoiceProduct[];
   onAutoFillProducts: (results: AutoFillResult[]) => void;
   disabled?: boolean;
+  className?: string;
 }
 
 export const VoiceOrderAssistant: React.FC<VoiceOrderAssistantProps> = ({
   products,
   onAutoFillProducts,
   disabled = false,
+  className,
 }) => {
   const {
     isRecording,
@@ -62,7 +64,8 @@ export const VoiceOrderAssistant: React.FC<VoiceOrderAssistantProps> = ({
         disabled={disabled || isProcessing}
         className={cn(
           "flex-1 h-7 text-xs transition-all",
-          isRecording && "bg-red-500 hover:bg-red-600 text-white animate-pulse"
+          isRecording && "bg-red-500 hover:bg-red-600 text-white animate-pulse",
+          className
         )}
         size="sm"
       >
