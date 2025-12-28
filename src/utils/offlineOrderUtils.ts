@@ -1,8 +1,9 @@
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { supabase } from '@/integrations/supabase/client';
 import { visitStatusCache } from '@/lib/visitStatusCache';
-import { saveMyVisitsSnapshot, loadMyVisitsSnapshot } from '@/lib/myVisitsSnapshot';
+import { addOrderToSnapshot } from '@/lib/myVisitsSnapshot';
 import { isSlowConnection } from '@/utils/internetSpeedCheck';
+import { getLocalTodayDate } from '@/utils/dateUtils';
 
 /**
  * Submit an order with offline support
@@ -26,8 +27,8 @@ export async function submitOrderWithOfflineSupport(
   const timeoutMs = slowConnection ? 5000 : 10000; // 5s for slow, 10s for normal
   // CRITICAL: Update visit status cache IMMEDIATELY for instant UI feedback
   // This ensures the VisitCard shows "Productive" right away, even on slow internet
-  const orderDate = orderData.order_date || new Date().toISOString().split('T')[0];
-  const orderValue = orderData.total_amount || orderItems.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+  const orderDate = orderData.order_date || getLocalTodayDate();
+  const orderValue = Number(orderData.total_amount) || orderItems.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
   
   if (orderData.retailer_id && orderData.user_id) {
     console.log('⚡ [ORDER] Immediate cache update for instant UI feedback:', {
@@ -96,71 +97,35 @@ export async function submitOrderWithOfflineSupport(
       const order = await Promise.race([submitPromise, timeoutPromise]) as any;
 
       options.onOnline?.();
-      
-      // Update My Visits snapshot with the new online order so it shows when app reopens
-      const orderDate = orderData.order_date || new Date().toISOString().split('T')[0];
+
+      // Persist locally for instant "Today's Progress" + app restarts
+      const normalizedOrderDate = orderData.order_date || getLocalTodayDate();
+      const normalizedOrder = {
+        id: order.id,
+        retailer_id: orderData.retailer_id,
+        user_id: orderData.user_id,
+        total_amount: Number(order.total_amount ?? orderData.total_amount ?? orderValue ?? 0),
+        order_date: normalizedOrderDate,
+        status: order.status || orderData.status || 'confirmed',
+        visit_id: orderData.visit_id || order.visit_id,
+        created_at: order.created_at || new Date().toISOString(),
+        items: orderItems,
+      };
+
+      try {
+        await offlineStorage.save(STORES.ORDERS, normalizedOrder);
+      } catch (e) {
+        console.warn('[ORDER] Could not save online order to offline store (non-fatal):', e);
+      }
+
       if (orderData.user_id) {
         try {
-          const existingSnapshot = await loadMyVisitsSnapshot(orderData.user_id, orderDate);
-          if (existingSnapshot) {
-            // Add the new order to snapshot
-            const updatedOrders = [...existingSnapshot.orders, { ...order, items: orderItems }];
-            
-            // Update retailer status in snapshot
-            const updatedRetailers = existingSnapshot.retailers.map((r: any) => {
-              if (r.retailer_id === orderData.retailer_id || r.id === orderData.retailer_id) {
-                return { ...r, visitStatus: 'productive', orderValue: order.total_amount };
-              }
-              return r;
-            });
-            
-            // Update visits array in snapshot
-            const existingVisitIndex = existingSnapshot.visits.findIndex(
-              (v: any) => v.retailer_id === orderData.retailer_id
-            );
-            let updatedVisits = [...existingSnapshot.visits];
-            if (existingVisitIndex >= 0) {
-              updatedVisits[existingVisitIndex] = {
-                ...updatedVisits[existingVisitIndex],
-                status: 'productive',
-                updated_at: new Date().toISOString()
-              };
-            } else {
-              updatedVisits.push({
-                id: orderData.visit_id || crypto.randomUUID(),
-                retailer_id: orderData.retailer_id,
-                user_id: orderData.user_id,
-                status: 'productive',
-                planned_date: orderDate,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              });
-            }
-            
-            // Recalculate progress stats
-            const productiveCount = updatedRetailers.filter((r: any) => r.visitStatus === 'productive').length;
-            const unproductiveCount = updatedRetailers.filter((r: any) => r.visitStatus === 'unproductive').length;
-            
-            await saveMyVisitsSnapshot(orderData.user_id, orderDate, {
-              ...existingSnapshot,
-              orders: updatedOrders,
-              retailers: updatedRetailers,
-              visits: updatedVisits,
-              progressStats: {
-                ...existingSnapshot.progressStats,
-                productive: productiveCount,
-                unproductive: unproductiveCount,
-                totalOrders: updatedOrders.length,
-                totalOrderValue: updatedOrders.reduce((sum: number, o: any) => sum + (Number(o.total_amount) || 0), 0)
-              }
-            });
-            console.log('📸 [ORDER] Updated My Visits snapshot with online order');
-          }
-        } catch (snapshotError) {
-          console.warn('[ORDER] Could not update snapshot:', snapshotError);
+          await addOrderToSnapshot(orderData.user_id, normalizedOrderDate, normalizedOrder);
+        } catch (e) {
+          console.warn('[ORDER] Could not update snapshot with online order (non-fatal):', e);
         }
       }
-      
+
       // Trigger data refresh for Today's Progress
       console.log('✅ [ORDER] Online submission successful, triggering data refresh');
       window.dispatchEvent(new Event('visitDataChanged'));
@@ -180,11 +145,14 @@ export async function submitOrderWithOfflineSupport(
   
   // Offline mode or failed online attempt: Queue for sync
   const orderId = crypto.randomUUID();
+  const offlineOrderDate = orderData.order_date || getLocalTodayDate();
   const offlineOrder = {
     ...orderData,
     id: orderId,
     created_at: new Date().toISOString(),
-    order_date: new Date().toISOString().split('T')[0]
+    order_date: offlineOrderDate,
+    status: orderData.status || 'confirmed',
+    total_amount: Number(orderData.total_amount ?? orderValue ?? 0),
   };
 
   const offlineItems = orderItems.map(item => ({
@@ -237,71 +205,27 @@ export async function submitOrderWithOfflineSupport(
   }
 
   options.onOffline?.();
-  
-  // Update My Visits snapshot with the new offline order so it shows when app reopens
-  // Note: orderDate already defined at top of function
+
+  // Ensure snapshot is created/updated so My Visits can show today's order instantly
   if (orderData.user_id) {
     try {
-      const existingSnapshot = await loadMyVisitsSnapshot(orderData.user_id, orderDate);
-      if (existingSnapshot) {
-        // Add the new order to snapshot
-        const updatedOrders = [...existingSnapshot.orders, { ...offlineOrder, items: offlineItems }];
-        
-        // Update retailer status in snapshot
-        const updatedRetailers = existingSnapshot.retailers.map((r: any) => {
-          if (r.retailer_id === orderData.retailer_id || r.id === orderData.retailer_id) {
-            return { ...r, visitStatus: 'productive', orderValue: offlineOrder.total_amount };
-          }
-          return r;
-        });
-        
-        // Update visits array in snapshot
-        const existingVisitIndex = existingSnapshot.visits.findIndex(
-          (v: any) => v.retailer_id === orderData.retailer_id
-        );
-        let updatedVisits = [...existingSnapshot.visits];
-        if (existingVisitIndex >= 0) {
-          updatedVisits[existingVisitIndex] = {
-            ...updatedVisits[existingVisitIndex],
-            status: 'productive',
-            updated_at: new Date().toISOString()
-          };
-        } else {
-          updatedVisits.push({
-            id: orderData.visit_id || orderId,
-            retailer_id: orderData.retailer_id,
-            user_id: orderData.user_id,
-            status: 'productive',
-            planned_date: orderDate,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-        }
-        
-        // Recalculate progress stats
-        const productiveCount = updatedRetailers.filter((r: any) => r.visitStatus === 'productive').length;
-        const unproductiveCount = updatedRetailers.filter((r: any) => r.visitStatus === 'unproductive').length;
-        
-        await saveMyVisitsSnapshot(orderData.user_id, orderDate, {
-          ...existingSnapshot,
-          orders: updatedOrders,
-          retailers: updatedRetailers,
-          visits: updatedVisits,
-          progressStats: {
-            ...existingSnapshot.progressStats,
-            productive: productiveCount,
-            unproductive: unproductiveCount,
-            totalOrders: updatedOrders.length,
-            totalOrderValue: updatedOrders.reduce((sum: number, o: any) => sum + (Number(o.total_amount) || 0), 0)
-          }
-        });
-        console.log('📸 [ORDER] Updated My Visits snapshot with offline order');
-      }
+      await addOrderToSnapshot(orderData.user_id, offlineOrderDate, {
+        id: offlineOrder.id,
+        retailer_id: offlineOrder.retailer_id,
+        user_id: offlineOrder.user_id,
+        total_amount: Number(offlineOrder.total_amount ?? 0),
+        order_date: offlineOrderDate,
+        status: offlineOrder.status || 'confirmed',
+        visit_id: offlineOrder.visit_id,
+        created_at: offlineOrder.created_at,
+        items: offlineItems,
+      });
+      console.log('📸 [ORDER] Updated My Visits snapshot with offline order');
     } catch (snapshotError) {
-      console.warn('[ORDER] Could not update snapshot:', snapshotError);
+      console.warn('[ORDER] Could not update snapshot (offline):', snapshotError);
     }
   }
-  
+
   // Trigger data refresh for Today's Progress
   console.log('✅ [ORDER] Offline order queued, triggering data refresh');
   window.dispatchEvent(new Event('visitDataChanged'));

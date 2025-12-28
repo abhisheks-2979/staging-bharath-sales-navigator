@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
+import { addOrderToSnapshot } from '@/lib/myVisitsSnapshot';
 import { toast } from '@/hooks/use-toast';
 import { getLocalTodayDate } from '@/utils/dateUtils';
 
@@ -219,6 +220,8 @@ export function useOfflineOrderEntry() {
 
   // Submit order with offline support - optimized
   const submitOrder = async (orderData: any, orderItems: any[]) => {
+    const localOrderDate = orderData.order_date || getLocalTodayDate();
+
     if (!isOnline) {
       // Offline: Queue for sync
       const orderId = crypto.randomUUID();
@@ -226,7 +229,9 @@ export function useOfflineOrderEntry() {
         ...orderData,
         id: orderId,
         created_at: new Date().toISOString(),
-        order_date: getLocalTodayDate()
+        order_date: localOrderDate,
+        status: orderData.status || 'confirmed',
+        total_amount: Number(orderData.total_amount ?? 0),
       };
 
       const offlineItems = orderItems.map(item => ({
@@ -243,6 +248,15 @@ export function useOfflineOrderEntry() {
         })
       ]);
 
+      // Persist snapshot so My Visits "Today's Progress" updates even after navigation/app restart
+      try {
+        if (offlineOrder.user_id) {
+          await addOrderToSnapshot(offlineOrder.user_id, localOrderDate, { ...offlineOrder, items: offlineItems });
+        }
+      } catch (e) {
+        console.warn('[useOfflineOrderEntry] Could not update snapshot (offline):', e);
+      }
+
       toast({
         title: "Order Saved Offline",
         description: "Your order will be synced when you're back online",
@@ -256,7 +270,7 @@ export function useOfflineOrderEntry() {
       // Online: Submit with optimized single transaction
       const { data: order, error: orderError } = await supabase
         .from('orders')
-        .insert(orderData)
+        .insert({ ...orderData, order_date: localOrderDate, status: orderData.status || 'confirmed' })
         .select()
         .single();
 
@@ -273,6 +287,17 @@ export function useOfflineOrderEntry() {
         .insert(itemsWithOrderId);
 
       if (itemsError) throw itemsError;
+
+      // Persist locally so progress works immediately after navigation
+      try {
+        const normalizedOrder = { ...order, items: orderItems, order_date: localOrderDate, status: order.status || 'confirmed' };
+        await offlineStorage.save(STORES.ORDERS, normalizedOrder);
+        if (normalizedOrder.user_id) {
+          await addOrderToSnapshot(normalizedOrder.user_id, localOrderDate, normalizedOrder);
+        }
+      } catch (e) {
+        console.warn('[useOfflineOrderEntry] Could not persist online order locally (non-fatal):', e);
+      }
 
       // Trigger data refresh for Today's Progress
       window.dispatchEvent(new Event('visitDataChanged'));
