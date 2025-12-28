@@ -8,20 +8,31 @@ interface ParsedOrder {
   unit: string;
 }
 
-interface AutoFillResult {
+export interface AutoFillResult {
   productId: string;
   productName: string;
+  variantId?: string;
+  variantName?: string;
   quantity: number;
   unit: string;
   confidence: 'high' | 'medium' | 'low';
   searchTerm: string;
 }
 
-interface Product {
+export interface VoiceProduct {
   id: string;
   name: string;
   rate: number;
   unit?: string;
+  sku?: string;
+  category?: { name: string } | string;
+  variants?: {
+    id: string;
+    variant_name: string;
+    sku?: string;
+    price: number;
+    is_active?: boolean;
+  }[];
 }
 
 interface UseVoiceOrderResult {
@@ -36,25 +47,42 @@ interface UseVoiceOrderResult {
   isSupported: boolean;
 }
 
+// Normalize unit strings for matching
+const normalizeUnit = (unit: string): string => {
+  const u = (unit || '').toLowerCase().trim();
+  // gram variations → g
+  if (['gram', 'grams', 'gm', 'grm'].includes(u)) return 'g';
+  // kg variations → kg  
+  if (['kilogram', 'kilograms', 'kilo', 'kilos'].includes(u)) return 'kg';
+  return u;
+};
+
+// Normalize search string for better matching
+const normalizeSearchString = (s: string): string => {
+  return s
+    .toLowerCase()
+    .replace(/[-_]/g, ' ')
+    .replace(/\s+/g, ' ')
+    // Normalize common unit abbreviations in the string
+    .replace(/\b(gram|grams|gm|grm)\b/gi, 'g')
+    .replace(/\b(kilogram|kilograms|kilo|kilos)\b/gi, 'kg')
+    .trim();
+};
+
 // Enhanced fuzzy matching for product names with variants
 const fuzzyMatch = (searchTerm: string, target: string): number => {
-  const search = searchTerm.toLowerCase().trim();
-  const targetLower = target.toLowerCase().trim();
+  const search = normalizeSearchString(searchTerm);
+  const targetLower = normalizeSearchString(target);
   
   // Exact match
   if (targetLower === search) return 1;
   
-  // Remove common separators and normalize
-  const normalizeStr = (s: string) => s.replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
-  const normalizedSearch = normalizeStr(search);
-  const normalizedTarget = normalizeStr(targetLower);
-  
   // Check if normalized versions match
-  if (normalizedTarget === normalizedSearch) return 1;
+  if (targetLower === search) return 1;
   
   // Contains match
-  if (normalizedTarget.includes(normalizedSearch)) return 0.9;
-  if (normalizedSearch.includes(normalizedTarget)) return 0.85;
+  if (targetLower.includes(search)) return 0.9;
+  if (search.includes(targetLower)) return 0.85;
   
   // Extract numbers and words separately for better matching
   const extractParts = (s: string) => {
@@ -63,8 +91,8 @@ const fuzzyMatch = (searchTerm: string, target: string): number => {
     return { numbers, words };
   };
   
-  const searchParts = extractParts(normalizedSearch);
-  const targetParts = extractParts(normalizedTarget);
+  const searchParts = extractParts(search);
+  const targetParts = extractParts(targetLower);
   
   // Check if numbers match
   const numbersMatch = searchParts.numbers.some(sn => 
@@ -101,26 +129,62 @@ const fuzzyMatch = (searchTerm: string, target: string): number => {
   return 0;
 };
 
-const findBestMatch = (searchName: string, products: Product[]): { product: Product | null; confidence: 'high' | 'medium' | 'low' } => {
-  let bestMatch: Product | null = null;
-  let bestScore = 0;
+interface MatchCandidate {
+  product: VoiceProduct;
+  variant?: VoiceProduct['variants'][0];
+  score: number;
+  matchedName: string;
+}
+
+const findBestMatch = (searchName: string, products: VoiceProduct[]): { 
+  product: VoiceProduct | null; 
+  variant?: VoiceProduct['variants'][0];
+  confidence: 'high' | 'medium' | 'low';
+} => {
+  const candidates: MatchCandidate[] = [];
   
   for (const product of products) {
-    const score = fuzzyMatch(searchName, product.name);
-    if (score > bestScore) {
-      bestScore = score;
-      bestMatch = product;
+    // Match against base product name
+    const baseScore = fuzzyMatch(searchName, product.name);
+    if (baseScore > 0) {
+      candidates.push({ product, score: baseScore, matchedName: product.name });
+    }
+    
+    // Match against variants if they exist
+    if (product.variants && product.variants.length > 0) {
+      for (const variant of product.variants) {
+        if (variant.is_active === false) continue;
+        
+        // Match variant name alone
+        const variantScore = fuzzyMatch(searchName, variant.variant_name);
+        if (variantScore > 0) {
+          candidates.push({ product, variant, score: variantScore, matchedName: variant.variant_name });
+        }
+        
+        // Match combined "product + variant" name
+        const combinedName = `${product.name} ${variant.variant_name}`;
+        const combinedScore = fuzzyMatch(searchName, combinedName);
+        if (combinedScore > 0) {
+          candidates.push({ product, variant, score: combinedScore, matchedName: combinedName });
+        }
+      }
     }
   }
   
-  if (bestScore >= 0.8) return { product: bestMatch, confidence: 'high' };
-  if (bestScore >= 0.5) return { product: bestMatch, confidence: 'medium' };
-  if (bestScore >= 0.3) return { product: bestMatch, confidence: 'low' };
+  // Sort by score descending and get best match
+  candidates.sort((a, b) => b.score - a.score);
+  const best = candidates[0];
+  
+  if (!best) return { product: null, confidence: 'low' };
+  
+  if (best.score >= 0.8) return { product: best.product, variant: best.variant, confidence: 'high' };
+  if (best.score >= 0.5) return { product: best.product, variant: best.variant, confidence: 'medium' };
+  if (best.score >= 0.3) return { product: best.product, variant: best.variant, confidence: 'low' };
   
   return { product: null, confidence: 'low' };
 };
 
-export const useVoiceOrder = (products: Product[]): UseVoiceOrderResult => {
+export const useVoiceOrder = (products: VoiceProduct[]): UseVoiceOrderResult => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -200,15 +264,22 @@ export const useVoiceOrder = (products: Product[]): UseVoiceOrderResult => {
         const searchTerm = (order as any).productSearch || (order as any).name || '';
         console.log(`🔍 Matching "${searchTerm}" against ${products.length} products...`);
         
-        const { product, confidence } = findBestMatch(searchTerm, products);
+        const { product, variant, confidence } = findBestMatch(searchTerm, products);
         
         if (product) {
-          console.log(`✅ Matched "${searchTerm}" → "${product.name}" (confidence: ${confidence})`);
+          const displayName = variant ? variant.variant_name : product.name;
+          console.log(`✅ Matched "${searchTerm}" → "${displayName}" (confidence: ${confidence})`);
+          
+          // Normalize the unit from voice input
+          const voiceUnit = normalizeUnit(order.unit || 'kg');
+          
           results.push({
             productId: product.id,
             productName: product.name,
+            variantId: variant?.id,
+            variantName: variant?.variant_name,
             quantity: order.quantity || 1,
-            unit: order.unit || product.unit || 'kg',
+            unit: voiceUnit === 'g' ? 'Grams' : 'KG', // Normalize to table-supported units
             confidence,
             searchTerm
           });
@@ -220,13 +291,8 @@ export const useVoiceOrder = (products: Product[]): UseVoiceOrderResult => {
       console.log('📊 Final matched results:', results);
       setAutoFillResults(results);
       
-      // Show toast with summary
-      if (results.length > 0) {
-        toast({
-          title: `Found ${results.length} product${results.length > 1 ? 's' : ''}`,
-          description: results.map(r => `${r.productName}: ${r.quantity} ${r.unit}`).join(', '),
-        });
-      } else {
+      // Don't show toast here - let the callback handle it to avoid duplicates
+      if (results.length === 0) {
         setError('Could not match any products. Please try different names.');
       }
 

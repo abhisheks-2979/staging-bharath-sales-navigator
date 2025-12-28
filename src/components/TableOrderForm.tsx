@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, { useMemo, useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,7 +76,23 @@ interface TableOrderFormProps {
   onReloadProducts?: () => void;
 }
 
-export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProducts }: TableOrderFormProps) => {
+// Expose this handle type for refs
+export interface TableOrderFormHandle {
+  applyVoiceAutoFill: (results: VoiceAutoFillResult[]) => void;
+}
+
+export interface VoiceAutoFillResult {
+  productId: string;
+  productName: string;
+  variantId?: string;
+  variantName?: string;
+  quantity: number;
+  unit: string;
+  confidence: 'high' | 'medium' | 'low';
+  searchTerm: string;
+}
+
+export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormProps>(({ onCartUpdate, products, loading, onReloadProducts }, ref) => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const visitId = searchParams.get("visitId") || '';
@@ -254,8 +270,99 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
     DEV_LOG && console.log('[syncRowsToCart] Synced to cart:', cartItems.length, 'items (stored as grams)');
   };
 
+  // Expose applyVoiceAutoFill to parent via ref
+  useImperativeHandle(ref, () => ({
+    applyVoiceAutoFill: (results: VoiceAutoFillResult[]) => {
+      if (results.length === 0) return;
+      
+      console.log('[TableOrderForm] applyVoiceAutoFill called with:', results);
+      
+      setOrderRows(prev => {
+        let updatedRows = [...prev];
+        
+        for (const result of results) {
+          // Find the product in our products list
+          const product = products.find(p => p.id === result.productId);
+          if (!product) {
+            console.log(`[applyVoiceAutoFill] Product not found: ${result.productId}`);
+            continue;
+          }
+          
+          // Find variant if specified
+          let variant = undefined;
+          if (result.variantId && product.variants) {
+            variant = product.variants.find(v => v.id === result.variantId);
+          }
+          
+          // Determine the row key (product ID or product_variant_ID combo)
+          const rowKey = variant ? `${product.id}_variant_${variant.id}` : product.id;
+          
+          // Check if this product/variant already exists in the order
+          const existingRowIndex = updatedRows.findIndex(row => {
+            if (!row.product) return false;
+            const existingKey = row.variant 
+              ? `${row.product.id}_variant_${row.variant.id}` 
+              : row.product.id;
+            return existingKey === rowKey;
+          });
+          
+          // Normalize unit to KG or Grams
+          const unit = result.unit?.toUpperCase() === 'GRAMS' ? 'Grams' : 'KG';
+          
+          // Calculate total price
+          const rate = getPricePerUnit(product, variant, unit);
+          const total = rate * result.quantity;
+          
+          if (existingRowIndex >= 0) {
+            // Update existing row - add to quantity
+            const existingRow = updatedRows[existingRowIndex];
+            const newQuantity = existingRow.quantity + result.quantity;
+            updatedRows[existingRowIndex] = {
+              ...existingRow,
+              quantity: newQuantity,
+              total: rate * newQuantity
+            };
+            console.log(`[applyVoiceAutoFill] Updated existing row: ${product.name} → qty=${newQuantity}`);
+          } else {
+            // Find an empty row to fill, or add a new one
+            const emptyRowIndex = updatedRows.findIndex(row => !row.product && row.quantity === 0);
+            
+            const newRow: OrderRow = {
+              id: emptyRowIndex >= 0 ? updatedRows[emptyRowIndex].id : Date.now().toString(),
+              productCode: variant?.sku || product.sku,
+              product: product,
+              variant: variant,
+              quantity: result.quantity,
+              closingStock: variant ? variant.stock_quantity : product.closing_stock,
+              unit: unit,
+              total: total
+            };
+            
+            if (emptyRowIndex >= 0) {
+              updatedRows[emptyRowIndex] = newRow;
+            } else {
+              updatedRows.push(newRow);
+            }
+            console.log(`[applyVoiceAutoFill] Added new row: ${variant?.variant_name || product.name} → qty=${result.quantity}`);
+          }
+        }
+        
+        // Sync to cart storage
+        syncRowsToCart(updatedRows);
+        
+        return updatedRows;
+      });
+      
+      // Show success toast
+      const displayNames = results.map(r => r.variantName || r.productName);
+      toast({
+        title: `✓ Added ${results.length} item${results.length > 1 ? 's' : ''} via voice`,
+        description: displayNames.join(', '),
+      });
+    }
+  }), [products]);
 
-  // When retailer/visit changes, reload rows for that context (prevents schemes leaking across retailers)
+
   useEffect(() => {
     // Reset init so we don't immediately overwrite loaded state
     setHasInitialized(false);
@@ -1043,4 +1150,6 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
       />
     </div>
   );
-};
+});
+
+TableOrderForm.displayName = 'TableOrderForm';

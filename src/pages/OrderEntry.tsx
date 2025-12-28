@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Layout } from "@/components/Layout";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,7 @@ import { VoiceOrderAssistant } from "@/components/VoiceOrderAssistant";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
-import { TableOrderForm } from "@/components/TableOrderForm";
+import { TableOrderForm, TableOrderFormHandle } from "@/components/TableOrderForm";
 import { OrderSummaryModal } from "@/components/OrderSummaryModal";
 import { SchemeDetailsModal } from "@/components/SchemeDetailsModal";
 import { supabase } from "@/integrations/supabase/client";
@@ -197,6 +197,9 @@ export const OrderEntry = () => {
     [key: string]: boolean;
   }>({});
   const [hasAutoExpanded, setHasAutoExpanded] = useState(false);
+  
+  // Ref for TableOrderForm to call applyVoiceAutoFill
+  const tableFormRef = useRef<TableOrderFormHandle>(null);
 
   // Fetch and set user ID on component mount
   useEffect(() => {
@@ -1735,37 +1738,39 @@ export const OrderEntry = () => {
               {/* Second Row: Voice Order, Return Stock, No Order, Competition */}
               <div className="flex gap-1.5">
                 <VoiceOrderAssistant
-                  products={products.map(p => ({
+                  products={cachedProducts.map(p => ({
                     id: p.id,
                     name: p.name,
                     rate: p.rate,
                     unit: p.unit,
-                    category: p.category
+                    sku: p.sku,
+                    category: p.category,
+                    variants: p.variants
                   }))}
                   onAutoFillProducts={(results) => {
-                    // Auto-fill quantities directly in the existing product tab
-                    results.forEach(result => {
-                      // Update quantity in the form
-                      handleQuantityChange(result.productId, result.quantity);
-                      
-                      // Update unit if different
-                      if (result.unit) {
-                        setSelectedUnits(prev => ({
-                          ...prev,
-                          [result.productId]: result.unit
-                        }));
-                      }
-                    });
-                    
-                    // Show success toast with matched products
-                    if (results.length > 0) {
-                      toast({
-                        title: `✓ ${results.length} product${results.length > 1 ? 's' : ''} auto-filled`,
-                        description: results.map(r => `${r.productName}: ${r.quantity} ${r.unit}`).join(', '),
+                    // In table mode, use the TableOrderForm's applyVoiceAutoFill method
+                    if (orderMode === "table" && tableFormRef.current) {
+                      tableFormRef.current.applyVoiceAutoFill(results);
+                    } else {
+                      // Grid mode fallback - update quantities directly
+                      results.forEach(result => {
+                        handleQuantityChange(result.productId, result.quantity);
+                        if (result.unit) {
+                          setSelectedUnits(prev => ({
+                            ...prev,
+                            [result.productId]: result.unit
+                          }));
+                        }
                       });
+                      if (results.length > 0) {
+                        toast({
+                          title: `✓ ${results.length} product${results.length > 1 ? 's' : ''} auto-filled`,
+                          description: results.map(r => `${r.productName}: ${r.quantity} ${r.unit}`).join(', '),
+                        });
+                      }
                     }
                   }}
-                  disabled={!isActuallyOnline}
+                  disabled={!isActuallyOnline || cachedProducts.length === 0}
                 />
                 <Button 
                   variant={orderMode === "return-stock" ? "default" : "outline"} 
@@ -2900,6 +2905,7 @@ export const OrderEntry = () => {
         </div>
         </> : (/* Table Order Form */
       <TableOrderForm 
+        ref={tableFormRef}
         products={cachedProducts}
         loading={offlineLoading}
         onReloadProducts={fetchOfflineProducts}
