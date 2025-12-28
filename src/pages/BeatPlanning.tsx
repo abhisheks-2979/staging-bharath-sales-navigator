@@ -797,6 +797,20 @@ export const BeatPlanning = () => {
                   <div className="flex gap-2 flex-shrink-0">
                     <Button 
                       variant="secondary"
+                      onClick={() => {
+                        const dateKey = selectedDate.toLocaleDateString('en-US', { weekday: 'short' });
+                        setPlannedBeats(prev => ({
+                          ...prev,
+                          [dateKey]: []
+                        }));
+                      }}
+                      size="sm"
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90 text-xs sm:text-sm"
+                    >
+                      <span>Clear All</span>
+                    </Button>
+                    <Button 
+                      variant="secondary"
                       onClick={handleSubmitPlan}
                       disabled={isLoading}
                       size="sm"
