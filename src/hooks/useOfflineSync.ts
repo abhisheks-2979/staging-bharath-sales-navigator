@@ -217,6 +217,13 @@ export function useOfflineSync() {
   const processSyncItem = async (item: any) => {
     const { action, data } = item;
     
+    // Helper to check if an ID is a valid UUID (from database) vs temp offline ID
+    const isValidUUID = (id: string): boolean => {
+      if (!id) return false;
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      return uuidRegex.test(id);
+    };
+    
     switch (action) {
       case 'UPDATE_VISIT_NO_ORDER':
         try {
@@ -339,15 +346,38 @@ export function useOfflineSync() {
         console.log('Syncing order creation:', data);
         // Handle both old format (single data) and new format (order + items)
         if (data.order && data.items) {
+          // CRITICAL FIX: Strip offline-generated ID and let Supabase auto-generate UUID
+          // Also strip non-existent columns (scheme_details, pending_amount)
+          const { id: offlineOrderId, scheme_details, pending_amount, ...orderWithoutId } = data.order;
+          
+          // Strip visit_id if it's not a valid UUID (offline-generated)
+          const orderToInsert = { ...orderWithoutId };
+          if (orderToInsert.visit_id && !isValidUUID(orderToInsert.visit_id)) {
+            console.log('⚠️ Stripping invalid visit_id:', orderToInsert.visit_id);
+            delete orderToInsert.visit_id;
+          }
+          
           // New format with separate order and items
-          const { error: orderError } = await supabase
+          const { data: insertedOrder, error: orderError } = await supabase
             .from('orders')
-            .insert(data.order);
+            .insert(orderToInsert)
+            .select()
+            .single();
           if (orderError) throw orderError;
+          
+          // Use the new database-generated order ID for items
+          const itemsWithCorrectOrderId = data.items.map((item: any) => {
+            // Strip variant_id if the column doesn't exist
+            const { variant_id, ...itemWithoutVariant } = item;
+            return {
+              ...itemWithoutVariant,
+              order_id: insertedOrder.id
+            };
+          });
           
           const { error: itemsError } = await supabase
             .from('order_items')
-            .insert(data.items);
+            .insert(itemsWithCorrectOrderId);
           if (itemsError) throw itemsError;
 
           // Update retailer's pending_amount and last_order_date

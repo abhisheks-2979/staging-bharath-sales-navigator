@@ -748,9 +748,12 @@ export const Cart = () => {
       const schemeDetailsText = formatSchemeDetailsForInvoice(orderCalculation.appliedSchemes);
 
       // Prepare order data - use currentUserId which works both online and offline
+      // Only include visit_id if it's a valid UUID (not offline-generated)
+      const shouldIncludeVisitId = actualVisitId && /^[0-9a-fA-F-]{36}$/.test(actualVisitId);
+      
       const orderData = {
         user_id: currentUserId,
-        visit_id: actualVisitId,
+        ...(shouldIncludeVisitId && { visit_id: actualVisitId }),
         retailer_id: validRetailerId,
         retailer_name: retailerName,
         order_date: getLocalTodayDate(),
@@ -764,8 +767,8 @@ export const Cart = () => {
         previous_pending_cleared: previousPendingCleared,
         payment_method: orderPaymentMethod,
         payment_proof_url: paymentProofUrl || null,
-        upi_last_four_code: paymentMethod === 'upi' ? upiLastFourCode : null,
-        scheme_details: schemeDetailsText || null
+        upi_last_four_code: paymentMethod === 'upi' ? upiLastFourCode : null
+        // Note: scheme_details removed as column doesn't exist in orders table
       };
 
       const orderItems = cartItems.map(item => {
