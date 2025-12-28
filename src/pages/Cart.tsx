@@ -27,6 +27,7 @@ import { visitStatusCache } from "@/lib/visitStatusCache";
 import { syncOrdersToVanStock, getTodayDateString } from "@/utils/vanStockSync";
 import { calculateLocalVanStockUpdate } from "@/utils/localVanStockSync";
 import { getLocalTodayDate } from "@/utils/dateUtils";
+import { isSlowConnection } from "@/utils/internetSpeedCheck";
 import { useOfflineSchemes } from "@/hooks/useOfflineSchemes";
 import { useAppliedSchemes } from "@/hooks/useAppliedSchemes";
 import { calculateOrderWithSchemes, SchemeItem, formatSchemeDetailsForInvoice } from "@/utils/schemeEngine";
@@ -917,18 +918,31 @@ export const Cart = () => {
       // Gamification, retailer sequences, and invoice DB records run in background
       (async () => {
         try {
-          // Van stock sync - online or local calculation for offline
+          // Van stock sync - use isSlowConnection() to decide between online sync and local calculation
+          // This properly handles slow network conditions where navigator.onLine may be true
           if (currentUserId) {
-            if (navigator.onLine) {
+            const shouldSyncOnline = navigator.onLine && !isSlowConnection();
+            
+            if (shouldSyncOnline) {
               console.log('🚚 Syncing order to van stock (online)...');
               try {
                 await syncOrdersToVanStock(getTodayDateString(), currentUserId);
                 console.log('✅ Van stock sync completed');
               } catch (vanStockError) {
-                console.error('Van stock sync failed:', vanStockError);
+                console.error('Van stock sync failed, falling back to local calculation:', vanStockError);
+                // Fallback to local calculation if online sync fails
+                await calculateLocalVanStockUpdate(
+                  orderItems.map(item => ({
+                    product_id: item.product_id,
+                    quantity: item.quantity,
+                    unit: item.unit
+                  })),
+                  currentUserId,
+                  getLocalTodayDate()
+                );
               }
             } else {
-              console.log('🚚 Calculating local van stock update (offline)...');
+              console.log('🚚 Calculating local van stock update (slow/offline)...');
               try {
                 await calculateLocalVanStockUpdate(
                   orderItems.map(item => ({

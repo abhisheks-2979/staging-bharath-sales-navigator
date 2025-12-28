@@ -20,6 +20,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { syncOrdersToVanStock, recalculateVanStock } from '@/utils/vanStockSync';
 import { downloadExcel, downloadPDF } from '@/utils/fileDownloader';
+import { cacheVanStockForOffline } from '@/utils/localVanStockSync';
 
 // Convert number to Indian words
 const numberToWords = (num: number): string => {
@@ -475,6 +476,12 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         setStockItems([]);
       }
       // If not clearEntryForm and there are saved items, don't touch stockItems (keeps entry form as-is)
+      
+      // CRITICAL: Cache van stock data for offline use
+      // This ensures offline orders can calculate local van stock updates
+      if (data?.van_stock_items && data.van_stock_items.length > 0 && session.session?.user?.id) {
+        cacheVanStockForOffline(data.van_stock_items, session.session.user.id, selectedDate);
+      }
     }
   };
 
