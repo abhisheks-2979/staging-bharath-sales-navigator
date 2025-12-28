@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
+import { loadMyVisitsSnapshot } from '@/lib/myVisitsSnapshot';
 import { format } from 'date-fns';
 import { getLocalTodayDate, toLocalISODate } from '@/utils/dateUtils';
 import { useManagedInterval, useVisibility } from '@/utils/intervalManager';
+import { isSlowConnection } from '@/utils/internetSpeedCheck';
 
 interface HomeDashboardData {
   todayData: {
@@ -220,11 +222,48 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         const beatPlan = beatPlans.length > 0 ? beatPlans[0] : null;
         const visits = visitsRes.data || [];
         const attendance = attendanceRes.data;
-        const orders = ordersRes.data || [];
+        let orders = ordersRes.data || [];
         const points = pointsRes.data || [];
         const retailers = retailersRes.data || [];
         const newRetailers = newRetailersRes.data || [];
         const leave = leaveRes.data;
+        
+        // CRITICAL: Merge orders from offline sources (snapshot + offline storage) with DB orders
+        // This ensures revenue reflects all orders including those placed offline
+        if (isToday) {
+          try {
+            // Load orders from my visits snapshot
+            const snapshot = await loadMyVisitsSnapshot(userId, dateStr);
+            if (snapshot?.orders && snapshot.orders.length > 0) {
+              const dbOrderIds = new Set(orders.map((o: any) => o.id));
+              snapshot.orders.forEach((snapshotOrder: any) => {
+                if (!dbOrderIds.has(snapshotOrder.id)) {
+                  orders.push(snapshotOrder);
+                  console.log('[HOME] Merged snapshot order:', snapshotOrder.id);
+                }
+              });
+            }
+            
+            // Load orders from offline storage
+            const offlineOrders = await offlineStorage.getAll<any>(STORES.ORDERS);
+            const todayOfflineOrders = offlineOrders.filter((o: any) => 
+              o.user_id === userId && 
+              (o.order_date === dateStr || (o.created_at && o.created_at.startsWith(dateStr)))
+            );
+            
+            if (todayOfflineOrders.length > 0) {
+              const existingOrderIds = new Set(orders.map((o: any) => o.id));
+              todayOfflineOrders.forEach((offlineOrder: any) => {
+                if (!existingOrderIds.has(offlineOrder.id)) {
+                  orders.push(offlineOrder);
+                  console.log('[HOME] Merged offline order:', offlineOrder.id);
+                }
+              });
+            }
+          } catch (mergeError) {
+            console.warn('[HOME] Error merging offline orders:', mergeError);
+          }
+        }
 
         // Get beat name(s) from all beat plans for the day
         let beatName: string | null = null;
