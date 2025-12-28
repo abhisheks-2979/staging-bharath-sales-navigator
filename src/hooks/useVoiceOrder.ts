@@ -145,6 +145,9 @@ export const useVoiceOrder = (products: Product[]): UseVoiceOrderResult => {
     setIsProcessing(true);
     setError(null);
 
+    console.log('🎤 Processing transcript:', text);
+    console.log('📦 Products available for matching:', products.length);
+
     try {
       // Check if online
       if (!navigator.onLine) {
@@ -153,7 +156,15 @@ export const useVoiceOrder = (products: Product[]): UseVoiceOrderResult => {
         return;
       }
 
+      // Check if products are loaded
+      if (products.length === 0) {
+        setError('Products are still loading. Please wait and try again.');
+        setIsProcessing(false);
+        return;
+      }
+
       const productNames = products.map(p => p.name);
+      console.log('📋 Sending product names to AI:', productNames.slice(0, 10), '...');
 
       const { data, error: fnError } = await supabase.functions.invoke('voice-order-parser', {
         body: { transcript: text, productNames }
@@ -173,6 +184,7 @@ export const useVoiceOrder = (products: Product[]): UseVoiceOrderResult => {
       }
 
       const parsedOrders: ParsedOrder[] = data?.orders || [];
+      console.log('🤖 AI parsed orders:', parsedOrders);
       
       if (parsedOrders.length === 0) {
         setError('Could not identify any products. Please speak clearly and try again.');
@@ -186,9 +198,12 @@ export const useVoiceOrder = (products: Product[]): UseVoiceOrderResult => {
       for (const order of parsedOrders) {
         // Handle both old format (name) and new format (productSearch)
         const searchTerm = (order as any).productSearch || (order as any).name || '';
+        console.log(`🔍 Matching "${searchTerm}" against ${products.length} products...`);
+        
         const { product, confidence } = findBestMatch(searchTerm, products);
         
         if (product) {
+          console.log(`✅ Matched "${searchTerm}" → "${product.name}" (confidence: ${confidence})`);
           results.push({
             productId: product.id,
             productName: product.name,
@@ -198,10 +213,11 @@ export const useVoiceOrder = (products: Product[]): UseVoiceOrderResult => {
             searchTerm
           });
         } else {
-          console.log(`No match found for: "${searchTerm}"`);
+          console.log(`❌ No match found for: "${searchTerm}"`);
         }
       }
 
+      console.log('📊 Final matched results:', results);
       setAutoFillResults(results);
       
       // Show toast with summary
