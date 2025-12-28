@@ -329,7 +329,7 @@ export default function GPSTrack() {
         .eq('status', 'confirmed'),
       supabase
         .from('beat_plans')
-        .select('beat_id, beat_data')
+        .select('beat_id')
         .eq('user_id', selectedMember)
         .eq('plan_date', dateStr)
     ]);
@@ -342,6 +342,18 @@ export default function GPSTrack() {
     const visits = visitsRes.data || [];
     const orders = ordersRes.data || [];
     const beatPlans = beatPlansRes.data || [];
+    
+    // Get beat IDs and fetch retailers assigned to those beats
+    const beatIds = beatPlans.map(bp => bp.beat_id);
+    let beatRetailers: { id: string }[] = [];
+    
+    if (beatIds.length > 0) {
+      const { data: retailers } = await supabase
+        .from('retailers')
+        .select('id')
+        .in('beat_id', beatIds);
+      beatRetailers = retailers || [];
+    }
     
     // Get retailer IDs with confirmed orders
     const retailersWithOrders = new Set(orders.map(o => o.retailer_id));
@@ -357,7 +369,7 @@ export default function GPSTrack() {
 
     let productive = 0;
     let unproductive = 0;
-    let planned = 0;
+    let pending = 0;
     const countedRetailers = new Set<string>();
 
     // Count from visits
@@ -370,7 +382,7 @@ export default function GPSTrack() {
       } else if (group.some(v => v.status === 'unproductive' || !!v.no_order_reason)) {
         unproductive++;
       } else {
-        planned++;
+        pending++;
       }
     });
 
@@ -382,22 +394,17 @@ export default function GPSTrack() {
       }
     });
 
-    // Count remaining planned retailers from beat_data
-    for (const bp of beatPlans) {
-      const beatData = bp.beat_data as any;
-      if (beatData?.retailer_ids?.length > 0) {
-        for (const rid of beatData.retailer_ids) {
-          if (!countedRetailers.has(rid)) {
-            planned++;
-            countedRetailers.add(rid);
-          }
-        }
+    // Count remaining planned retailers from beat assignments (retailers table)
+    for (const retailer of beatRetailers) {
+      if (!countedRetailers.has(retailer.id)) {
+        pending++;
+        countedRetailers.add(retailer.id);
       }
     }
 
-    const pending = planned; // Planned = Pending in GPS Track context
+    const totalPlanned = countedRetailers.size;
     
-    setVisitStats({ planned: countedRetailers.size, productive, unproductive, pending });
+    setVisitStats({ planned: totalPlanned, productive, unproductive, pending });
   }
 
   // Data loading effect - called after all functions are defined
