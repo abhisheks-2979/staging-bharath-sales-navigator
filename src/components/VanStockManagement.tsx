@@ -792,32 +792,32 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         const existingItem = existingItems.find((e: any) => e.product_id === item.product_id);
         
         if (existingItem) {
-          // Update existing item
+          // Update existing item - round quantities to integers for database
           const { error: updateError } = await supabase
             .from('van_stock_items')
             .update({
               product_name: item.product_name,
-              start_qty: item.start_qty,
-              ordered_qty: item.ordered_qty,
-              returned_qty: item.returned_qty,
-              left_qty: item.left_qty,
+              start_qty: Math.round(Number(item.start_qty) || 0),
+              ordered_qty: Math.round(Number(item.ordered_qty) || 0),
+              returned_qty: Math.round(Number(item.returned_qty) || 0),
+              left_qty: Math.round(Number(item.left_qty) || 0),
               unit: item.unit,
             })
             .eq('id', existingItem.id);
           
           if (updateError) throw updateError;
         } else {
-          // Insert new item
+          // Insert new item - round quantities to integers for database
           const { error: insertError } = await supabase
             .from('van_stock_items')
             .insert({
               van_stock_id: vanStock.id,
               product_id: item.product_id,
               product_name: item.product_name,
-              start_qty: item.start_qty,
-              ordered_qty: item.ordered_qty,
-              returned_qty: item.returned_qty,
-              left_qty: item.left_qty,
+              start_qty: Math.round(Number(item.start_qty) || 0),
+              ordered_qty: Math.round(Number(item.ordered_qty) || 0),
+              returned_qty: Math.round(Number(item.returned_qty) || 0),
+              left_qty: Math.round(Number(item.left_qty) || 0),
               unit: item.unit,
             });
           
