@@ -1,9 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Mic, MicOff, Loader2, X } from 'lucide-react';
 import { useVoiceOrder } from '@/hooks/useVoiceOrder';
-import { VoiceOrderPreview } from './VoiceOrderPreview';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -15,47 +14,31 @@ interface Product {
   category?: string;
 }
 
-interface CartItem {
-  id: string;
-  name: string;
-  category: string;
-  rate: number;
-  unit: string;
-  quantity: number;
-  total: number;
-}
-
-interface MatchedProduct {
-  id: string;
-  name: string;
-  matchedName: string;
+interface AutoFillResult {
+  productId: string;
+  productName: string;
   quantity: number;
   unit: string;
-  rate: number;
-  total: number;
   confidence: 'high' | 'medium' | 'low';
-  notFound?: boolean;
+  searchTerm: string;
 }
 
 interface VoiceOrderAssistantProps {
   products: Product[];
-  onAddToCart: (items: CartItem[]) => void;
+  onAutoFillProducts: (results: AutoFillResult[]) => void;
   disabled?: boolean;
 }
 
 export const VoiceOrderAssistant: React.FC<VoiceOrderAssistantProps> = ({
   products,
-  onAddToCart,
+  onAutoFillProducts,
   disabled = false,
 }) => {
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewProducts, setPreviewProducts] = useState<MatchedProduct[]>([]);
-
   const {
     isRecording,
     isProcessing,
     transcript,
-    matchedProducts,
+    autoFillResults,
     startRecording,
     stopRecording,
     clearResults,
@@ -63,13 +46,14 @@ export const VoiceOrderAssistant: React.FC<VoiceOrderAssistantProps> = ({
     isSupported,
   } = useVoiceOrder(products);
 
-  // When matched products are available, show preview
-  React.useEffect(() => {
-    if (matchedProducts.length > 0) {
-      setPreviewProducts([...matchedProducts]);
-      setShowPreview(true);
+  // When auto-fill results are available, call the callback
+  useEffect(() => {
+    if (autoFillResults.length > 0) {
+      onAutoFillProducts(autoFillResults);
+      // Clear results after processing
+      clearResults();
     }
-  }, [matchedProducts]);
+  }, [autoFillResults, onAutoFillProducts, clearResults]);
 
   const handleToggleRecording = useCallback(() => {
     if (isRecording) {
@@ -78,52 +62,6 @@ export const VoiceOrderAssistant: React.FC<VoiceOrderAssistantProps> = ({
       startRecording();
     }
   }, [isRecording, startRecording, stopRecording]);
-
-  const handleConfirmOrder = useCallback((products: MatchedProduct[]) => {
-    const cartItems: CartItem[] = products
-      .filter(p => !p.notFound)
-      .map(p => ({
-        id: p.id,
-        name: p.name,
-        category: '', // Will be filled from actual product data
-        rate: p.rate,
-        unit: p.unit,
-        quantity: p.quantity,
-        total: p.quantity * p.rate,
-      }));
-
-    if (cartItems.length > 0) {
-      onAddToCart(cartItems);
-      toast({
-        title: 'Added to Cart',
-        description: `${cartItems.length} product${cartItems.length > 1 ? 's' : ''} added successfully`,
-      });
-    }
-
-    clearResults();
-    setShowPreview(false);
-    setPreviewProducts([]);
-  }, [onAddToCart, clearResults]);
-
-  const handleUpdateQuantity = useCallback((id: string, quantity: number) => {
-    setPreviewProducts(prev =>
-      prev.map(p =>
-        p.id === id
-          ? { ...p, quantity: Math.max(1, quantity), total: Math.max(1, quantity) * p.rate }
-          : p
-      )
-    );
-  }, []);
-
-  const handleRemoveProduct = useCallback((id: string) => {
-    setPreviewProducts(prev => prev.filter(p => p.id !== id));
-  }, []);
-
-  const handleClosePreview = useCallback(() => {
-    setShowPreview(false);
-    clearResults();
-    setPreviewProducts([]);
-  }, [clearResults]);
 
   if (!isSupported) {
     return null; // Don't render if not supported
@@ -194,7 +132,7 @@ export const VoiceOrderAssistant: React.FC<VoiceOrderAssistantProps> = ({
                 
                 {isRecording && (
                   <p className="text-xs text-muted-foreground mt-2">
-                    Speak product names with quantities. Example: "Adrak 5 kg, Haldi 2 kg"
+                    Speak: "[product name] [qty] [unit]" - e.g., "Adrak 20g 5 kg"
                   </p>
                 )}
               </div>
@@ -213,16 +151,6 @@ export const VoiceOrderAssistant: React.FC<VoiceOrderAssistantProps> = ({
           </CardContent>
         </Card>
       )}
-
-      {/* Preview modal */}
-      <VoiceOrderPreview
-        open={showPreview}
-        onClose={handleClosePreview}
-        matchedProducts={previewProducts}
-        onConfirm={handleConfirmOrder}
-        onUpdateQuantity={handleUpdateQuantity}
-        onRemoveProduct={handleRemoveProduct}
-      />
     </>
   );
 };
