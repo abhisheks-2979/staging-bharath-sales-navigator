@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { UserSelector } from '@/components/UserSelector';
 import { useSubordinates } from '@/hooks/useSubordinates';
 import { GPSStatsCard } from '@/components/gps/GPSStatsCard';
-import { RetailerListModal, EnhancedRetailerLocation, RetailerStatus } from '@/components/gps/RetailerListModal';
+import { EnhancedRetailerLocation, RetailerStatus } from '@/components/gps/RetailerListModal';
 
 interface GPSData {
   latitude: number;
@@ -41,10 +41,8 @@ export default function GPSTrack() {
   const [visitStats, setVisitStats] = useState<VisitStats>({ planned: 0, productive: 0, unproductive: 0, pending: 0 });
   const [totalKmTraveled, setTotalKmTraveled] = useState(0);
   
-  // Modal state
-  const [selectedStatus, setSelectedStatus] = useState<RetailerStatus | null>(null);
-  const [showRetailerModal, setShowRetailerModal] = useState(false);
-  const [focusRetailerId, setFocusRetailerId] = useState<string | null>(null);
+  // Filter state for map - when a status is selected, only show those retailers
+  const [filterStatus, setFilterStatus] = useState<RetailerStatus | null>(null);
   
   // Hierarchical user filter using useSubordinates hook
   const { isManager, subordinates, isLoading: subordinatesLoading } = useSubordinates();
@@ -390,19 +388,26 @@ export default function GPSTrack() {
 
   const isViewingOtherUser = currentLocationUser !== user?.id;
 
-  // Handle status card clicks
+  // Handle status card clicks - toggle filter for map
   const handleStatusClick = (status: RetailerStatus) => {
-    setSelectedStatus(status);
-    setShowRetailerModal(true);
+    // If same status clicked, clear filter (show all)
+    if (filterStatus === status) {
+      setFilterStatus(null);
+    } else {
+      setFilterStatus(status);
+    }
   };
 
-  // Handle retailer click from modal - focus on map
-  const handleRetailerClick = (retailer: EnhancedRetailerLocation) => {
-    setShowRetailerModal(false);
-    setFocusRetailerId(retailer.id);
-    // Clear focus after a short delay
-    setTimeout(() => setFocusRetailerId(null), 2000);
-  };
+  // Get filtered retailers based on selected status
+  const filteredRetailers = filterStatus 
+    ? retailers.filter(r => {
+        if (filterStatus === 'pending') {
+          // Pending includes both 'pending' and 'planned' status
+          return r.status === 'pending' || r.status === 'planned';
+        }
+        return r.status === filterStatus;
+      })
+    : retailers;
 
   return (
     <Layout>
@@ -490,6 +495,7 @@ export default function GPSTrack() {
               unproductiveVisits={visitStats.unproductive}
               pendingVisits={visitStats.pending}
               totalKmTraveled={totalKmTraveled}
+              activeFilter={filterStatus}
               onPlannedClick={() => handleStatusClick('planned')}
               onProductiveClick={() => handleStatusClick('productive')}
               onUnproductiveClick={() => handleStatusClick('unproductive')}
@@ -520,9 +526,8 @@ export default function GPSTrack() {
               <Card className="overflow-hidden relative z-0">
                   <JourneyMap 
                     positions={gpsData} 
-                    retailers={retailers} 
+                    retailers={filteredRetailers} 
                     height="500px"
-                    focusRetailerId={focusRetailerId}
                   />
                 </Card>
               )}
@@ -555,14 +560,19 @@ export default function GPSTrack() {
         </Tabs>
       </div>
 
-      {/* Retailer List Modal */}
-      <RetailerListModal
-        open={showRetailerModal}
-        onOpenChange={setShowRetailerModal}
-        status={selectedStatus}
-        retailers={retailers}
-        onRetailerClick={handleRetailerClick}
-      />
+      {/* Filter indicator */}
+      {filterStatus && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setFilterStatus(null)}
+            className="shadow-lg"
+          >
+            Showing {filterStatus === 'pending' ? 'Pending' : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)} only • Tap to show all
+          </Button>
+        </div>
+      )}
     </Layout>
   );
 }

@@ -14,7 +14,6 @@ interface JourneyMapProps {
   positions: Position[];
   retailers?: EnhancedRetailerLocation[];
   height?: string;
-  focusRetailerId?: string | null;
 }
 
 // Fix for default marker icons
@@ -81,8 +80,7 @@ const optimizeRoute = (retailers: EnhancedRetailerLocation[], startLat?: number,
 export const JourneyMap: React.FC<JourneyMapProps> = ({ 
   positions, 
   retailers = [], 
-  height = '500px',
-  focusRetailerId 
+  height = '500px'
 }) => {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -146,19 +144,6 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({
       shadowSize: [41, 41]
     });
   };
-
-  // Focus on a specific retailer when focusRetailerId changes
-  useEffect(() => {
-    if (focusRetailerId && mapRef.current && markersRef.current.has(focusRetailerId)) {
-      const marker = markersRef.current.get(focusRetailerId);
-      if (marker) {
-        const latLng = marker.getLatLng();
-        mapRef.current.setView(latLng, 16, { animate: true });
-        marker.openPopup();
-      }
-    }
-  }, [focusRetailerId]);
-
   useEffect(() => {
     if (!containerRef.current) return;
     
