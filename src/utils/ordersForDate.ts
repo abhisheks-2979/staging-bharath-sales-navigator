@@ -118,9 +118,7 @@ export async function getOrdersForDate(
   // Step 3: Fetch from DB if online (and merge)
   if (navigator.onLine && !forceOfflineFirst) {
     try {
-      const startOfDay = `${targetDate}T00:00:00`;
-      const endOfDay = `${targetDate}T23:59:59`;
-
+      // Use order_date column (DATE type) for reliable date filtering
       const { data: dbOrders, error } = await supabase
         .from('orders')
         .select(`
@@ -129,8 +127,7 @@ export async function getOrdersForDate(
         `)
         .eq('user_id', userId)
         .eq('status', 'confirmed')
-        .gte('created_at', startOfDay)
-        .lte('created_at', endOfDay);
+        .eq('order_date', targetDate);
 
       if (!error && dbOrders) {
         // DB orders take priority - remove duplicates from offline/snapshot
