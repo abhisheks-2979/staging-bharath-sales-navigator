@@ -752,6 +752,10 @@ export const Cart = () => {
       // Only include visit_id if it's a valid UUID (not offline-generated)
       const shouldIncludeVisitId = actualVisitId && /^[0-9a-fA-F-]{36}$/.test(actualVisitId);
       
+      // CRITICAL FIX: Generate idempotency key to prevent duplicate orders
+      // This key is unique per order attempt and will be checked before insertion
+      const idempotencyKey = `${currentUserId}_${validRetailerId}_${getLocalTodayDate()}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      
       const orderData = {
         user_id: currentUserId,
         ...(shouldIncludeVisitId && { visit_id: actualVisitId }),
@@ -768,7 +772,8 @@ export const Cart = () => {
         previous_pending_cleared: previousPendingCleared,
         payment_method: orderPaymentMethod,
         payment_proof_url: paymentProofUrl || null,
-        upi_last_four_code: paymentMethod === 'upi' ? upiLastFourCode : null
+        upi_last_four_code: paymentMethod === 'upi' ? upiLastFourCode : null,
+        idempotency_key: idempotencyKey
         // Note: scheme_details removed as column doesn't exist in orders table
       };
 
