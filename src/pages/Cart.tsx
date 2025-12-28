@@ -908,7 +908,22 @@ export const Cart = () => {
       // Gamification, retailer sequences, and invoice DB records run in background
       (async () => {
         try {
-          // Only run background tasks if online
+          // Van stock sync should happen even on slow network (as long as navigator.onLine is true)
+          // This ensures van stock is updated after order placement
+          const shouldSyncVanStock = navigator.onLine && currentUserId;
+          
+          if (shouldSyncVanStock) {
+            console.log('🚚 Syncing order to van stock...');
+            try {
+              await syncOrdersToVanStock(getTodayDateString(), currentUserId);
+              console.log('✅ Van stock sync completed');
+            } catch (vanStockError) {
+              console.error('Van stock sync failed:', vanStockError);
+              // Don't block other operations
+            }
+          }
+          
+          // Only run other background tasks if fully online (not offline queued)
           if (!result.offline && currentUserId) {
             const order = result.order;
 
@@ -1003,10 +1018,6 @@ export const Cart = () => {
 
               await supabase.from('invoice_items').insert(invoiceItems);
             }
-
-            // Sync order quantities to van stock for auto-updating van inventory
-            console.log('🚚 Syncing order to van stock...');
-            await syncOrdersToVanStock(getTodayDateString(), currentUserId);
 
             console.log('✅ Background post-order processing completed');
           }

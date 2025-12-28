@@ -2101,7 +2101,7 @@ export const VisitCard = ({
         let allItems: any[] = [];
         
         if (dbOrderIds_arr.length > 0) {
-          const { data: items } = await supabase.from('order_items').select('product_name, quantity, rate, total, order_id').in('order_id', dbOrderIds_arr);
+          const { data: items } = await supabase.from('order_items').select('product_name, quantity, rate, total, order_id, unit').in('order_id', dbOrderIds_arr);
           allItems = items || [];
         }
         
@@ -2114,11 +2114,29 @@ export const VisitCard = ({
                 quantity: item.quantity,
                 rate: item.rate,
                 total: item.total || (item.quantity * item.rate),
-                order_id: order.id
+                order_id: order.id,
+                unit: item.unit || 'piece'
               });
             });
           }
         });
+
+        // Helper function to convert quantity and rate for display
+        const getDisplayValues = (qty: number, rate: number, total: number, unit: string) => {
+          const unitLower = (unit || '').toLowerCase().trim();
+          
+          // If unit is grams and quantity >= 1000, convert to kg
+          if ((unitLower === 'grams' || unitLower === 'g' || unitLower === 'gram') && qty >= 1000) {
+            const kgQty = qty / 1000;
+            // Rate per kg = total / kgQty
+            const ratePerKg = total / kgQty;
+            return { displayQty: kgQty, displayUnit: 'kg', displayRate: ratePerKg };
+          }
+          
+          // For other units, use rate from total/quantity to get actual discounted rate
+          const actualRate = qty > 0 ? total / qty : rate;
+          return { displayQty: qty, displayUnit: unit, displayRate: actualRate };
+        };
 
         // Group items by product for a clean summary
         const grouped = new Map<string, {
@@ -2126,23 +2144,42 @@ export const VisitCard = ({
           quantity: number;
           rate: number;
           actualRate: number;
+          displayQty: number;
+          displayUnit: string;
         }>();
+        
         allItems.forEach(it => {
           const key = it.product_name;
           const existing = grouped.get(key);
-          const actualRate = Number(it.total || 0) / Number(it.quantity || 1); // Calculate actual price paid per unit
+          const qty = Number(it.quantity || 0);
+          const rate = Number(it.rate || 0);
+          const total = Number(it.total || 0);
+          const unit = it.unit || 'piece';
+          
+          const { displayQty, displayUnit, displayRate } = getDisplayValues(qty, rate, total, unit);
+          
           if (existing) {
-            existing.quantity += Number(it.quantity || 0);
-            // Recalculate weighted average of actual rate
-            const totalValue = existing.actualRate * (existing.quantity - Number(it.quantity || 0)) + Number(it.total || 0);
-            existing.actualRate = totalValue / existing.quantity;
+            // For aggregation, sum display quantities if same unit
+            if (existing.displayUnit === displayUnit) {
+              const oldTotal = existing.actualRate * existing.displayQty;
+              const newTotal = total;
+              existing.displayQty += displayQty;
+              existing.quantity += qty;
+              // Weighted average rate
+              existing.actualRate = (oldTotal + newTotal) / existing.displayQty;
+            } else {
+              // Different units - keep separate (shouldn't happen for same product)
+              existing.displayQty += displayQty;
+              existing.quantity += qty;
+            }
           } else {
             grouped.set(key, {
               product_name: key,
-              quantity: Number(it.quantity || 0),
-              rate: Number(it.rate || 0),
-              // Original rate for reference
-              actualRate: actualRate // Actual price paid (with offers applied)
+              quantity: qty,
+              rate: rate,
+              actualRate: displayRate,
+              displayQty: displayQty,
+              displayUnit: displayUnit
             });
           }
         });
@@ -2442,15 +2479,15 @@ export const VisitCard = ({
                   <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md space-y-1">
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-muted-foreground">Total Amount:</span>
-                      <span className="font-semibold">₹{actualOrderValue.toLocaleString()}</span>
+                      <span className="font-semibold">₹{Math.round(actualOrderValue).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-success">Paid Amount:</span>
-                      <span className="font-medium text-success">₹{paidTodayAmount.toLocaleString()}</span>
+                      <span className="font-medium text-success">₹{Math.round(paidTodayAmount).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-warning">Pending Amount:</span>
-                      <span className="font-medium text-warning">₹{creditPendingAmount.toLocaleString()}</span>
+                      <span className="font-medium text-warning">₹{Math.round(creditPendingAmount).toLocaleString()}</span>
                     </div>
                   </div>
                   
@@ -2458,13 +2495,27 @@ export const VisitCard = ({
                   <div className="mt-2 space-y-1 overflow-hidden">
                     {loadingOrder && <div className="text-xs text-muted-foreground">Loading...</div>}
                     {!loadingOrder && lastOrderItems.length === 0 && <div className="text-xs text-muted-foreground">No items found.</div>}
-                    {!loadingOrder && lastOrderItems.map((it, idx) => <div key={idx} className="flex justify-between items-start gap-2 text-xs py-1">
-                        <span className="flex-1 min-w-0 break-words">{it.product_name}</span>
-                        <div className="flex-shrink-0 text-right">
-                          <span className="font-medium">{it.quantity} x ₹{it.actualRate.toFixed(0)}</span>
-                          {it.actualRate !== it.rate && <div className="text-[10px] text-muted-foreground line-through">₹{it.rate.toFixed(0)}</div>}
+                    {!loadingOrder && lastOrderItems.map((it, idx) => {
+                      // Use displayQty if available, else fallback to quantity
+                      const displayQty = (it as any).displayQty ?? it.quantity;
+                      const displayUnit = (it as any).displayUnit || '';
+                      // Format quantity: show decimals only if needed
+                      const qtyStr = Number.isInteger(displayQty) ? displayQty.toString() : displayQty.toFixed(2).replace(/\.?0+$/, '');
+                      // Show unit if available (e.g., "2.5 kg")
+                      const qtyDisplay = displayUnit ? `${qtyStr} ${displayUnit}` : qtyStr;
+                      
+                      return (
+                        <div key={idx} className="flex justify-between items-start gap-2 text-xs py-1">
+                          <span className="flex-1 min-w-0 break-words">{it.product_name}</span>
+                          <div className="flex-shrink-0 text-right">
+                            <span className="font-medium">{qtyDisplay} × ₹{Math.round(it.actualRate).toLocaleString()}</span>
+                            {Math.round(it.actualRate) !== Math.round(it.rate) && it.rate > 0 && (
+                              <div className="text-[10px] text-muted-foreground line-through">₹{Math.round(it.rate).toLocaleString()}</div>
+                            )}
+                          </div>
                         </div>
-                      </div>)}
+                      );
+                    })}
                   </div>
                   
                   {/* Invoice Generation Button */}
