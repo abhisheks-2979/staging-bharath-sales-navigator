@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
-import { MapPin, CheckCircle, XCircle, Route, Calendar } from 'lucide-react';
+import { MapPin, CheckCircle, XCircle, Route, Calendar, Clock } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface GPSStatsCardProps {
   beatName: string | null;
@@ -9,6 +10,10 @@ interface GPSStatsCardProps {
   unproductiveVisits: number;
   totalKmTraveled: number;
   pendingVisits: number;
+  onPlannedClick?: () => void;
+  onProductiveClick?: () => void;
+  onUnproductiveClick?: () => void;
+  onPendingClick?: () => void;
 }
 
 export const GPSStatsCard: React.FC<GPSStatsCardProps> = ({
@@ -18,6 +23,10 @@ export const GPSStatsCard: React.FC<GPSStatsCardProps> = ({
   unproductiveVisits,
   totalKmTraveled,
   pendingVisits,
+  onPlannedClick,
+  onProductiveClick,
+  onUnproductiveClick,
+  onPendingClick,
 }) => {
   return (
     <Card className="p-4 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
@@ -36,7 +45,13 @@ export const GPSStatsCard: React.FC<GPSStatsCardProps> = ({
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {/* Planned */}
-          <div className="bg-background/80 rounded-lg p-3 text-center">
+          <div 
+            onClick={onPlannedClick}
+            className={cn(
+              "bg-background/80 rounded-lg p-3 text-center transition-all",
+              onPlannedClick && "cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30 hover:ring-2 hover:ring-blue-500/30"
+            )}
+          >
             <div className="flex items-center justify-center gap-1 mb-1">
               <MapPin className="h-4 w-4 text-blue-500" />
             </div>
@@ -45,7 +60,13 @@ export const GPSStatsCard: React.FC<GPSStatsCardProps> = ({
           </div>
 
           {/* Productive */}
-          <div className="bg-background/80 rounded-lg p-3 text-center">
+          <div 
+            onClick={onProductiveClick}
+            className={cn(
+              "bg-background/80 rounded-lg p-3 text-center transition-all",
+              onProductiveClick && "cursor-pointer hover:bg-green-50 dark:hover:bg-green-950/30 hover:ring-2 hover:ring-green-500/30"
+            )}
+          >
             <div className="flex items-center justify-center gap-1 mb-1">
               <CheckCircle className="h-4 w-4 text-green-500" />
             </div>
@@ -54,20 +75,32 @@ export const GPSStatsCard: React.FC<GPSStatsCardProps> = ({
           </div>
 
           {/* Unproductive */}
-          <div className="bg-background/80 rounded-lg p-3 text-center">
+          <div 
+            onClick={onUnproductiveClick}
+            className={cn(
+              "bg-background/80 rounded-lg p-3 text-center transition-all",
+              onUnproductiveClick && "cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/30 hover:ring-2 hover:ring-red-500/30"
+            )}
+          >
             <div className="flex items-center justify-center gap-1 mb-1">
-              <XCircle className="h-4 w-4 text-orange-500" />
+              <XCircle className="h-4 w-4 text-red-500" />
             </div>
-            <p className="text-2xl font-bold text-orange-600">{unproductiveVisits}</p>
+            <p className="text-2xl font-bold text-red-600">{unproductiveVisits}</p>
             <p className="text-xs text-muted-foreground">Unproductive</p>
           </div>
 
           {/* Pending */}
-          <div className="bg-background/80 rounded-lg p-3 text-center">
+          <div 
+            onClick={onPendingClick}
+            className={cn(
+              "bg-background/80 rounded-lg p-3 text-center transition-all",
+              onPendingClick && "cursor-pointer hover:bg-orange-50 dark:hover:bg-orange-950/30 hover:ring-2 hover:ring-orange-500/30"
+            )}
+          >
             <div className="flex items-center justify-center gap-1 mb-1">
-              <MapPin className="h-4 w-4 text-gray-500" />
+              <Clock className="h-4 w-4 text-orange-500" />
             </div>
-            <p className="text-2xl font-bold text-muted-foreground">{pendingVisits}</p>
+            <p className="text-2xl font-bold text-orange-600">{pendingVisits}</p>
             <p className="text-xs text-muted-foreground">Pending</p>
           </div>
 
