@@ -6,25 +6,10 @@ import { useVoiceOrder } from '@/hooks/useVoiceOrder';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-interface Product {
-  id: string;
-  name: string;
-  rate: number;
-  unit?: string;
-  category?: string;
-}
-
-interface AutoFillResult {
-  productId: string;
-  productName: string;
-  quantity: number;
-  unit: string;
-  confidence: 'high' | 'medium' | 'low';
-  searchTerm: string;
-}
+import { VoiceProduct, AutoFillResult } from '@/hooks/useVoiceOrder';
 
 interface VoiceOrderAssistantProps {
-  products: Product[];
+  products: VoiceProduct[];
   onAutoFillProducts: (results: AutoFillResult[]) => void;
   disabled?: boolean;
 }
