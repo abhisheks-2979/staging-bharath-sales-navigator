@@ -19,6 +19,7 @@ import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { loadMyVisitsSnapshot } from "@/lib/myVisitsSnapshot";
 import { isSlowConnection } from "@/utils/internetSpeedCheck";
 import { getLocalTodayDate } from "@/utils/dateUtils";
+import { getOrdersForDate } from "@/utils/ordersForDate";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { downloadPDF } from "@/utils/fileDownloader";
@@ -363,47 +364,43 @@ export const TodaySummary = () => {
         targetUserIds = [authUser.id];
       }
 
-      // Check for slow/offline - load from cache first for today's data
-      const isOfflineOrSlow = !navigator.onLine || isSlowConnection();
+      // Check for slow/offline - load from unified orders source
       const isTodayFilter = filterType === 'today';
       const targetDate = format(dateRange.from, 'yyyy-MM-dd');
       
-      // For today filter when offline/slow, try to load from snapshot and offline storage first
-      let offlineOrders: any[] = [];
-      let hasLoadedFromCache = false;
+      // Use unified orders source for today filter (merges DB + offline + snapshot)
+      let todayOrders: any[] = [];
       
-      if (isOfflineOrSlow && isTodayFilter && targetUserIds.includes(authUser.id)) {
-        console.log('📴 [SUMMARY] Loading from offline cache first (offline/slow network)');
+      if (isTodayFilter && targetUserIds.length === 1 && targetUserIds[0] === authUser.id) {
+        // For single user "today" filter, use unified orders source
+        console.log('📊 [SUMMARY] Using unified orders source for today');
+        const ordersResult = await getOrdersForDate(authUser.id, targetDate, {
+          includeSnapshot: true,
+          forceOfflineFirst: false
+        });
+        todayOrders = ordersResult.orders;
+        console.log(`📊 [SUMMARY] Got ${ordersResult.totalCount} orders from unified source`, ordersResult.sourceBreakdown);
+      } else {
+        // For date ranges or multiple users, fetch from DB directly
+        const orderFromDate = new Date(dateRange.from);
+        orderFromDate.setHours(0, 0, 0, 0);
+        const orderToDate = new Date(dateRange.to);
+        orderToDate.setHours(23, 59, 59, 999);
         
-        try {
-          // Load from my visits snapshot
-          const snapshot = await loadMyVisitsSnapshot(authUser.id, targetDate);
-          if (snapshot?.orders && snapshot.orders.length > 0) {
-            offlineOrders = snapshot.orders;
-            console.log('📸 [SUMMARY] Loaded', offlineOrders.length, 'orders from snapshot');
-            hasLoadedFromCache = true;
-          }
+        if (navigator.onLine) {
+          const { data: fetchedOrders } = await supabase
+            .from('orders')
+            .select(`
+              *,
+              order_items(*)
+            `)
+            .in('user_id', targetUserIds)
+            .eq('status', 'confirmed')
+            .gte('created_at', orderFromDate.toISOString())
+            .lte('created_at', orderToDate.toISOString());
           
-          // Also merge with offline storage orders
-          const cachedOrders = await offlineStorage.getAll<any>(STORES.ORDERS);
-          const todayOfflineOrders = cachedOrders.filter((o: any) => 
-            o.user_id === authUser.id && 
-            (o.order_date === targetDate || (o.created_at && o.created_at.startsWith(targetDate)))
-          );
-          
-          if (todayOfflineOrders.length > 0) {
-            // Merge with snapshot orders, avoiding duplicates by ID
-            const existingIds = new Set(offlineOrders.map((o: any) => o.id));
-            todayOfflineOrders.forEach((o: any) => {
-              if (!existingIds.has(o.id)) {
-                offlineOrders.push(o);
-              }
-            });
-            console.log('💾 [SUMMARY] Merged', todayOfflineOrders.length, 'orders from offline storage');
-            hasLoadedFromCache = true;
-          }
-        } catch (cacheError) {
-          console.warn('[SUMMARY] Error loading from cache:', cacheError);
+          todayOrders = fetchedOrders || [];
+          console.log(`📡 [SUMMARY] Fetched ${todayOrders.length} orders from DB for date range`);
         }
       }
 
@@ -474,39 +471,7 @@ export const TodaySummary = () => {
       // Execute visits query first
       const { data: visits } = await visitsQuery;
 
-      // Fetch orders based on created_at date (not visit_id, since many orders don't have visit_id linked)
-      let todayOrders: any[] = offlineOrders; // Start with offline orders if any
-      
-      // Build date range for orders query
-      const orderFromDate = new Date(dateRange.from);
-      orderFromDate.setHours(0, 0, 0, 0);
-      const orderToDate = new Date(dateRange.to);
-      orderToDate.setHours(23, 59, 59, 999);
-      
-      // Only fetch from DB if online (or always try and merge)
-      if (navigator.onLine) {
-        const { data: fetchedOrders } = await supabase
-          .from('orders')
-          .select(`
-            *,
-            order_items(*)
-          `)
-          .in('user_id', targetUserIds)
-          .eq('status', 'confirmed')
-          .gte('created_at', orderFromDate.toISOString())
-          .lte('created_at', orderToDate.toISOString());
-        
-        if (fetchedOrders && fetchedOrders.length > 0) {
-          // Merge DB orders with offline orders, DB takes priority
-          const dbOrderIds = new Set(fetchedOrders.map((o: any) => o.id));
-          const nonDuplicateOfflineOrders = todayOrders.filter((o: any) => !dbOrderIds.has(o.id));
-          todayOrders = [...fetchedOrders, ...nonDuplicateOfflineOrders];
-          console.log('📡 [SUMMARY] Merged', fetchedOrders.length, 'DB orders with', nonDuplicateOfflineOrders.length, 'offline-only orders');
-        }
-      } else if (!hasLoadedFromCache) {
-        console.log('📴 [SUMMARY] Offline and no cache, showing empty orders');
-        todayOrders = [];
-      }
+      // Note: todayOrders was already populated by unified orders source above
 
       // Fetch beat plans for the date range (moved earlier to get retailer IDs)
       let beatPlansQuery = supabase

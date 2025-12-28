@@ -780,8 +780,19 @@ export const Cart = () => {
         const sgstAmount = itemTotal * 0.025;
         const cgstAmount = itemTotal * 0.025;
         
+        // FIX: Extract base product ID for variants to prevent DB insert failures
+        // Cart item.id may be "baseProductId_variant_variantId" for variants
+        let productId = item.id;
+        let variantId: string | null = null;
+        if (item.id.includes('_variant_')) {
+          const parts = item.id.split('_variant_');
+          productId = parts[0]; // Use base product UUID for product_id
+          variantId = parts[1]; // Store variant UUID separately
+        }
+        
         return {
-          product_id: item.id,
+          product_id: productId,
+          variant_id: variantId, // Track variant separately (may be ignored by DB if column doesn't exist)
           product_name: item.name,
           category: item.category,
           rate: currentRate - discountPerItem, // Store discounted rate
@@ -796,22 +807,33 @@ export const Cart = () => {
         };
       });
 
-      // Submit order using offline-capable utility
+      // Submit order using offline-capable utility with improved feedback
+      let orderSubmissionFailed = false;
       const result = await submitOrderWithOfflineSupport(orderData, orderItems, {
         connectivityStatus,
         onOffline: () => {
           toast({
             title: "📵 Order Saved Offline",
-            description: "Your order and invoice message will be synced automatically when you're back online",
+            description: "Your order will sync automatically when you're back online. Data is safely stored on your device.",
           });
         },
         onOnline: () => {
           toast({
             title: "✅ Order Placed Successfully",
-            description: `Order for ${retailerName} has been confirmed`,
+            description: `Order for ${retailerName} has been confirmed and saved.`,
           });
         }
       });
+      
+      // Check if the result indicates failure (no order ID and not marked as offline)
+      if (!result.order?.id && !result.offline) {
+        orderSubmissionFailed = true;
+        toast({
+          title: "⚠️ Order Save Issue",
+          description: "Order may not have saved correctly. Please check your orders list.",
+          variant: "destructive"
+        });
+      }
 
       console.timeEnd('⚡ Order Submission');
 

@@ -21,6 +21,7 @@ import autoTable from 'jspdf-autotable';
 import { syncOrdersToVanStock, recalculateVanStock } from '@/utils/vanStockSync';
 import { downloadExcel, downloadPDF } from '@/utils/fileDownloader';
 import { cacheVanStockForOffline } from '@/utils/localVanStockSync';
+import { getOrdersForDate, calculateOrderedQuantitiesByProduct } from '@/utils/ordersForDate';
 
 // Convert number to Indian words
 const numberToWords = (num: number): string => {
@@ -486,47 +487,40 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   };
 
   const calculateOrderedQuantities = async () => {
-    if (!selectedBeat) return {};
-
+    // Use unified orders source to include offline orders
     try {
-      // Get all retailers in the selected beat
-      const { data: retailers, error: retailerError } = await supabase
-        .from('retailers')
-        .select('id')
-        .eq('beat_id', selectedBeat);
-
-      if (retailerError) throw retailerError;
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.user) return {};
       
-      const retailerIds = retailers?.map(r => r.id) || [];
-      if (retailerIds.length === 0) return {};
-
-      // Get all orders for today from retailers in this beat
-      const { data: orders, error: ordersError } = await supabase
-        .from('orders')
-        .select('id')
-        .in('retailer_id', retailerIds)
-        .gte('created_at', `${selectedDate}T00:00:00`)
-        .lte('created_at', `${selectedDate}T23:59:59`);
-
-      if (ordersError) throw ordersError;
-
-      const orderIds = orders?.map(o => o.id) || [];
-      if (orderIds.length === 0) return {};
-
-      // Get all order items for these orders
-      const { data: orderItems, error: itemsError } = await supabase
-        .from('order_items')
-        .select('product_id, quantity')
-        .in('order_id', orderIds);
-
-      if (itemsError) throw itemsError;
-
-      // Sum quantities by product
-      const quantities: { [key: string]: number } = {};
-      orderItems?.forEach(item => {
-        quantities[item.product_id] = (quantities[item.product_id] || 0) + item.quantity;
+      // Get merged orders from DB + offline + snapshot
+      const ordersResult = await getOrdersForDate(session.session.user.id, selectedDate, {
+        includeSnapshot: true,
+        forceOfflineFirst: false
       });
-
+      
+      if (ordersResult.orders.length === 0) return {};
+      
+      // Filter orders to only include retailers from the selected beat (if beat is selected)
+      let relevantOrders = ordersResult.orders;
+      
+      if (selectedBeat) {
+        // Get all retailers in the selected beat
+        const { data: retailers } = await supabase
+          .from('retailers')
+          .select('id')
+          .eq('beat_id', selectedBeat);
+        
+        const retailerIds = new Set(retailers?.map(r => r.id) || []);
+        relevantOrders = ordersResult.orders.filter(o => 
+          o.retailer_id && retailerIds.has(o.retailer_id)
+        );
+      }
+      
+      // Calculate quantities by product using utility function
+      const quantities = calculateOrderedQuantitiesByProduct(relevantOrders as any);
+      
+      console.log('📦 [VanStock] Calculated ordered quantities from', relevantOrders.length, 'orders:', Object.keys(quantities).length, 'products');
+      
       return quantities;
     } catch (error) {
       console.error('Error calculating ordered quantities:', error);
