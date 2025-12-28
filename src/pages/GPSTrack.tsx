@@ -313,25 +313,91 @@ export default function GPSTrack() {
 
     const dateStr = date.toISOString().split('T')[0];
     
-    const { data, error } = await supabase
-      .from('visits')
-      .select('status')
-      .eq('user_id', selectedMember)
-      .eq('planned_date', dateStr);
+    // CRITICAL FIX: Use the same calculation logic as Today's Progress
+    // Fetch both visits AND orders to calculate stats correctly
+    const [visitsRes, ordersRes, beatPlansRes] = await Promise.all([
+      supabase
+        .from('visits')
+        .select('id, retailer_id, status, no_order_reason')
+        .eq('user_id', selectedMember)
+        .eq('planned_date', dateStr),
+      supabase
+        .from('orders')
+        .select('id, retailer_id')
+        .eq('user_id', selectedMember)
+        .eq('order_date', dateStr)
+        .eq('status', 'confirmed'),
+      supabase
+        .from('beat_plans')
+        .select('beat_id, beat_data')
+        .eq('user_id', selectedMember)
+        .eq('plan_date', dateStr)
+    ]);
 
-    if (error) {
-      console.error('Error loading visit stats:', error);
+    if (visitsRes.error) {
+      console.error('Error loading visit stats:', visitsRes.error);
       return;
     }
 
-    if (data) {
-      const planned = data.length;
-      const productive = data.filter(v => v.status === 'productive' || v.status === 'completed').length;
-      const unproductive = data.filter(v => v.status === 'unproductive').length;
-      const pending = data.filter(v => v.status === 'planned' || !v.status).length;
-      
-      setVisitStats({ planned, productive, unproductive, pending });
+    const visits = visitsRes.data || [];
+    const orders = ordersRes.data || [];
+    const beatPlans = beatPlansRes.data || [];
+    
+    // Get retailer IDs with confirmed orders
+    const retailersWithOrders = new Set(orders.map(o => o.retailer_id));
+    
+    // Track unique retailers by status (same logic as Today's Progress)
+    const visitsByRetailer = new Map<string, any[]>();
+    visits.forEach(v => {
+      if (!v?.retailer_id) return;
+      const list = visitsByRetailer.get(v.retailer_id) || [];
+      list.push(v);
+      visitsByRetailer.set(v.retailer_id, list);
+    });
+
+    let productive = 0;
+    let unproductive = 0;
+    let planned = 0;
+    const countedRetailers = new Set<string>();
+
+    // Count from visits
+    visitsByRetailer.forEach((group, retailerId) => {
+      countedRetailers.add(retailerId);
+      if (retailersWithOrders.has(retailerId)) {
+        productive++;
+      } else if (group.some(v => v.status === 'productive')) {
+        productive++;
+      } else if (group.some(v => v.status === 'unproductive' || !!v.no_order_reason)) {
+        unproductive++;
+      } else {
+        planned++;
+      }
+    });
+
+    // Count retailers with orders but no visits as productive
+    retailersWithOrders.forEach(rid => {
+      if (!countedRetailers.has(rid)) {
+        productive++;
+        countedRetailers.add(rid);
+      }
+    });
+
+    // Count remaining planned retailers from beat_data
+    for (const bp of beatPlans) {
+      const beatData = bp.beat_data as any;
+      if (beatData?.retailer_ids?.length > 0) {
+        for (const rid of beatData.retailer_ids) {
+          if (!countedRetailers.has(rid)) {
+            planned++;
+            countedRetailers.add(rid);
+          }
+        }
+      }
     }
+
+    const pending = planned; // Planned = Pending in GPS Track context
+    
+    setVisitStats({ planned: countedRetailers.size, productive, unproductive, pending });
   }
 
   // Data loading effect - called after all functions are defined
