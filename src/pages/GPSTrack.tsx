@@ -80,14 +80,7 @@ export default function GPSTrack() {
     }
   }, [user?.id, subordinatesLoading]);
 
-  useEffect(() => {
-    if (selectedMember) {
-      loadGPSData();
-      loadRetailerLocations();
-      loadBeatInfo();
-      loadVisitStats();
-    }
-  }, [selectedMember, date]);
+  // Data loading effect - moved after function definitions below
 
   // Real-time subscription for visit updates
   useEffect(() => {
@@ -340,6 +333,16 @@ export default function GPSTrack() {
       setVisitStats({ planned, productive, unproductive, pending });
     }
   }
+
+  // Data loading effect - called after all functions are defined
+  useEffect(() => {
+    if (selectedMember) {
+      loadGPSData();
+      loadRetailerLocations();
+      loadBeatInfo();
+      loadVisitStats();
+    }
+  }, [selectedMember, date]);
 
   const isViewingOtherUser = currentLocationUser !== user?.id;
 
