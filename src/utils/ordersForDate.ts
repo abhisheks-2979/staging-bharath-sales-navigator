@@ -1,0 +1,224 @@
+/**
+ * Unified Orders Source Utility
+ * Merges orders from DB, offline storage, and snapshot for consistent data across the app
+ */
+
+import { supabase } from '@/integrations/supabase/client';
+import { offlineStorage, STORES } from '@/lib/offlineStorage';
+import { loadMyVisitsSnapshot } from '@/lib/myVisitsSnapshot';
+import { isSlowConnection } from '@/utils/internetSpeedCheck';
+
+export interface OrderItem {
+  id?: string;
+  order_id?: string;
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  rate: number;
+  unit: string;
+  total?: number;
+  discount_amount?: number;
+}
+
+export interface Order {
+  id: string;
+  user_id: string;
+  retailer_id?: string;
+  retailer_name?: string;
+  order_date: string;
+  total_amount: number;
+  status: string;
+  visit_id?: string;
+  created_at: string;
+  order_items?: OrderItem[];
+  items?: OrderItem[]; // Offline orders use 'items' instead of 'order_items'
+  _source?: 'db' | 'offline' | 'snapshot';
+}
+
+export interface OrdersResult {
+  orders: Order[];
+  totalValue: number;
+  totalCount: number;
+  sourceBreakdown: {
+    db: number;
+    offline: number;
+    snapshot: number;
+  };
+}
+
+/**
+ * Get merged orders for a specific date
+ * Priority: DB orders > Offline orders > Snapshot orders
+ * Deduplicates by order ID
+ */
+export async function getOrdersForDate(
+  userId: string,
+  targetDate: string,
+  options: {
+    includeSnapshot?: boolean;
+    forceOfflineFirst?: boolean;
+  } = {}
+): Promise<OrdersResult> {
+  const { includeSnapshot = true, forceOfflineFirst = false } = options;
+  
+  const allOrders: Order[] = [];
+  const seenIds = new Set<string>();
+  const sourceBreakdown = { db: 0, offline: 0, snapshot: 0 };
+
+  const isOfflineOrSlow = !navigator.onLine || isSlowConnection() || forceOfflineFirst;
+
+  // Step 1: Try loading from offline storage first (for instant display)
+  try {
+    const cachedOrders = await offlineStorage.getAll<any>(STORES.ORDERS);
+    const todayOfflineOrders = cachedOrders.filter((o: any) => 
+      o.user_id === userId && 
+      (o.order_date === targetDate || (o.created_at && o.created_at.startsWith(targetDate)))
+    );
+
+    todayOfflineOrders.forEach((order: any) => {
+      if (!seenIds.has(order.id)) {
+        seenIds.add(order.id);
+        allOrders.push({
+          ...order,
+          order_items: order.items || order.order_items || [],
+          _source: 'offline' as const
+        });
+        sourceBreakdown.offline++;
+      }
+    });
+    
+    console.log(`📴 [ordersForDate] Loaded ${todayOfflineOrders.length} orders from offline storage`);
+  } catch (e) {
+    console.warn('[ordersForDate] Error loading from offline storage:', e);
+  }
+
+  // Step 2: Load from snapshot if enabled
+  if (includeSnapshot) {
+    try {
+      const snapshot = await loadMyVisitsSnapshot(userId, targetDate);
+      if (snapshot?.orders && snapshot.orders.length > 0) {
+        snapshot.orders.forEach((order: any) => {
+          if (!seenIds.has(order.id)) {
+            seenIds.add(order.id);
+            allOrders.push({
+              ...order,
+              order_items: order.items || order.order_items || [],
+              _source: 'snapshot' as const
+            });
+            sourceBreakdown.snapshot++;
+          }
+        });
+        console.log(`📸 [ordersForDate] Loaded ${snapshot.orders.length} orders from snapshot`);
+      }
+    } catch (e) {
+      console.warn('[ordersForDate] Error loading from snapshot:', e);
+    }
+  }
+
+  // Step 3: Fetch from DB if online (and merge)
+  if (navigator.onLine && !forceOfflineFirst) {
+    try {
+      const startOfDay = `${targetDate}T00:00:00`;
+      const endOfDay = `${targetDate}T23:59:59`;
+
+      const { data: dbOrders, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items(*)
+        `)
+        .eq('user_id', userId)
+        .eq('status', 'confirmed')
+        .gte('created_at', startOfDay)
+        .lte('created_at', endOfDay);
+
+      if (!error && dbOrders) {
+        // DB orders take priority - remove duplicates from offline/snapshot
+        dbOrders.forEach((order: any) => {
+          if (seenIds.has(order.id)) {
+            // Remove the existing offline/snapshot version
+            const existingIndex = allOrders.findIndex(o => o.id === order.id);
+            if (existingIndex !== -1) {
+              const existingSource = allOrders[existingIndex]._source;
+              if (existingSource === 'offline') sourceBreakdown.offline--;
+              if (existingSource === 'snapshot') sourceBreakdown.snapshot--;
+              allOrders.splice(existingIndex, 1);
+            }
+          }
+          seenIds.add(order.id);
+          allOrders.push({
+            ...order,
+            _source: 'db' as const
+          });
+          sourceBreakdown.db++;
+        });
+        console.log(`📡 [ordersForDate] Loaded ${dbOrders.length} orders from DB`);
+      }
+    } catch (e) {
+      console.warn('[ordersForDate] Error fetching from DB:', e);
+    }
+  }
+
+  // Calculate totals
+  const totalValue = allOrders.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
+  const totalCount = allOrders.length;
+
+  console.log(`📊 [ordersForDate] Final result: ${totalCount} orders, ₹${totalValue}`, sourceBreakdown);
+
+  return {
+    orders: allOrders,
+    totalValue,
+    totalCount,
+    sourceBreakdown
+  };
+}
+
+/**
+ * Get order items from merged orders
+ * Handles both 'order_items' and 'items' field names
+ */
+export function getOrderItemsFromOrders(orders: Order[]): OrderItem[] {
+  const allItems: OrderItem[] = [];
+  
+  orders.forEach(order => {
+    const items = order.order_items || order.items || [];
+    items.forEach(item => {
+      allItems.push({
+        ...item,
+        order_id: order.id
+      });
+    });
+  });
+  
+  return allItems;
+}
+
+/**
+ * Calculate ordered quantities by product from merged orders
+ * Returns a map of product_id -> total quantity
+ */
+export function calculateOrderedQuantitiesByProduct(orders: Order[]): Record<string, number> {
+  const quantities: Record<string, number> = {};
+  
+  orders.forEach(order => {
+    const items = order.order_items || order.items || [];
+    items.forEach((item: any) => {
+      const productId = item.product_id;
+      if (productId) {
+        // Extract base product ID if this is a variant
+        const baseProductId = productId.includes('_variant_') 
+          ? productId.split('_variant_')[0] 
+          : productId;
+        
+        quantities[baseProductId] = (quantities[baseProductId] || 0) + Number(item.quantity || 0);
+        
+        // Also track the full product ID (including variant suffix)
+        if (productId !== baseProductId) {
+          quantities[productId] = (quantities[productId] || 0) + Number(item.quantity || 0);
+        }
+      }
+    });
+  });
+  
+  return quantities;
+}
