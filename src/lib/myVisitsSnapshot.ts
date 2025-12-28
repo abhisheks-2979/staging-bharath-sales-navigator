@@ -437,3 +437,17 @@ export const cleanupOldSnapshots = async (userId: string): Promise<void> => {
     console.error('[SNAPSHOT] Cleanup failed:', error);
   }
 };
+
+// Clear snapshot for a specific date (when beats are cleared)
+export const clearMyVisitsSnapshot = async (
+  userId: string,
+  date: string
+): Promise<void> => {
+  try {
+    const key = getSnapshotKey(userId, date);
+    await Preferences.remove({ key });
+    console.log('📸 [SNAPSHOT] Cleared snapshot for', date, 'userId:', userId);
+  } catch (error) {
+    console.error('[SNAPSHOT] Failed to clear snapshot:', error);
+  }
+};

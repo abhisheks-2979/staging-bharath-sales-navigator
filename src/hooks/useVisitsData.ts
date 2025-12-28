@@ -106,21 +106,40 @@ export const useVisitsData = ({ userId, selectedDate }: UseVisitsDataProps) => {
     // 2. Try persistent snapshot (fast)
     try {
       const snapshot = await loadMyVisitsSnapshot(userId, selectedDate);
-      if (snapshot && snapshot.retailers?.length > 0) {
-        setBeatPlans(snapshot.beatPlans || []);
-        setVisits(snapshot.visits || []);
-        setRetailers(snapshot.retailers || []);
-        setOrders(snapshot.orders || []);
-        setIsLoading(false);
-        
-        cacheRef.current.set(selectedDate, snapshot);
-        
-        // Background sync for today - skip on slow connections
-        if (navigator.onLine && isToday(selectedDate) && !isSlowConnection()) {
-          setTimeout(() => syncFromNetwork(userId, selectedDate), 50);
+      if (snapshot) {
+        // FIX: If snapshot has no beat plans, clear everything (beats were cleared)
+        if (snapshot.beatPlans?.length === 0) {
+          setBeatPlans([]);
+          setVisits([]);
+          setRetailers([]);
+          setOrders([]);
+          setIsLoading(false);
+          cacheRef.current.set(selectedDate, { beatPlans: [], visits: [], retailers: [], orders: [] });
+          isFetchingRef.current = false;
+          
+          // Still do background sync for today
+          if (navigator.onLine && isToday(selectedDate) && !isSlowConnection()) {
+            setTimeout(() => syncFromNetwork(userId, selectedDate), 50);
+          }
+          return;
         }
-        isFetchingRef.current = false;
-        return;
+        
+        if (snapshot.retailers?.length > 0) {
+          setBeatPlans(snapshot.beatPlans || []);
+          setVisits(snapshot.visits || []);
+          setRetailers(snapshot.retailers || []);
+          setOrders(snapshot.orders || []);
+          setIsLoading(false);
+          
+          cacheRef.current.set(selectedDate, snapshot);
+          
+          // Background sync for today - skip on slow connections
+          if (navigator.onLine && isToday(selectedDate) && !isSlowConnection()) {
+            setTimeout(() => syncFromNetwork(userId, selectedDate), 50);
+          }
+          isFetchingRef.current = false;
+          return;
+        }
       }
     } catch (e) {
       // Continue to offline storage
