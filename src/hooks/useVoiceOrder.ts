@@ -57,76 +57,127 @@ const normalizeUnit = (unit: string): string => {
   return u;
 };
 
-// Normalize search string for better matching
-const normalizeSearchString = (s: string): string => {
-  return s
-    .toLowerCase()
-    .replace(/[-_]/g, ' ')
-    .replace(/\s+/g, ' ')
-    // Normalize common unit abbreviations in the string
-    .replace(/\b(gram|grams|gm|grm)\b/gi, 'g')
-    .replace(/\b(kilogram|kilograms|kilo|kilos)\b/gi, 'kg')
-    .trim();
-};
-
-// Enhanced fuzzy matching for product names with variants
-const fuzzyMatch = (searchTerm: string, target: string): number => {
-  const search = normalizeSearchString(searchTerm);
-  const targetLower = normalizeSearchString(target);
+// Levenshtein distance for typo tolerance
+const levenshteinDistance = (a: string, b: string): number => {
+  const matrix: number[][] = [];
   
-  // Exact match
-  if (targetLower === search) return 1;
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
   
-  // Check if normalized versions match
-  if (targetLower === search) return 1;
-  
-  // Contains match
-  if (targetLower.includes(search)) return 0.9;
-  if (search.includes(targetLower)) return 0.85;
-  
-  // Extract numbers and words separately for better matching
-  const extractParts = (s: string) => {
-    const numbers = s.match(/\d+/g) || [];
-    const words = s.replace(/\d+/g, '').trim().split(/\s+/).filter(w => w.length > 0);
-    return { numbers, words };
-  };
-  
-  const searchParts = extractParts(search);
-  const targetParts = extractParts(targetLower);
-  
-  // Check if numbers match
-  const numbersMatch = searchParts.numbers.some(sn => 
-    targetParts.numbers.some(tn => sn === tn)
-  );
-  
-  // Check if main word matches
-  let wordsMatchScore = 0;
-  for (const sw of searchParts.words) {
-    for (const tw of targetParts.words) {
-      if (tw === sw) {
-        wordsMatchScore += 1;
-      } else if (tw.includes(sw) || sw.includes(tw)) {
-        wordsMatchScore += 0.7;
-      } else if (tw.startsWith(sw.substring(0, 3)) || sw.startsWith(tw.substring(0, 3))) {
-        // First 3 chars match (handles typos like adrak/adarak)
-        wordsMatchScore += 0.6;
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1,     // insertion
+          matrix[i - 1][j] + 1      // deletion
+        );
       }
     }
   }
   
-  const maxWords = Math.max(searchParts.words.length, targetParts.words.length, 1);
-  const wordScore = wordsMatchScore / maxWords;
+  return matrix[b.length][a.length];
+};
+
+// Calculate similarity score based on Levenshtein distance (0-1)
+const levenshteinSimilarity = (a: string, b: string): number => {
+  if (a === b) return 1;
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen === 0) return 1;
+  const distance = levenshteinDistance(a, b);
+  return 1 - distance / maxLen;
+};
+
+// Extract primary product name (first word before numbers/units)
+const extractPrimaryName = (s: string): string => {
+  const normalized = s.toLowerCase().trim();
+  // Remove units and numbers, get the main product word
+  const cleaned = normalized
+    .replace(/\d+/g, '')
+    .replace(/\b(g|gm|gram|grams|kg|kilo|kilogram|kilograms)\b/gi, '')
+    .trim();
   
-  // Combine scores
-  if (numbersMatch && wordScore > 0) {
-    return 0.7 + wordScore * 0.2;
+  // Get first meaningful word (at least 2 chars)
+  const words = cleaned.split(/\s+/).filter(w => w.length >= 2);
+  return words[0] || cleaned;
+};
+
+// Extract size/variant number from string (e.g., "250" from "adarak 250g")
+const extractSize = (s: string): string | null => {
+  const match = s.match(/(\d+)\s*(g|gm|gram|grams|kg|kilo|kilogram|kilograms)?/i);
+  if (match) {
+    const num = match[1];
+    const unit = normalizeUnit(match[2] || '');
+    // Normalize to grams for comparison
+    if (unit === 'kg') {
+      return String(parseInt(num) * 1000);
+    }
+    return num;
+  }
+  return null;
+};
+
+// Two-phase fuzzy matching: Primary name (70%) + Size/Variant (30%)
+const fuzzyMatch = (searchTerm: string, target: string): number => {
+  const searchLower = searchTerm.toLowerCase().trim();
+  const targetLower = target.toLowerCase().trim();
+  
+  // Exact match
+  if (targetLower === searchLower) return 1;
+  
+  // Phase 1: Primary name matching (70% weight)
+  const searchPrimary = extractPrimaryName(searchLower);
+  const targetPrimary = extractPrimaryName(targetLower);
+  
+  let primaryScore = 0;
+  if (searchPrimary && targetPrimary) {
+    if (searchPrimary === targetPrimary) {
+      primaryScore = 1;
+    } else if (targetPrimary.includes(searchPrimary) || searchPrimary.includes(targetPrimary)) {
+      primaryScore = 0.9;
+    } else {
+      // Use Levenshtein for typo tolerance (adrak → adarak)
+      primaryScore = levenshteinSimilarity(searchPrimary, targetPrimary);
+    }
   }
   
-  if (wordScore > 0) {
-    return 0.4 + wordScore * 0.3;
+  // Phase 2: Size/variant matching (30% weight)
+  const searchSize = extractSize(searchLower);
+  const targetSize = extractSize(targetLower);
+  
+  let sizeScore = 0;
+  if (searchSize && targetSize) {
+    if (searchSize === targetSize) {
+      sizeScore = 1;
+    } else {
+      // Partial match for close sizes
+      const sizeDiff = Math.abs(parseInt(searchSize) - parseInt(targetSize));
+      const maxSize = Math.max(parseInt(searchSize), parseInt(targetSize));
+      sizeScore = Math.max(0, 1 - sizeDiff / maxSize);
+    }
+  } else if (!searchSize && !targetSize) {
+    // Neither has size info - neutral
+    sizeScore = 0.5;
   }
   
-  return 0;
+  // Weighted combination: Primary name is MUCH more important
+  const PRIMARY_WEIGHT = 0.7;
+  const SIZE_WEIGHT = 0.3;
+  
+  const finalScore = (primaryScore * PRIMARY_WEIGHT) + (sizeScore * SIZE_WEIGHT);
+  
+  // Require minimum primary name match to consider at all
+  if (primaryScore < 0.4) {
+    return 0;
+  }
+  
+  return finalScore;
 };
 
 interface MatchCandidate {
