@@ -164,6 +164,88 @@ export const updateVisitStatusInSnapshot = async (
   }
 };
 
+// FIX: Add or update order in snapshot (called when order is placed offline)
+export const addOrderToSnapshot = async (
+  userId: string,
+  date: string,
+  order: {
+    id: string;
+    retailer_id: string;
+    user_id: string;
+    total_amount: number;
+    order_date: string;
+    status: string;
+    visit_id?: string;
+  }
+): Promise<void> => {
+  try {
+    const snapshot = await loadMyVisitsSnapshot(userId, date);
+    if (!snapshot) {
+      // Create new snapshot with this order
+      console.log('📸 [SNAPSHOT] Creating new snapshot for order add');
+      await saveMyVisitsSnapshot(userId, date, {
+        beatPlans: [],
+        visits: [],
+        retailers: [],
+        orders: [order],
+        progressStats: {
+          planned: 0,
+          productive: 1,
+          unproductive: 0,
+          totalOrders: 1,
+          totalOrderValue: order.total_amount
+        },
+        currentBeatName: ''
+      });
+      return;
+    }
+
+    // Check if order already exists
+    const existingOrderIndex = snapshot.orders.findIndex(o => o.id === order.id);
+    if (existingOrderIndex >= 0) {
+      // Update existing order
+      snapshot.orders[existingOrderIndex] = order;
+    } else {
+      // Check for existing order for same retailer on same date
+      const existingRetailerOrder = snapshot.orders.findIndex(o => 
+        o.retailer_id === order.retailer_id && o.order_date === order.order_date
+      );
+      if (existingRetailerOrder >= 0) {
+        // Update existing order instead of adding duplicate
+        snapshot.orders[existingRetailerOrder] = order;
+      } else {
+        // Add new order
+        snapshot.orders.push(order);
+      }
+    }
+
+    // Recalculate progress stats
+    const totalOrders = snapshot.orders.length;
+    const totalOrderValue = snapshot.orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+    
+    // Update productive count based on unique retailers with orders
+    const retailersWithOrders = new Set(snapshot.orders.map(o => o.retailer_id));
+    
+    snapshot.progressStats = {
+      ...snapshot.progressStats,
+      totalOrders,
+      totalOrderValue,
+      productive: retailersWithOrders.size
+    };
+
+    // Save updated snapshot
+    const key = getSnapshotKey(userId, date);
+    await Preferences.set({
+      key,
+      value: JSON.stringify({ ...snapshot, timestamp: Date.now() })
+    });
+
+    console.log('📸 [SNAPSHOT] Added/updated order in snapshot:', order.id, 'Total:', snapshot.orders.length, 'Value:', totalOrderValue);
+  } catch (error) {
+    console.error('[SNAPSHOT] Failed to add order:', error);
+  }
+};
+
 // FIX: Add retailer directly to snapshot (called from AddRetailerInlineToBeat)
 export const addRetailerToSnapshot = async (
   userId: string,

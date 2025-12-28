@@ -877,12 +877,25 @@ export const Cart = () => {
         );
         console.log('💾 [Cart] Cached productive status:', { retailerId: validRetailerId, orderValue: totalAmount });
         
+        // FIX: Include complete order object for immediate progress stats update
+        const orderForEvent = {
+          id: result.order?.id || `offline_${Date.now()}`,
+          retailer_id: validRetailerId,
+          user_id: currentUserId,
+          total_amount: totalAmount,
+          order_date: orderDate,
+          status: 'confirmed',
+          visit_id: actualVisitId,
+          created_at: new Date().toISOString()
+        };
+        
         window.dispatchEvent(new CustomEvent('visitStatusChanged', {
           detail: { 
             visitId: actualVisitId, 
             status: 'productive', 
             retailerId: validRetailerId,
-            orderValue: totalAmount  // Include order value for immediate UI update
+            orderValue: totalAmount,
+            order: orderForEvent  // Include complete order object for progress stats
           }
         }));
       }
