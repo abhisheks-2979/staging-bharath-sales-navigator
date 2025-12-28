@@ -61,10 +61,41 @@ export async function submitOrderWithOfflineSupport(
   // Double-check connectivity: use both provided status and navigator.onLine
   const connectivityCheck = options.connectivityStatus !== 'offline' && navigator.onLine;
   
+  // CRITICAL FIX: Check for duplicate orders before submitting
+  // If an order with the same idempotency_key already exists, return that order
+  const checkDuplicateOrder = async (): Promise<Record<string, unknown> | null> => {
+    if (!orderData.idempotency_key) return null;
+    
+    try {
+      // Use explicit type assertion to avoid deep type instantiation
+      const result = await (supabase
+        .from('orders')
+        .select('id, total_amount, order_date, status, retailer_id, user_id')
+        .eq('idempotency_key', orderData.idempotency_key as string)
+        .maybeSingle() as Promise<{ data: Record<string, unknown> | null; error: unknown }>);
+      
+      if (result.data) {
+        console.log('⚠️ [ORDER] Duplicate order detected with idempotency_key:', orderData.idempotency_key);
+        return result.data;
+      }
+    } catch (e) {
+      console.warn('Could not check for duplicate order:', e);
+    }
+    return null;
+  };
+  
   // Try online submission first if we think we're online
   // On very slow connections, skip network and go straight to offline for instant response
   if (connectivityCheck && !slowConnection) {
     try {
+      // Check for duplicate first
+      const existingOrder = await checkDuplicateOrder();
+      if (existingOrder) {
+        console.log('✅ [ORDER] Returning existing order instead of creating duplicate');
+        options.onOnline?.();
+        return { success: true, offline: false, order: existingOrder };
+      }
+      
       // Add timeout for slow networks
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Network timeout - submitting offline')), timeoutMs)
