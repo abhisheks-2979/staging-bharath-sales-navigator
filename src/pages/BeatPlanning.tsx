@@ -446,10 +446,6 @@ export const BeatPlanning = () => {
     
     const dateKey = selectedDate.toLocaleDateString('en-US', { weekday: 'short' });
     const selectedBeatIds = plannedBeats[dateKey] || [];
-    if (selectedBeatIds.length === 0) {
-      toast.error("Please select at least one beat to plan.");
-      return;
-    }
 
     setIsLoading(true);
     try {
@@ -459,12 +455,21 @@ export const BeatPlanning = () => {
       const day = String(selectedDate.getDate()).padStart(2, '0');
       const dateString = `${year}-${month}-${day}`;
       console.log('Submitting plan for date:', dateString, 'from selectedDate:', selectedDate);
+      
       // Delete existing plans for this date
       await supabase
         .from('beat_plans')
         .delete()
         .eq('user_id', user.id)
         .eq('plan_date', dateString);
+
+      // If no beats selected, we've cleared all - just show success message
+      if (selectedBeatIds.length === 0) {
+        toast.success(`Cleared all beats for ${format(selectedDate, 'MMMM d, yyyy')}`);
+        window.dispatchEvent(new Event('visitDataChanged'));
+        setIsLoading(false);
+        return;
+      }
 
       const planData = selectedBeatIds.map(beatId => {
         const beat = beats.find(b => b.id === beatId);
@@ -797,12 +802,28 @@ export const BeatPlanning = () => {
                   <div className="flex gap-2 flex-shrink-0">
                     <Button 
                       variant="secondary"
-                      onClick={() => {
+                      onClick={async () => {
+                        if (!user || !selectedDate) return;
                         const dateKey = selectedDate.toLocaleDateString('en-US', { weekday: 'short' });
                         setPlannedBeats(prev => ({
                           ...prev,
                           [dateKey]: []
                         }));
+                        
+                        // Also delete from database immediately
+                        const year = selectedDate.getFullYear();
+                        const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                        const day = String(selectedDate.getDate()).padStart(2, '0');
+                        const dateString = `${year}-${month}-${day}`;
+                        
+                        await supabase
+                          .from('beat_plans')
+                          .delete()
+                          .eq('user_id', user.id)
+                          .eq('plan_date', dateString);
+                        
+                        window.dispatchEvent(new Event('visitDataChanged'));
+                        toast.success(`Cleared all beats for ${format(selectedDate, 'MMMM d, yyyy')}`);
                       }}
                       size="sm"
                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90 text-xs sm:text-sm"
