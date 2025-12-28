@@ -154,13 +154,12 @@ export async function syncOrdersToVanStock(stockDate: string, userId?: string): 
       return false;
     }
 
-    // Get all orders for today by this user
+    // Get all orders for today by this user using order_date (DATE column) for reliable filtering
     const { data: orders, error: ordersError } = await supabase
       .from('orders')
       .select('id, status')
       .eq('user_id', currentUserId)
-      .gte('created_at', `${stockDate}T00:00:00`)
-      .lte('created_at', `${stockDate}T23:59:59`)
+      .eq('order_date', stockDate)
       .in('status', ['confirmed', 'pending', 'delivered']);
 
     if (ordersError) {
