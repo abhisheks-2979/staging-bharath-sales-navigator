@@ -5,6 +5,7 @@ import { Preferences } from '@capacitor/preferences';
 // Loads instantly on app restart or slow/no network
 
 interface SnapshotData {
+  userId: string; // CRITICAL: Store userId to validate snapshot belongs to correct user
   beatPlans: any[];
   visits: any[];
   retailers: any[];
@@ -48,6 +49,7 @@ export const saveMyVisitsSnapshot = async (
 ): Promise<void> => {
   try {
     const snapshot: SnapshotData = {
+      userId, // CRITICAL: Store userId in snapshot for validation on load
       ...data,
       timestamp: Date.now()
     };
@@ -58,7 +60,7 @@ export const saveMyVisitsSnapshot = async (
       value: JSON.stringify(snapshot)
     });
     
-    console.log('📸 [SNAPSHOT] Saved My Visits snapshot for', date, 'retailers:', data.retailers.length);
+    console.log('📸 [SNAPSHOT] Saved My Visits snapshot for', date, 'userId:', userId, 'retailers:', data.retailers.length);
   } catch (error) {
     console.error('[SNAPSHOT] Failed to save:', error);
   }
@@ -76,10 +78,27 @@ export const loadMyVisitsSnapshot = async (
     if (value) {
       const snapshot: SnapshotData = JSON.parse(value);
       
+      // CRITICAL: Validate snapshot belongs to the requesting user
+      // This prevents data leakage when switching between user accounts
+      if (snapshot.userId && snapshot.userId !== userId) {
+        console.warn('📸 [SNAPSHOT] ⚠️ Snapshot belongs to different user! Expected:', userId, 'Found:', snapshot.userId);
+        // Clean up stale snapshot from different user
+        await Preferences.remove({ key });
+        return null;
+      }
+      
+      // Also validate visits belong to the correct user
+      const hasWrongUserVisits = snapshot.visits?.some((v: any) => v.user_id && v.user_id !== userId);
+      if (hasWrongUserVisits) {
+        console.warn('📸 [SNAPSHOT] ⚠️ Snapshot contains visits from different user, invalidating');
+        await Preferences.remove({ key });
+        return null;
+      }
+      
       // Snapshots are valid for 7 days
       const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
       if (Date.now() - snapshot.timestamp < sevenDaysMs) {
-        console.log('📸 [SNAPSHOT] Loaded My Visits snapshot for', date, 'retailers:', snapshot.retailers.length);
+        console.log('📸 [SNAPSHOT] Loaded My Visits snapshot for', date, 'userId:', userId, 'retailers:', snapshot.retailers.length);
         return snapshot;
       } else {
         console.log('📸 [SNAPSHOT] Snapshot expired for', date);
