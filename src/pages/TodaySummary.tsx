@@ -15,6 +15,10 @@ import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, parse } from "date-fns";
+import { offlineStorage, STORES } from "@/lib/offlineStorage";
+import { loadMyVisitsSnapshot } from "@/lib/myVisitsSnapshot";
+import { isSlowConnection } from "@/utils/internetSpeedCheck";
+import { getLocalTodayDate } from "@/utils/dateUtils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { downloadPDF } from "@/utils/fileDownloader";
@@ -211,14 +215,39 @@ export const TodaySummary = () => {
       fetchTodaysData(true); // Background refresh
     };
     
+    // Listen for immediate order updates (visitStatusChanged includes order value)
+    const handleVisitStatusChanged = (event: CustomEvent) => {
+      const detail = event.detail;
+      console.log('📢 [SUMMARY] visitStatusChanged, refreshing...', detail);
+      
+      // If we have an order, update summary immediately
+      if (detail?.orderValue && filterType === 'today') {
+        // Update total order value immediately
+        setSummaryData(prev => ({
+          ...prev,
+          totalOrderValue: (prev.totalOrderValue || 0) + Math.round(Number(detail.orderValue) || 0),
+          totalOrders: (prev.totalOrders || 0) + 1,
+          productiveVisits: (prev.productiveVisits || 0) + 1,
+          completedVisits: (prev.completedVisits || 0) + 1
+        }));
+        
+        // Also refresh in background to get full data
+        setTimeout(() => fetchTodaysData(true), 1000);
+      } else {
+        fetchTodaysData(true);
+      }
+    };
+    
     window.addEventListener('syncComplete', handleSyncComplete);
     window.addEventListener('visitDataChanged', handleVisitDataChanged);
+    window.addEventListener('visitStatusChanged', handleVisitStatusChanged as EventListener);
     
     return () => {
       window.removeEventListener('syncComplete', handleSyncComplete);
       window.removeEventListener('visitDataChanged', handleVisitDataChanged);
+      window.removeEventListener('visitStatusChanged', handleVisitStatusChanged as EventListener);
     };
-  }, []);
+  }, [filterType]);
 
   // Real-time subscription for points updates
   useEffect(() => {
@@ -334,6 +363,50 @@ export const TodaySummary = () => {
         targetUserIds = [authUser.id];
       }
 
+      // Check for slow/offline - load from cache first for today's data
+      const isOfflineOrSlow = !navigator.onLine || isSlowConnection();
+      const isTodayFilter = filterType === 'today';
+      const targetDate = format(dateRange.from, 'yyyy-MM-dd');
+      
+      // For today filter when offline/slow, try to load from snapshot and offline storage first
+      let offlineOrders: any[] = [];
+      let hasLoadedFromCache = false;
+      
+      if (isOfflineOrSlow && isTodayFilter && targetUserIds.includes(authUser.id)) {
+        console.log('📴 [SUMMARY] Loading from offline cache first (offline/slow network)');
+        
+        try {
+          // Load from my visits snapshot
+          const snapshot = await loadMyVisitsSnapshot(authUser.id, targetDate);
+          if (snapshot?.orders && snapshot.orders.length > 0) {
+            offlineOrders = snapshot.orders;
+            console.log('📸 [SUMMARY] Loaded', offlineOrders.length, 'orders from snapshot');
+            hasLoadedFromCache = true;
+          }
+          
+          // Also merge with offline storage orders
+          const cachedOrders = await offlineStorage.getAll<any>(STORES.ORDERS);
+          const todayOfflineOrders = cachedOrders.filter((o: any) => 
+            o.user_id === authUser.id && 
+            (o.order_date === targetDate || (o.created_at && o.created_at.startsWith(targetDate)))
+          );
+          
+          if (todayOfflineOrders.length > 0) {
+            // Merge with snapshot orders, avoiding duplicates by ID
+            const existingIds = new Set(offlineOrders.map((o: any) => o.id));
+            todayOfflineOrders.forEach((o: any) => {
+              if (!existingIds.has(o.id)) {
+                offlineOrders.push(o);
+              }
+            });
+            console.log('💾 [SUMMARY] Merged', todayOfflineOrders.length, 'orders from offline storage');
+            hasLoadedFromCache = true;
+          }
+        } catch (cacheError) {
+          console.warn('[SUMMARY] Error loading from cache:', cacheError);
+        }
+      }
+
       // Fetch attendance data for the selected period
       let attendanceQuery = supabase
         .from('attendance')
@@ -341,7 +414,6 @@ export const TodaySummary = () => {
         .in('user_id', targetUserIds);
 
       if (filterType === 'today' || filterType === 'custom') {
-        const targetDate = format(dateRange.from, 'yyyy-MM-dd');
         attendanceQuery = attendanceQuery.eq('date', targetDate);
       } else {
         const fromDate = format(dateRange.from, 'yyyy-MM-dd');
@@ -358,7 +430,6 @@ export const TodaySummary = () => {
         .in('user_id', targetUserIds);
 
       if (filterType === 'today' || filterType === 'custom') {
-        const targetDate = format(dateRange.from, 'yyyy-MM-dd');
         vanStockQuery = vanStockQuery.eq('stock_date', targetDate);
       } else {
         const fromDate = format(dateRange.from, 'yyyy-MM-dd');
@@ -376,7 +447,6 @@ export const TodaySummary = () => {
         .order('start_time', { ascending: true });
 
       if (filterType === 'today' || filterType === 'custom') {
-        const targetDate = format(dateRange.from, 'yyyy-MM-dd');
         visitLogsQuery = visitLogsQuery.eq('visit_date', targetDate);
       } else {
         const fromDate = format(dateRange.from, 'yyyy-MM-dd');
@@ -393,7 +463,6 @@ export const TodaySummary = () => {
         .in('user_id', targetUserIds);
 
       if (filterType === 'today' || filterType === 'custom') {
-        const targetDate = format(dateRange.from, 'yyyy-MM-dd');
         visitsQuery = visitsQuery.eq('planned_date', targetDate);
       } else {
         // For week/lastWeek/month, use date range
@@ -406,7 +475,7 @@ export const TodaySummary = () => {
       const { data: visits } = await visitsQuery;
 
       // Fetch orders based on created_at date (not visit_id, since many orders don't have visit_id linked)
-      let todayOrders: any[] = [];
+      let todayOrders: any[] = offlineOrders; // Start with offline orders if any
       
       // Build date range for orders query
       const orderFromDate = new Date(dateRange.from);
@@ -414,18 +483,30 @@ export const TodaySummary = () => {
       const orderToDate = new Date(dateRange.to);
       orderToDate.setHours(23, 59, 59, 999);
       
-      const { data: fetchedOrders } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items(*)
-        `)
-        .in('user_id', targetUserIds)
-        .eq('status', 'confirmed')
-        .gte('created_at', orderFromDate.toISOString())
-        .lte('created_at', orderToDate.toISOString());
-      
-      todayOrders = fetchedOrders || [];
+      // Only fetch from DB if online (or always try and merge)
+      if (navigator.onLine) {
+        const { data: fetchedOrders } = await supabase
+          .from('orders')
+          .select(`
+            *,
+            order_items(*)
+          `)
+          .in('user_id', targetUserIds)
+          .eq('status', 'confirmed')
+          .gte('created_at', orderFromDate.toISOString())
+          .lte('created_at', orderToDate.toISOString());
+        
+        if (fetchedOrders && fetchedOrders.length > 0) {
+          // Merge DB orders with offline orders, DB takes priority
+          const dbOrderIds = new Set(fetchedOrders.map((o: any) => o.id));
+          const nonDuplicateOfflineOrders = todayOrders.filter((o: any) => !dbOrderIds.has(o.id));
+          todayOrders = [...fetchedOrders, ...nonDuplicateOfflineOrders];
+          console.log('📡 [SUMMARY] Merged', fetchedOrders.length, 'DB orders with', nonDuplicateOfflineOrders.length, 'offline-only orders');
+        }
+      } else if (!hasLoadedFromCache) {
+        console.log('📴 [SUMMARY] Offline and no cache, showing empty orders');
+        todayOrders = [];
+      }
 
       // Fetch beat plans for the date range (moved earlier to get retailer IDs)
       let beatPlansQuery = supabase

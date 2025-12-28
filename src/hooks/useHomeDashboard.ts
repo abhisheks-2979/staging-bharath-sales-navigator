@@ -536,14 +536,76 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
       }, 500);
     };
     
+    // Listen for visit status changes (immediate order updates) - includes orderValue for instant revenue update
+    const handleVisitStatusChanged = (event: CustomEvent) => {
+      const detail = event.detail;
+      console.log('📢 [HOME] visitStatusChanged event received:', detail);
+      
+      // If we have order value, update cache immediately for instant UI feedback
+      if (detail?.orderValue && userId) {
+        try {
+          const cached = localStorage.getItem(CACHE_KEY);
+          if (cached) {
+            const parsedCache = JSON.parse(cached);
+            const currentRevenue = parsedCache.todayData?.revenueAchieved || 0;
+            const newRevenue = currentRevenue + Math.round(Number(detail.orderValue) || 0);
+            
+            // Update productive count
+            const currentProductive = parsedCache.todayData?.beatProgress?.productive || 0;
+            
+            const updatedCache = {
+              ...parsedCache,
+              todayData: {
+                ...parsedCache.todayData,
+                revenueAchieved: newRevenue,
+                beatProgress: {
+                  ...parsedCache.todayData?.beatProgress,
+                  productive: currentProductive + 1,
+                  completed: (parsedCache.todayData?.beatProgress?.completed || 0) + 1,
+                  remaining: Math.max(0, (parsedCache.todayData?.beatProgress?.remaining || 0) - 1)
+                }
+              },
+              lastUpdated: new Date().toISOString()
+            };
+            
+            localStorage.setItem(CACHE_KEY, JSON.stringify(updatedCache));
+            
+            // Update state immediately for instant UI feedback
+            setData(prev => ({
+              ...prev,
+              todayData: {
+                ...prev.todayData,
+                revenueAchieved: newRevenue,
+                beatProgress: {
+                  ...prev.todayData.beatProgress,
+                  productive: currentProductive + 1,
+                  completed: prev.todayData.beatProgress.completed + 1,
+                  remaining: Math.max(0, prev.todayData.beatProgress.remaining - 1)
+                }
+              }
+            }));
+            
+            console.log('💰 [HOME] Immediate revenue update:', { currentRevenue, orderValue: detail.orderValue, newRevenue });
+          }
+        } catch (e) {
+          console.warn('[HOME] Error updating cache from visitStatusChanged:', e);
+        }
+      }
+      
+      // Also trigger a background refresh to sync with latest data
+      setTimeout(() => loadDashboardData(), 1000);
+    };
+    
     window.addEventListener('visitDataChanged', handleVisitDataChanged);
     window.addEventListener('syncComplete', handleSyncComplete);
+    window.addEventListener('visitStatusChanged', handleVisitStatusChanged as EventListener);
     
     return () => {
       window.removeEventListener('visitDataChanged', handleVisitDataChanged);
       window.removeEventListener('syncComplete', handleSyncComplete);
+      window.removeEventListener('visitStatusChanged', handleVisitStatusChanged as EventListener);
     };
-  }, [loadDashboardData]);
+  }, [loadDashboardData, userId, CACHE_KEY]);
 
   return { ...data, refresh: loadDashboardData };
 };
