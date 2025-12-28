@@ -2508,9 +2508,9 @@ export const VisitCard = ({
                         <div key={idx} className="flex justify-between items-start gap-2 text-xs py-1">
                           <span className="flex-1 min-w-0 break-words">{it.product_name}</span>
                           <div className="flex-shrink-0 text-right">
-                            <span className="font-medium">{qtyDisplay} × ₹{Math.round(it.actualRate).toLocaleString()}</span>
-                            {Math.round(it.actualRate) !== Math.round(it.rate) && it.rate > 0 && (
-                              <div className="text-[10px] text-muted-foreground line-through">₹{Math.round(it.rate).toLocaleString()}</div>
+                            <span className="font-medium">{qtyDisplay} × ₹{it.actualRate.toFixed(2)}</span>
+                            {it.actualRate.toFixed(2) !== it.rate.toFixed(2) && it.rate > 0 && (
+                              <div className="text-[10px] text-muted-foreground line-through">₹{it.rate.toFixed(2)}</div>
                             )}
                           </div>
                         </div>
