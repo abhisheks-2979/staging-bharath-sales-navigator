@@ -251,7 +251,15 @@ export function useOfflineOrderEntry() {
       // Persist snapshot so My Visits "Today's Progress" updates even after navigation/app restart
       try {
         if (offlineOrder.user_id) {
-          await addOrderToSnapshot(offlineOrder.user_id, localOrderDate, { ...offlineOrder, items: offlineItems });
+          await addOrderToSnapshot(offlineOrder.user_id, localOrderDate, {
+            id: offlineOrder.id,
+            retailer_id: offlineOrder.retailer_id,
+            user_id: offlineOrder.user_id,
+            total_amount: Number(offlineOrder.total_amount ?? 0),
+            order_date: localOrderDate,
+            status: offlineOrder.status || 'confirmed',
+            visit_id: offlineOrder.visit_id,
+          });
         }
       } catch (e) {
         console.warn('[useOfflineOrderEntry] Could not update snapshot (offline):', e);
@@ -293,7 +301,15 @@ export function useOfflineOrderEntry() {
         const normalizedOrder = { ...order, items: orderItems, order_date: localOrderDate, status: order.status || 'confirmed' };
         await offlineStorage.save(STORES.ORDERS, normalizedOrder);
         if (normalizedOrder.user_id) {
-          await addOrderToSnapshot(normalizedOrder.user_id, localOrderDate, normalizedOrder);
+          await addOrderToSnapshot(normalizedOrder.user_id, localOrderDate, {
+            id: normalizedOrder.id,
+            retailer_id: normalizedOrder.retailer_id,
+            user_id: normalizedOrder.user_id,
+            total_amount: Number(normalizedOrder.total_amount ?? 0),
+            order_date: localOrderDate,
+            status: normalizedOrder.status || 'confirmed',
+            visit_id: normalizedOrder.visit_id,
+          });
         }
       } catch (e) {
         console.warn('[useOfflineOrderEntry] Could not persist online order locally (non-fatal):', e);
