@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.reset-password-with-token]
 verify_jwt = false
+
+[functions.voice-order-parser]
+verify_jwt = true
