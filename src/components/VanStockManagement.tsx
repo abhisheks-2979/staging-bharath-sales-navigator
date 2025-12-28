@@ -791,34 +791,45 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         // Check if this product already exists in saved items
         const existingItem = existingItems.find((e: any) => e.product_id === item.product_id);
         
+        // Convert kg to grams for storage (database stores integers)
+        // 2.75 KG = 2750 grams
+        const isKgUnit = item.unit?.toLowerCase() === 'kg';
+        const conversionFactor = isKgUnit ? 1000 : 1;
+        const storageUnit = isKgUnit ? 'Grams' : item.unit;
+        
+        const convertedStartQty = Math.round(Number(item.start_qty || 0) * conversionFactor);
+        const convertedOrderedQty = Math.round(Number(item.ordered_qty || 0) * conversionFactor);
+        const convertedReturnedQty = Math.round(Number(item.returned_qty || 0) * conversionFactor);
+        const convertedLeftQty = Math.round(Number(item.left_qty || 0) * conversionFactor);
+        
         if (existingItem) {
-          // Update existing item - round quantities to integers for database
+          // Update existing item
           const { error: updateError } = await supabase
             .from('van_stock_items')
             .update({
               product_name: item.product_name,
-              start_qty: Math.round(Number(item.start_qty) || 0),
-              ordered_qty: Math.round(Number(item.ordered_qty) || 0),
-              returned_qty: Math.round(Number(item.returned_qty) || 0),
-              left_qty: Math.round(Number(item.left_qty) || 0),
-              unit: item.unit,
+              start_qty: convertedStartQty,
+              ordered_qty: convertedOrderedQty,
+              returned_qty: convertedReturnedQty,
+              left_qty: convertedLeftQty,
+              unit: storageUnit,
             })
             .eq('id', existingItem.id);
           
           if (updateError) throw updateError;
         } else {
-          // Insert new item - round quantities to integers for database
+          // Insert new item
           const { error: insertError } = await supabase
             .from('van_stock_items')
             .insert({
               van_stock_id: vanStock.id,
               product_id: item.product_id,
               product_name: item.product_name,
-              start_qty: Math.round(Number(item.start_qty) || 0),
-              ordered_qty: Math.round(Number(item.ordered_qty) || 0),
-              returned_qty: Math.round(Number(item.returned_qty) || 0),
-              left_qty: Math.round(Number(item.left_qty) || 0),
-              unit: item.unit,
+              start_qty: convertedStartQty,
+              ordered_qty: convertedOrderedQty,
+              returned_qty: convertedReturnedQty,
+              left_qty: convertedLeftQty,
+              unit: storageUnit,
             });
           
           if (insertError) throw insertError;
