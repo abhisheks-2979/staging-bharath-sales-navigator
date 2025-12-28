@@ -498,30 +498,19 @@ export default function GPSTrack() {
 
             {/* Map Display */}
             <div className="space-y-4">
-              <Card className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-primary" />
-                    <h2 className="text-lg font-semibold">Journey Heatmap</h2>
-                    {retailers.length > 0 && (
-                      <span className="text-sm text-muted-foreground">
-                        ({retailers.length} retailer{retailers.length > 1 ? 's' : ''})
-                      </span>
-                    )}
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      loadGPSData();
-                      loadRetailerLocations();
-                      loadBeatInfo();
-                    }}
-                  >
-                    Refresh Map
-                  </Button>
-                </div>
-              </Card>
+              <div className="flex justify-end">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    loadGPSData();
+                    loadRetailerLocations();
+                    loadBeatInfo();
+                  }}
+                >
+                  Refresh
+                </Button>
+              </div>
 
               {loading ? (
                 <Card className="flex items-center justify-center h-96">
