@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, memo } from 'react';
+import { useState, useEffect, useRef, useMemo, memo, useDeferredValue } from 'react';
 import { VisitCard } from './VisitCard';
 
 interface Visit {
@@ -59,17 +59,21 @@ export const VirtualizedVisitList = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false);
 
+  // Use deferred value for smoother rendering during updates
+  const deferredVisits = useDeferredValue(visits);
+  const deferredDate = useDeferredValue(selectedDate);
+
   // Reset display count when visits change significantly
   useEffect(() => {
-    setDisplayCount(Math.min(INITIAL_BATCH_SIZE, visits.length));
-  }, [visits.length, selectedDate]);
+    setDisplayCount(Math.min(INITIAL_BATCH_SIZE, deferredVisits.length));
+  }, [deferredVisits.length, deferredDate]);
 
   // Visible visits (progressively loaded)
   const visibleVisits = useMemo(() => {
-    return visits.slice(0, displayCount);
-  }, [visits, displayCount]);
+    return deferredVisits.slice(0, displayCount);
+  }, [deferredVisits, displayCount]);
 
-  const hasMore = displayCount < visits.length;
+  const hasMore = displayCount < deferredVisits.length;
 
   // Load more on scroll
   useEffect(() => {
@@ -85,7 +89,7 @@ export const VirtualizedVisitList = ({
         
         // Use requestAnimationFrame to batch DOM updates
         requestAnimationFrame(() => {
-          setDisplayCount(prev => Math.min(prev + LOAD_MORE_SIZE, visits.length));
+          setDisplayCount(prev => Math.min(prev + LOAD_MORE_SIZE, deferredVisits.length));
           loadingRef.current = false;
         });
       }
@@ -93,12 +97,12 @@ export const VirtualizedVisitList = ({
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [hasMore, visits.length]);
+  }, [hasMore, deferredVisits.length]);
 
   // Immediate load more for fast scrollers
   const loadMore = () => {
     if (!hasMore) return;
-    setDisplayCount(prev => Math.min(prev + LOAD_MORE_SIZE, visits.length));
+    setDisplayCount(prev => Math.min(prev + LOAD_MORE_SIZE, deferredVisits.length));
   };
 
   return (
@@ -119,7 +123,7 @@ export const VirtualizedVisitList = ({
             onClick={loadMore}
             className="px-4 py-2 text-sm text-primary hover:text-primary/80 transition-colors"
           >
-            Load more ({visits.length - displayCount} remaining)
+            Load more ({deferredVisits.length - displayCount} remaining)
           </button>
         </div>
       )}

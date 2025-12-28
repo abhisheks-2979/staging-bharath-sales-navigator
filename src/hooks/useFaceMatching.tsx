@@ -1,9 +1,4 @@
 import { useState, useCallback } from 'react';
-import { pipeline, env } from '@huggingface/transformers';
-
-// Configure transformers.js
-env.allowLocalModels = false;
-env.useBrowserCache = true;
 
 export interface FaceMatchResult {
   status: 'match' | 'partial' | 'nomatch' | 'error';
@@ -13,20 +8,11 @@ export interface FaceMatchResult {
 
 export const useFaceMatching = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [pipeline, setPipeline] = useState(null);
 
+  // No-op initialization - face matching is done server-side via edge function
   const initializePipeline = useCallback(async () => {
-    try {
-      if (!pipeline) {
-        const featureExtractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-        setPipeline(featureExtractor);
-      }
-      return true;
-    } catch (error) {
-      console.error('Failed to initialize face matching pipeline:', error);
-      return false;
-    }
-  }, [pipeline]);
+    return true;
+  }, []);
 
   const compareImages = useCallback(async (baselineImageUrl: string, attendanceImageUrl: string): Promise<FaceMatchResult> => {
     setIsLoading(true);
