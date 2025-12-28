@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { CurrentLocationMap } from '@/components/CurrentLocationMap';
 import { toast } from 'sonner';
 import { UserSelector } from '@/components/UserSelector';
 import { useSubordinates } from '@/hooks/useSubordinates';
+import { GPSStatsCard } from '@/components/gps/GPSStatsCard';
 
 interface GPSData {
   latitude: number;
@@ -33,12 +34,22 @@ interface RetailerLocation {
   status: string;
 }
 
+interface VisitStats {
+  planned: number;
+  productive: number;
+  unproductive: number;
+  pending: number;
+}
+
 export default function GPSTrack() {
   const { user } = useAuth();
   const [date, setDate] = useState<Date>(new Date());
   const [gpsData, setGpsData] = useState<GPSData[]>([]);
   const [retailers, setRetailers] = useState<RetailerLocation[]>([]);
   const [loading, setLoading] = useState(false);
+  const [beatName, setBeatName] = useState<string | null>(null);
+  const [visitStats, setVisitStats] = useState<VisitStats>({ planned: 0, productive: 0, unproductive: 0, pending: 0 });
+  const [totalKmTraveled, setTotalKmTraveled] = useState(0);
   
   // Hierarchical user filter using useSubordinates hook
   const { isManager, subordinates, isLoading: subordinatesLoading } = useSubordinates();
@@ -73,6 +84,8 @@ export default function GPSTrack() {
     if (selectedMember) {
       loadGPSData();
       loadRetailerLocations();
+      loadBeatInfo();
+      loadVisitStats();
     }
   }, [selectedMember, date]);
 
@@ -251,6 +264,83 @@ export default function GPSTrack() {
     }
   };
 
+  // Calculate distance between two points using Haversine formula
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  // Calculate total km traveled from GPS data
+  useEffect(() => {
+    if (gpsData.length > 1) {
+      let total = 0;
+      for (let i = 1; i < gpsData.length; i++) {
+        total += calculateDistance(
+          gpsData[i - 1].latitude,
+          gpsData[i - 1].longitude,
+          gpsData[i].latitude,
+          gpsData[i].longitude
+        );
+      }
+      setTotalKmTraveled(total);
+    } else {
+      setTotalKmTraveled(0);
+    }
+  }, [gpsData]);
+
+  const loadBeatInfo = async () => {
+    if (!selectedMember) return;
+
+    const dateStr = date.toISOString().split('T')[0];
+    
+    const { data, error } = await supabase
+      .from('beat_plans')
+      .select('beat_name')
+      .eq('user_id', selectedMember)
+      .eq('plan_date', dateStr)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error loading beat info:', error);
+      return;
+    }
+
+    setBeatName(data?.beat_name || null);
+  };
+
+  const loadVisitStats = async () => {
+    if (!selectedMember) return;
+
+    const dateStr = date.toISOString().split('T')[0];
+    
+    const { data, error } = await supabase
+      .from('visits')
+      .select('status')
+      .eq('user_id', selectedMember)
+      .eq('planned_date', dateStr);
+
+    if (error) {
+      console.error('Error loading visit stats:', error);
+      return;
+    }
+
+    if (data) {
+      const planned = data.length;
+      const productive = data.filter(v => v.status === 'productive' || v.status === 'completed').length;
+      const unproductive = data.filter(v => v.status === 'unproductive').length;
+      const pending = data.filter(v => v.status === 'planned' || !v.status).length;
+      
+      setVisitStats({ planned, productive, unproductive, pending });
+    }
+  }
+
   const isViewingOtherUser = currentLocationUser !== user?.id;
 
   return (
@@ -331,6 +421,16 @@ export default function GPSTrack() {
               </div>
             </Card>
 
+            {/* Stats Card */}
+            <GPSStatsCard
+              beatName={beatName}
+              plannedVisits={visitStats.planned}
+              productiveVisits={visitStats.productive}
+              unproductiveVisits={visitStats.unproductive}
+              pendingVisits={visitStats.pending}
+              totalKmTraveled={totalKmTraveled}
+            />
+
             {/* Map Display */}
             <div className="space-y-4">
               <Card className="p-4">
@@ -350,6 +450,8 @@ export default function GPSTrack() {
                     onClick={() => {
                       loadGPSData();
                       loadRetailerLocations();
+                      loadBeatInfo();
+                      loadVisitStats();
                     }}
                   >
                     Refresh Map
@@ -367,60 +469,28 @@ export default function GPSTrack() {
                 </Card>
               )}
 
-              {/* Stats */}
-              {(gpsData.length > 0 || retailers.length > 0) && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {retailers.length > 0 && (
-                    <>
-                      <Card className="p-4">
-                        <div className="text-sm text-muted-foreground">Scheduled Retailers</div>
-                        <div className="text-2xl font-bold">{retailers.length}</div>
-                      </Card>
-                      <Card className="p-4">
-                        <div className="text-sm text-muted-foreground">Completed Visits</div>
-                        <div className="text-2xl font-bold text-green-600">
-                          {retailers.filter(r => r.status === 'completed' || r.status === 'productive' || r.checkInTime).length}
-                        </div>
-                      </Card>
-                      <Card className="p-4">
-                        <div className="text-sm text-muted-foreground">Pending Visits</div>
-                        <div className="text-2xl font-bold text-orange-600">
-                          {retailers.filter(r => !r.checkInTime && r.status !== 'completed').length}
-                        </div>
-                      </Card>
-                    </>
-                  )}
-                  {gpsData.length > 0 && (
-                    <>
-                      <Card className="p-4">
-                        <div className="text-sm text-muted-foreground">GPS Points</div>
-                        <div className="text-2xl font-bold">{gpsData.length}</div>
-                      </Card>
-                      {!retailers.length && (
-                        <>
-                          <Card className="p-4">
-                            <div className="text-sm text-muted-foreground">Start Time</div>
-                            <div className="text-xl font-semibold">
-                              {format(gpsData[0].timestamp, 'hh:mm a')}
-                            </div>
-                          </Card>
-                          <Card className="p-4">
-                            <div className="text-sm text-muted-foreground">Last Update</div>
-                            <div className="text-xl font-semibold">
-                              {format(gpsData[gpsData.length - 1].timestamp, 'hh:mm a')}
-                            </div>
-                          </Card>
-                          <Card className="p-4">
-                            <div className="text-sm text-muted-foreground">Avg Accuracy</div>
-                            <div className="text-xl font-semibold">
-                              {Math.round(gpsData.reduce((sum, d) => sum + d.accuracy, 0) / gpsData.length)}m
-                            </div>
-                          </Card>
-                        </>
-                      )}
-                    </>
-                  )}
-                </div>
+              {/* GPS Tracking Info */}
+              {gpsData.length > 0 && (
+                <Card className="p-4">
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <div className="text-sm text-muted-foreground">GPS Points</div>
+                      <div className="text-xl font-bold">{gpsData.length}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Start Time</div>
+                      <div className="text-xl font-semibold">
+                        {format(gpsData[0].timestamp, 'hh:mm a')}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Last Update</div>
+                      <div className="text-xl font-semibold">
+                        {format(gpsData[gpsData.length - 1].timestamp, 'hh:mm a')}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
               )}
             </div>
           </TabsContent>
