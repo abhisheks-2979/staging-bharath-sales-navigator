@@ -35,24 +35,31 @@ serve(async (req) => {
 
     const systemPrompt = `You are an order parsing assistant for a sales app. Parse voice commands into structured product orders.
 
-IMPORTANT RULES:
-1. Extract product names, quantities, and units from natural speech
-2. Handle Hindi/English mixed inputs (e.g., "adrak" = ginger, "haldi" = turmeric)
-3. Common unit phrases: "kg", "gram", "grams", "pieces", "pcs", "packet", "box"
-4. When user says "[product] [weight] [quantity]", interpret as: product name, unit type, and quantity
-   - Example: "adrak 250 gram 5 kg" means "Adrak, 5, kg" (5 kg of Adrak)
-   - Example: "vayu 50 gram 3 pieces" means "Vayu, 3, pieces" (3 pieces of Vayu)
+CRITICAL PATTERN - Users speak: "[product name with variant] [quantity] [unit]"
+The product name includes the variant/size info, then quantity, then unit.
+
+EXAMPLES:
+- "adrak 20 gram 2 kg" → productSearch: "adrak 20 gram", quantity: 2, unit: "kg"
+- "adarak 20g 5 kg" → productSearch: "adarak 20g", quantity: 5, unit: "kg"  
+- "vayu 50 gram 3 pieces" → productSearch: "vayu 50 gram", quantity: 3, unit: "pieces"
+- "haldi powder 2 kg" → productSearch: "haldi powder", quantity: 2, unit: "kg"
+- "mirch 100g 10 packets" → productSearch: "mirch 100g", quantity: 10, unit: "packets"
+
+RULES:
+1. The product name/search term includes variant info (like "20 gram", "50g", "100ml")
+2. The quantity is the number AFTER the product name
+3. The unit is the measurement AFTER the quantity (kg, pieces, packets, etc.)
+4. Handle Hindi/English mixed inputs (adrak, haldi, mirch, vayu, etc.)
 5. If quantity is unclear, default to 1
 6. If unit is unclear, default to "kg"
-7. Match product names to the provided product list if possible
 
-AVAILABLE PRODUCTS (for reference):
+AVAILABLE PRODUCTS (match product names to these):
 ${productNames?.slice(0, 100).join(', ') || 'No product list provided'}
 
-Return ONLY a valid JSON array with this structure:
+Return ONLY a valid JSON array:
 [
-  {"name": "Product Name", "quantity": 5, "unit": "kg"},
-  {"name": "Another Product", "quantity": 3, "unit": "pieces"}
+  {"productSearch": "adrak 20 gram", "quantity": 2, "unit": "kg"},
+  {"productSearch": "vayu 50 gram", "quantity": 3, "unit": "pieces"}
 ]
 
 If you cannot parse any products, return an empty array: []`;

@@ -1742,43 +1742,28 @@ export const OrderEntry = () => {
                     unit: p.unit,
                     category: p.category
                   }))}
-                  onAddToCart={(items) => {
-                    // Add items to cart using existing logic
-                    items.forEach(item => {
-                      const product = products.find(p => p.id === item.id);
-                      if (product) {
-                        handleQuantityChange(item.id, item.quantity);
-                        // Also add to cart directly
-                        setCart(prevCart => {
-                          const existingIndex = prevCart.findIndex(c => c.id === item.id);
-                          if (existingIndex >= 0) {
-                            const updated = [...prevCart];
-                            updated[existingIndex] = {
-                              ...updated[existingIndex],
-                              quantity: item.quantity,
-                              total: item.quantity * item.rate
-                            };
-                            return updated;
-                          } else {
-                            return [...prevCart, {
-                              id: item.id,
-                              name: item.name,
-                              category: product.category,
-                              rate: item.rate,
-                              unit: item.unit,
-                              quantity: item.quantity,
-                              total: item.quantity * item.rate
-                            }];
-                          }
-                        });
+                  onAutoFillProducts={(results) => {
+                    // Auto-fill quantities directly in the existing product tab
+                    results.forEach(result => {
+                      // Update quantity in the form
+                      handleQuantityChange(result.productId, result.quantity);
+                      
+                      // Update unit if different
+                      if (result.unit) {
+                        setSelectedUnits(prev => ({
+                          ...prev,
+                          [result.productId]: result.unit
+                        }));
                       }
                     });
-                    // Save cart
-                    const storageKey = activeStorageKey;
-                    setCart(prevCart => {
-                      localStorage.setItem(storageKey, JSON.stringify(prevCart));
-                      return prevCart;
-                    });
+                    
+                    // Show success toast with matched products
+                    if (results.length > 0) {
+                      toast({
+                        title: `✓ ${results.length} product${results.length > 1 ? 's' : ''} auto-filled`,
+                        description: results.map(r => `${r.productName}: ${r.quantity} ${r.unit}`).join(', '),
+                      });
+                    }
                   }}
                   disabled={!isActuallyOnline}
                 />

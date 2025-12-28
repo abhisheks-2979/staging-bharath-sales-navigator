@@ -3,21 +3,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
 interface ParsedOrder {
-  name: string;
+  productSearch: string;
   quantity: number;
   unit: string;
 }
 
-interface MatchedProduct {
-  id: string;
-  name: string;
-  matchedName: string;
+interface AutoFillResult {
+  productId: string;
+  productName: string;
   quantity: number;
   unit: string;
-  rate: number;
-  total: number;
   confidence: 'high' | 'medium' | 'low';
-  notFound?: boolean;
+  searchTerm: string;
 }
 
 interface Product {
@@ -31,7 +28,7 @@ interface UseVoiceOrderResult {
   isRecording: boolean;
   isProcessing: boolean;
   transcript: string;
-  matchedProducts: MatchedProduct[];
+  autoFillResults: AutoFillResult[];
   startRecording: () => void;
   stopRecording: () => void;
   clearResults: () => void;
@@ -39,7 +36,7 @@ interface UseVoiceOrderResult {
   isSupported: boolean;
 }
 
-// Simple fuzzy matching function
+// Enhanced fuzzy matching for product names with variants
 const fuzzyMatch = (searchTerm: string, target: string): number => {
   const search = searchTerm.toLowerCase().trim();
   const targetLower = target.toLowerCase().trim();
@@ -47,25 +44,58 @@ const fuzzyMatch = (searchTerm: string, target: string): number => {
   // Exact match
   if (targetLower === search) return 1;
   
+  // Remove common separators and normalize
+  const normalizeStr = (s: string) => s.replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+  const normalizedSearch = normalizeStr(search);
+  const normalizedTarget = normalizeStr(targetLower);
+  
+  // Check if normalized versions match
+  if (normalizedTarget === normalizedSearch) return 1;
+  
   // Contains match
-  if (targetLower.includes(search) || search.includes(targetLower)) return 0.8;
+  if (normalizedTarget.includes(normalizedSearch)) return 0.9;
+  if (normalizedSearch.includes(normalizedTarget)) return 0.85;
   
-  // Word-based matching
-  const searchWords = search.split(/\s+/);
-  const targetWords = targetLower.split(/\s+/);
+  // Extract numbers and words separately for better matching
+  const extractParts = (s: string) => {
+    const numbers = s.match(/\d+/g) || [];
+    const words = s.replace(/\d+/g, '').trim().split(/\s+/).filter(w => w.length > 0);
+    return { numbers, words };
+  };
   
-  let matchedWords = 0;
-  for (const sw of searchWords) {
-    for (const tw of targetWords) {
-      if (tw.includes(sw) || sw.includes(tw)) {
-        matchedWords++;
-        break;
+  const searchParts = extractParts(normalizedSearch);
+  const targetParts = extractParts(normalizedTarget);
+  
+  // Check if numbers match
+  const numbersMatch = searchParts.numbers.some(sn => 
+    targetParts.numbers.some(tn => sn === tn)
+  );
+  
+  // Check if main word matches
+  let wordsMatchScore = 0;
+  for (const sw of searchParts.words) {
+    for (const tw of targetParts.words) {
+      if (tw === sw) {
+        wordsMatchScore += 1;
+      } else if (tw.includes(sw) || sw.includes(tw)) {
+        wordsMatchScore += 0.7;
+      } else if (tw.startsWith(sw.substring(0, 3)) || sw.startsWith(tw.substring(0, 3))) {
+        // First 3 chars match (handles typos like adrak/adarak)
+        wordsMatchScore += 0.6;
       }
     }
   }
   
-  if (matchedWords > 0) {
-    return 0.5 + (matchedWords / Math.max(searchWords.length, targetWords.length)) * 0.3;
+  const maxWords = Math.max(searchParts.words.length, targetParts.words.length, 1);
+  const wordScore = wordsMatchScore / maxWords;
+  
+  // Combine scores
+  if (numbersMatch && wordScore > 0) {
+    return 0.7 + wordScore * 0.2;
+  }
+  
+  if (wordScore > 0) {
+    return 0.4 + wordScore * 0.3;
   }
   
   return 0;
@@ -94,7 +124,7 @@ export const useVoiceOrder = (products: Product[]): UseVoiceOrderResult => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const [matchedProducts, setMatchedProducts] = useState<MatchedProduct[]>([]);
+  const [autoFillResults, setAutoFillResults] = useState<AutoFillResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   
   const recognitionRef = useRef<any>(null);
@@ -150,49 +180,38 @@ export const useVoiceOrder = (products: Product[]): UseVoiceOrderResult => {
         return;
       }
 
-      // Match parsed orders to actual products
-      const matched: MatchedProduct[] = parsedOrders.map(order => {
-        const { product, confidence } = findBestMatch(order.name, products);
+      // Match parsed orders to actual products for auto-fill
+      const results: AutoFillResult[] = [];
+      
+      for (const order of parsedOrders) {
+        // Handle both old format (name) and new format (productSearch)
+        const searchTerm = (order as any).productSearch || (order as any).name || '';
+        const { product, confidence } = findBestMatch(searchTerm, products);
         
         if (product) {
-          return {
-            id: product.id,
-            name: product.name,
-            matchedName: order.name,
+          results.push({
+            productId: product.id,
+            productName: product.name,
             quantity: order.quantity || 1,
             unit: order.unit || product.unit || 'kg',
-            rate: product.rate,
-            total: (order.quantity || 1) * product.rate,
-            confidence
-          };
+            confidence,
+            searchTerm
+          });
         } else {
-          return {
-            id: `not-found-${order.name}`,
-            name: order.name,
-            matchedName: order.name,
-            quantity: order.quantity || 1,
-            unit: order.unit || 'kg',
-            rate: 0,
-            total: 0,
-            confidence: 'low' as const,
-            notFound: true
-          };
+          console.log(`No match found for: "${searchTerm}"`);
         }
-      });
+      }
 
-      setMatchedProducts(matched);
+      setAutoFillResults(results);
       
       // Show toast with summary
-      const foundCount = matched.filter(m => !m.notFound).length;
-      const notFoundCount = matched.filter(m => m.notFound).length;
-      
-      if (foundCount > 0) {
+      if (results.length > 0) {
         toast({
-          title: `Found ${foundCount} product${foundCount > 1 ? 's' : ''}`,
-          description: notFoundCount > 0 
-            ? `${notFoundCount} product${notFoundCount > 1 ? 's' : ''} could not be matched`
-            : 'Review and confirm to add to cart',
+          title: `Found ${results.length} product${results.length > 1 ? 's' : ''}`,
+          description: results.map(r => `${r.productName}: ${r.quantity} ${r.unit}`).join(', '),
         });
+      } else {
+        setError('Could not match any products. Please try different names.');
       }
 
     } catch (err) {
@@ -215,7 +234,7 @@ export const useVoiceOrder = (products: Product[]): UseVoiceOrderResult => {
 
     setError(null);
     setTranscript('');
-    setMatchedProducts([]);
+    setAutoFillResults([]);
     finalTranscriptRef.current = '';
 
     const recognition = new SpeechRecognition();
@@ -286,7 +305,7 @@ export const useVoiceOrder = (products: Product[]): UseVoiceOrderResult => {
 
   const clearResults = useCallback(() => {
     setTranscript('');
-    setMatchedProducts([]);
+    setAutoFillResults([]);
     setError(null);
     finalTranscriptRef.current = '';
   }, []);
@@ -295,7 +314,7 @@ export const useVoiceOrder = (products: Product[]): UseVoiceOrderResult => {
     isRecording,
     isProcessing,
     transcript,
-    matchedProducts,
+    autoFillResults,
     startRecording,
     stopRecording,
     clearResults,
