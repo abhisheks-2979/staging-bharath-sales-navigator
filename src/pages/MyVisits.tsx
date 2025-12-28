@@ -1069,10 +1069,7 @@ export const MyVisits = () => {
   const handleOrdersClick = async () => {
     if (!user || !selectedDate) return;
     try {
-      const todayStart = new Date(selectedDate);
-      todayStart.setHours(0, 0, 0, 0);
-      const todayEnd = new Date(selectedDate);
-      todayEnd.setHours(23, 59, 59, 999);
+      // FIX: Use order_date instead of created_at for consistent date filtering
       const {
         data: orders,
         error
@@ -1081,7 +1078,7 @@ export const MyVisits = () => {
           order_items (
             *
           )
-        `).eq('user_id', user.id).gte('created_at', todayStart.toISOString()).lte('created_at', todayEnd.toISOString());
+        `).eq('user_id', user.id).eq('order_date', selectedDate);
       if (error) throw error;
       setOrdersData(orders || []);
       setIsOrdersDialogOpen(true);

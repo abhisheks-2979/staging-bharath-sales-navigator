@@ -24,6 +24,7 @@ import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { retailerStatusRegistry } from "@/lib/retailerStatusRegistry";
 import { visitStatusCache } from "@/lib/visitStatusCache";
+import { addOrderToSnapshot } from "@/lib/myVisitsSnapshot";
 import { syncOrdersToVanStock, getTodayDateString } from "@/utils/vanStockSync";
 import { calculateLocalVanStockUpdate } from "@/utils/localVanStockSync";
 import { getLocalTodayDate } from "@/utils/dateUtils";
@@ -922,6 +923,15 @@ export const Cart = () => {
           created_at: new Date().toISOString()
         };
         
+        // CRITICAL FIX: Update snapshot for ONLINE orders too (offline orders already update via offlineOrderUtils)
+        // This ensures My Visits shows correct order values instantly even when loading from snapshot
+        try {
+          await addOrderToSnapshot(currentUserId, orderDate, orderForEvent);
+          console.log('📸 [Cart] Updated snapshot with order:', orderForEvent.id);
+        } catch (snapshotErr) {
+          console.warn('[Cart] Could not update snapshot:', snapshotErr);
+        }
+        
         window.dispatchEvent(new CustomEvent('visitStatusChanged', {
           detail: { 
             visitId: actualVisitId, 
@@ -931,6 +941,9 @@ export const Cart = () => {
             order: orderForEvent  // Include complete order object for progress stats
           }
         }));
+        
+        // CRITICAL FIX: Also dispatch visitDataChanged to trigger data refreshes across the app
+        window.dispatchEvent(new Event('visitDataChanged'));
       }
 
       // Navigate to My Visits page immediately

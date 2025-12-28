@@ -916,6 +916,7 @@ export const VisitCard = ({
   // Run initial status check and register for targeted refresh
   useEffect(() => {
     // Register this card to receive targeted refresh notifications
+    // NOTE: The registry now immediately invokes callback if retailer is pending refresh
     const unregister = retailerStatusRegistry.register(myRetailerId, () => {
       console.log('🎯 [VisitCard] Received targeted refresh notification for:', myRetailerId);
       checkStatus(true); // Force refresh only for this retailer
@@ -946,6 +947,13 @@ export const VisitCard = ({
         setCurrentStatus('unproductive');
         setStatusLoadedFromDB(true);
         setPhase('completed');
+      }
+      
+      // CRITICAL FIX: Even with skipInitialCheck, check if this retailer needs refresh
+      // This handles the case where order was placed and we navigated back
+      if (retailerStatusRegistry.needsRefresh(myRetailerId)) {
+        console.log('🔄 [VisitCard] Retailer marked for refresh on mount:', myRetailerId);
+        checkStatus(true);
       }
     }
     

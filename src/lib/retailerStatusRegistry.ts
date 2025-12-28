@@ -12,6 +12,14 @@ class RetailerStatusRegistry {
   register(retailerId: string, callback: StatusChangeCallback): () => void {
     this.listeners.set(retailerId, callback);
     
+    // CRITICAL FIX: If this retailer is already marked for refresh, 
+    // immediately notify the callback so newly mounted cards get updated
+    if (this.pendingRefreshRetailers.has(retailerId)) {
+      console.log(`[StatusRegistry] Retailer ${retailerId} has pending refresh on register - notifying immediately`);
+      // Use setTimeout to ensure state is fully initialized before callback
+      setTimeout(() => callback(retailerId), 0);
+    }
+    
     // Return unregister function
     return () => {
       this.listeners.delete(retailerId);
