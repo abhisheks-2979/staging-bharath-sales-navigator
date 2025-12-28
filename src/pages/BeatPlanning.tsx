@@ -826,6 +826,20 @@ export const BeatPlanning = () => {
                         // Clear the snapshot so My Visit shows empty retailers
                         await clearMyVisitsSnapshot(user.id, dateString);
                         
+                        // Also clear beat plans from offline storage for this date
+                        try {
+                          const allBeatPlans = await offlineStorage.getAll<any>(STORES.BEAT_PLANS);
+                          const toDelete = allBeatPlans.filter(bp => 
+                            bp.user_id === user.id && bp.plan_date === dateString
+                          );
+                          for (const bp of toDelete) {
+                            await offlineStorage.delete(STORES.BEAT_PLANS, bp.id);
+                          }
+                          console.log('[ClearAll] Deleted', toDelete.length, 'beat plans from offline storage');
+                        } catch (e) {
+                          console.error('[ClearAll] Failed to clear offline storage:', e);
+                        }
+                        
                         window.dispatchEvent(new Event('visitDataChanged'));
                         toast.success(`Cleared all beats for ${format(selectedDate, 'MMMM d, yyyy')}`);
                       }}

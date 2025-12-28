@@ -905,7 +905,16 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
     // Reload from local first
     if (effectiveUserId) {
       const offlineData = await loadFromOfflineStorage(effectiveUserId, selectedDate);
-      if (offlineData) {
+      
+      // FIX: If no beat plans exist (all cleared), also clear retailers
+      if (offlineData && offlineData.beatPlans.length === 0) {
+        console.log('[InvalidateData] No beat plans found - clearing all data for date:', selectedDate);
+        setBeatPlans([]);
+        setVisits([]);
+        setRetailers([]);
+        setOrders([]);
+        cacheRef.current.set(selectedDate, { beatPlans: [], visits: [], retailers: [], orders: [] });
+      } else if (offlineData) {
         setBeatPlans(offlineData.beatPlans);
         setVisits(offlineData.visits);
         setRetailers(offlineData.retailers);
