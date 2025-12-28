@@ -133,14 +133,14 @@ export const getConnectionSpeed = (): {
     };
   }
 
-  // Map connection type to speed estimates
+  // Map connection type to speed estimates - more conservative for mobile
   const typeToSpeed: Record<string, { downlink: number; effectiveType: string }> = {
     'wifi': { downlink: 20, effectiveType: '4g' },
-    '4g': { downlink: 10, effectiveType: '4g' },
-    '3g': { downlink: 1, effectiveType: '3g' },
+    '4g': { downlink: 8, effectiveType: '4g' },  // More conservative
+    '3g': { downlink: 0.5, effectiveType: '3g' }, // More conservative - treated as slow
     '2g': { downlink: 0.1, effectiveType: '2g' },
-    'cellular': { downlink: 5, effectiveType: '4g' }, // Assume decent cellular
-    'unknown': { downlink: 5, effectiveType: 'unknown' },
+    'cellular': { downlink: 3, effectiveType: '3g' }, // More conservative - assume 3g quality
+    'unknown': { downlink: 2, effectiveType: '3g' }, // Unknown = assume slow
     'none': { downlink: 0, effectiveType: 'none' },
   };
 
@@ -200,19 +200,24 @@ export const isSlowConnection = (): boolean => {
 };
 
 /**
- * Get connection quality label
+ * Get connection quality label - more aggressive slow detection
  */
 export const getConnectionQuality = (): 'fast' | 'medium' | 'slow' | 'offline' => {
+  // Manual slow mode = always slow
+  if (manualSlowMode) return 'slow';
+  
   const networkStatus = getNetworkStatusSync();
   
   if (!networkStatus.connected) return 'offline';
   
   const { effectiveType, downlink } = getConnectionSpeed();
   
+  // More aggressive slow detection
+  if (effectiveType === '2g' || effectiveType === 'slow-2g') return 'slow';
+  if (effectiveType === '3g' || downlink < 2) return 'slow'; // 3g is now slow
   if (effectiveType === '4g' && downlink >= 5) return 'fast';
-  if (effectiveType === '4g' || effectiveType === '3g') return 'medium';
   if (effectiveType === 'wifi') return 'fast';
-  return 'slow';
+  return 'medium';
 };
 
 /**
