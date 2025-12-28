@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Card } from './ui/card';
-import { Route, MapPin, CheckCircle, Clock } from 'lucide-react';
+import type { EnhancedRetailerLocation, RetailerStatus } from './gps/RetailerListModal';
 
 interface Position {
   latitude: number;
@@ -11,21 +10,11 @@ interface Position {
   timestamp: Date;
 }
 
-interface RetailerLocation {
-  id: string;
-  name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  visitId: string;
-  checkInTime: string | null;
-  status: string;
-}
-
 interface JourneyMapProps {
   positions: Position[];
-  retailers?: RetailerLocation[];
+  retailers?: EnhancedRetailerLocation[];
   height?: string;
+  focusRetailerId?: string | null;
 }
 
 // Fix for default marker icons
@@ -36,43 +25,157 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-export const JourneyMap: React.FC<JourneyMapProps> = ({ positions, retailers = [], height = '500px' }) => {
+// Marker color URLs
+const markerColors: Record<RetailerStatus, string> = {
+  planned: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+  productive: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+  unproductive: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+  pending: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png',
+};
+
+// Calculate distance between two points using Haversine formula
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+// Nearest-neighbor algorithm for route optimization
+const optimizeRoute = (retailers: EnhancedRetailerLocation[], startLat?: number, startLon?: number): EnhancedRetailerLocation[] => {
+  if (retailers.length <= 1) return retailers;
+  
+  const unvisited = [...retailers];
+  const optimized: EnhancedRetailerLocation[] = [];
+  
+  // Start from the first retailer or a provided start point
+  let currentLat = startLat ?? unvisited[0].latitude;
+  let currentLon = startLon ?? unvisited[0].longitude;
+  
+  while (unvisited.length > 0) {
+    let nearestIdx = 0;
+    let nearestDist = Infinity;
+    
+    for (let i = 0; i < unvisited.length; i++) {
+      const dist = calculateDistance(currentLat, currentLon, unvisited[i].latitude, unvisited[i].longitude);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearestIdx = i;
+      }
+    }
+    
+    const nearest = unvisited.splice(nearestIdx, 1)[0];
+    optimized.push({ ...nearest, sequenceNumber: optimized.length + 1 });
+    currentLat = nearest.latitude;
+    currentLon = nearest.longitude;
+  }
+  
+  return optimized;
+};
+
+export const JourneyMap: React.FC<JourneyMapProps> = ({ 
+  positions, 
+  retailers = [], 
+  height = '500px',
+  focusRetailerId 
+}) => {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [totalDistance, setTotalDistance] = useState<number>(0);
+  const markersRef = useRef<Map<string, L.Marker>>(new Map());
+  const [optimizedRetailers, setOptimizedRetailers] = useState<EnhancedRetailerLocation[]>([]);
+  const [totalRouteDistance, setTotalRouteDistance] = useState<number>(0);
 
-  // Calculate distance between two points using Haversine formula
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371; // Earth's radius in km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+  // Optimize route when retailers change
+  useEffect(() => {
+    if (retailers.length > 0) {
+      // Get pending retailers for route optimization
+      const pendingAndPlanned = retailers.filter(r => r.status === 'pending' || r.status === 'planned');
+      const completedRetailers = retailers.filter(r => r.status === 'productive' || r.status === 'unproductive');
+      
+      // Optimize route for pending/planned retailers
+      const startPoint = positions.length > 0 
+        ? { lat: positions[positions.length - 1].latitude, lon: positions[positions.length - 1].longitude }
+        : undefined;
+      
+      const optimizedPending = optimizeRoute(pendingAndPlanned, startPoint?.lat, startPoint?.lon);
+      
+      // Combine: completed first (in check-in order), then optimized pending
+      const sortedCompleted = [...completedRetailers].sort((a, b) => {
+        if (!a.checkInTime) return 1;
+        if (!b.checkInTime) return -1;
+        return new Date(a.checkInTime).getTime() - new Date(b.checkInTime).getTime();
+      }).map((r, idx) => ({ ...r, sequenceNumber: idx + 1 }));
+      
+      const allOptimized = [
+        ...sortedCompleted,
+        ...optimizedPending.map((r, idx) => ({ ...r, sequenceNumber: sortedCompleted.length + idx + 1 }))
+      ];
+      
+      setOptimizedRetailers(allOptimized);
+      
+      // Calculate total route distance
+      let distance = 0;
+      for (let i = 0; i < allOptimized.length - 1; i++) {
+        distance += calculateDistance(
+          allOptimized[i].latitude,
+          allOptimized[i].longitude,
+          allOptimized[i + 1].latitude,
+          allOptimized[i + 1].longitude
+        );
+      }
+      setTotalRouteDistance(distance);
+    } else {
+      setOptimizedRetailers([]);
+      setTotalRouteDistance(0);
+    }
+  }, [retailers, positions]);
+
+  // Create status-based marker icon
+  const createRetailerIcon = (status: RetailerStatus) => {
+    return L.icon({
+      iconUrl: markerColors[status],
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
   };
+
+  // Focus on a specific retailer when focusRetailerId changes
+  useEffect(() => {
+    if (focusRetailerId && mapRef.current && markersRef.current.has(focusRetailerId)) {
+      const marker = markersRef.current.get(focusRetailerId);
+      if (marker) {
+        const latLng = marker.getLatLng();
+        mapRef.current.setView(latLng, 16, { animate: true });
+        marker.openPopup();
+      }
+    }
+  }, [focusRetailerId]);
 
   useEffect(() => {
     if (!containerRef.current) return;
     
     // Show map even if no positions, but need retailers
-    if (positions.length === 0 && retailers.length === 0) return;
+    if (positions.length === 0 && optimizedRetailers.length === 0) return;
 
     // Initialize map if not already initialized
     if (!mapRef.current) {
-      // Determine initial center based on available data
       let initialCenter: [number, number] = [20.5937, 78.9629]; // Default to India center
       
-      if (retailers.length > 0) {
-        initialCenter = [retailers[0].latitude, retailers[0].longitude];
+      if (optimizedRetailers.length > 0) {
+        initialCenter = [optimizedRetailers[0].latitude, optimizedRetailers[0].longitude];
       } else if (positions.length > 0) {
         initialCenter = [positions[positions.length - 1].latitude, positions[positions.length - 1].longitude];
       }
       
       mapRef.current = L.map(containerRef.current).setView(initialCenter, 13);
-
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapRef.current);
     }
 
@@ -82,69 +185,77 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({ positions, retailers = [
         mapRef.current?.removeLayer(layer);
       }
     });
+    
+    // Clear markers reference
+    markersRef.current.clear();
 
-    // Create custom icons for retailer markers
-    const createRetailerIcon = (isCompleted: boolean) => {
-      return L.icon({
-        iconUrl: isCompleted 
-          ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png'
-          : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41]
-      });
+    // Status labels and colors for popup
+    const statusLabels: Record<RetailerStatus, { label: string; color: string }> = {
+      planned: { label: 'Planned', color: '#3b82f6' },
+      productive: { label: 'Productive', color: '#22c55e' },
+      unproductive: { label: 'Unproductive', color: '#ef4444' },
+      pending: { label: 'Pending', color: '#f97316' },
     };
 
     // Add retailer markers and route
-    if (retailers.length > 0) {
-      const retailerCoordinates: L.LatLngExpression[] = retailers.map((retailer) => [
+    if (optimizedRetailers.length > 0) {
+      // Draw optimized route connecting all retailers
+      const routeCoordinates: L.LatLngExpression[] = optimizedRetailers.map((retailer) => [
         retailer.latitude,
         retailer.longitude,
       ]);
 
-      // Draw route connecting all retailers
-      L.polyline(retailerCoordinates, {
+      L.polyline(routeCoordinates, {
         color: '#8b5cf6',
         weight: 4,
         opacity: 0.8,
         dashArray: '10, 10'
       }).addTo(mapRef.current);
 
-      // Calculate total distance
-      let distance = 0;
-      for (let i = 0; i < retailers.length - 1; i++) {
-        distance += calculateDistance(
-          retailers[i].latitude,
-          retailers[i].longitude,
-          retailers[i + 1].latitude,
-          retailers[i + 1].longitude
-        );
-      }
-      setTotalDistance(distance);
-
-      // Add retailer markers
-      retailers.forEach((retailer, index) => {
-        const isCompleted = retailer.status === 'completed' || retailer.status === 'productive' || retailer.checkInTime !== null;
-        const icon = createRetailerIcon(isCompleted);
+      // Add retailer markers with sequence numbers
+      optimizedRetailers.forEach((retailer) => {
+        const icon = createRetailerIcon(retailer.status);
+        const statusInfo = statusLabels[retailer.status];
         
-        L.marker([retailer.latitude, retailer.longitude], { icon })
+        const marker = L.marker([retailer.latitude, retailer.longitude], { icon })
           .addTo(mapRef.current!)
           .bindPopup(`
             <div style="min-width: 200px;">
-              <strong style="color: ${isCompleted ? '#22c55e' : '#ef4444'}; font-size: 16px;">
-                ${isCompleted ? '✓ ' : ''}${retailer.name}
-              </strong>
-              <div style="margin-top: 8px; color: #666;">
-                <div><strong>Address:</strong> ${retailer.address}</div>
-                <div><strong>Status:</strong> ${isCompleted ? 'Completed' : 'Pending'}</div>
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <span style="background: ${statusInfo.color}; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px;">
+                  ${retailer.sequenceNumber || ''}
+                </span>
+                <strong style="color: ${statusInfo.color}; font-size: 16px;">
+                  ${retailer.name}
+                </strong>
+              </div>
+              <div style="color: #666;">
+                <div><strong>Address:</strong> ${retailer.address || 'N/A'}</div>
+                <div><strong>Status:</strong> <span style="color: ${statusInfo.color}">${statusInfo.label}</span></div>
                 ${retailer.checkInTime ? `<div><strong>Check-in:</strong> ${new Date(retailer.checkInTime).toLocaleTimeString()}</div>` : ''}
-                <div><strong>Position:</strong> #${index + 1}</div>
+                ${retailer.hasOrder ? '<div style="color: #22c55e; font-weight: bold;">✓ Order Placed</div>' : ''}
               </div>
             </div>
           `);
+        
+        markersRef.current.set(retailer.id, marker);
       });
+
+      // Add route distance label
+      if (totalRouteDistance > 0) {
+        const midIdx = Math.floor(optimizedRetailers.length / 2);
+        const midPoint = optimizedRetailers[midIdx];
+        L.marker([midPoint.latitude, midPoint.longitude], {
+          icon: L.divIcon({
+            className: 'route-distance-label',
+            html: `<div style="background: #8b5cf6; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+              Route: ${totalRouteDistance.toFixed(1)} km
+            </div>`,
+            iconSize: [80, 24],
+            iconAnchor: [40, 12],
+          })
+        }).addTo(mapRef.current);
+      }
     }
 
     // Add GPS tracking path (if available)
@@ -160,7 +271,7 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({ positions, retailers = [
         opacity: 0.5,
       }).addTo(mapRef.current);
 
-      // Create blue icon for waypoints
+      // Create small blue icon for waypoints
       const blueIcon = L.icon({
         iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
         shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
@@ -198,8 +309,8 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({ positions, retailers = [
     // Fit bounds to show all markers
     const allCoordinates: L.LatLngExpression[] = [];
     
-    if (retailers.length > 0) {
-      retailers.forEach(r => allCoordinates.push([r.latitude, r.longitude]));
+    if (optimizedRetailers.length > 0) {
+      optimizedRetailers.forEach(r => allCoordinates.push([r.latitude, r.longitude]));
     }
     
     if (positions.length > 0) {
@@ -217,11 +328,7 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({ positions, retailers = [
         mapRef.current = null;
       }
     };
-  }, [positions, retailers]);
-
-  const completedCount = retailers.filter(r => 
-    r.status === 'completed' || r.status === 'productive' || r.checkInTime !== null
-  ).length;
+  }, [positions, optimizedRetailers, totalRouteDistance]);
 
   if (positions.length === 0 && retailers.length === 0) {
     return (
@@ -235,10 +342,37 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({ positions, retailers = [
   }
 
   return (
-    <div
-      ref={containerRef}
-      style={{ height, width: '100%' }}
-      className="rounded-lg"
-    />
+    <div className="space-y-2">
+      {/* Legend */}
+      <div className="flex flex-wrap gap-3 px-2 py-1.5 bg-muted/50 rounded-lg text-xs">
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+          <span>Planned</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-green-500"></div>
+          <span>Productive</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-red-500"></div>
+          <span>Unproductive</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+          <span>Pending</span>
+        </div>
+        {totalRouteDistance > 0 && (
+          <div className="flex items-center gap-1 ml-auto">
+            <span className="text-purple-600 font-medium">Route: {totalRouteDistance.toFixed(1)} km</span>
+          </div>
+        )}
+      </div>
+      
+      <div
+        ref={containerRef}
+        style={{ height, width: '100%' }}
+        className="rounded-lg"
+      />
+    </div>
   );
 };

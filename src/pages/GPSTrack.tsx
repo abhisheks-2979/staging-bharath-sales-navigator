@@ -15,23 +15,13 @@ import { toast } from 'sonner';
 import { UserSelector } from '@/components/UserSelector';
 import { useSubordinates } from '@/hooks/useSubordinates';
 import { GPSStatsCard } from '@/components/gps/GPSStatsCard';
+import { RetailerListModal, EnhancedRetailerLocation, RetailerStatus } from '@/components/gps/RetailerListModal';
 
 interface GPSData {
   latitude: number;
   longitude: number;
   accuracy: number;
   timestamp: Date;
-}
-
-interface RetailerLocation {
-  id: string;
-  name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  visitId: string;
-  checkInTime: string | null;
-  status: string;
 }
 
 interface VisitStats {
@@ -45,11 +35,16 @@ export default function GPSTrack() {
   const { user } = useAuth();
   const [date, setDate] = useState<Date>(new Date());
   const [gpsData, setGpsData] = useState<GPSData[]>([]);
-  const [retailers, setRetailers] = useState<RetailerLocation[]>([]);
+  const [retailers, setRetailers] = useState<EnhancedRetailerLocation[]>([]);
   const [loading, setLoading] = useState(false);
   const [beatName, setBeatName] = useState<string | null>(null);
   const [visitStats, setVisitStats] = useState<VisitStats>({ planned: 0, productive: 0, unproductive: 0, pending: 0 });
   const [totalKmTraveled, setTotalKmTraveled] = useState(0);
+  
+  // Modal state
+  const [selectedStatus, setSelectedStatus] = useState<RetailerStatus | null>(null);
+  const [showRetailerModal, setShowRetailerModal] = useState(false);
+  const [focusRetailerId, setFocusRetailerId] = useState<string | null>(null);
   
   // Hierarchical user filter using useSubordinates hook
   const { isManager, subordinates, isLoading: subordinatesLoading } = useSubordinates();
@@ -79,8 +74,6 @@ export default function GPSTrack() {
       setCurrentLocationUserId('self');
     }
   }, [user?.id, subordinatesLoading]);
-
-  // Data loading effect - moved after function definitions below
 
   // Real-time subscription for visit updates
   useEffect(() => {
@@ -146,115 +139,165 @@ export default function GPSTrack() {
     if (!selectedMember) return;
 
     const dateStr = date.toISOString().split('T')[0];
-    console.log('Loading retailer locations for date:', dateStr, 'user:', selectedMember);
+    console.log('Loading ALL retailer locations for date:', dateStr, 'user:', selectedMember);
 
-    const { data: visitsData, error: visitsError } = await supabase
-      .from('visits')
-      .select('id, check_in_time, check_out_time, status, retailer_id, check_in_location, check_in_address')
+    // First, get all beat plans for the day
+    const { data: beatPlans, error: beatPlansError } = await supabase
+      .from('beat_plans')
+      .select('beat_id')
       .eq('user_id', selectedMember)
-      .eq('planned_date', dateStr)
-      .not('retailer_id', 'is', null)
-      .order('check_in_time', { ascending: true });
+      .eq('plan_date', dateStr);
 
-    if (visitsError) {
-      console.error('Error loading visits:', visitsError);
-      toast.error('Failed to load visits');
+    if (beatPlansError) {
+      console.error('Error loading beat plans:', beatPlansError);
       return;
     }
 
-    if (!visitsData || visitsData.length === 0) {
-      console.log('No visits found for this date');
-      setRetailers([]);
-      return;
-    }
-
-    console.log('Found visits:', visitsData);
-
-    const retailerIds = [...new Set(visitsData.map(v => v.retailer_id).filter(Boolean))];
+    const beatIds = beatPlans?.map(bp => bp.beat_id) || [];
     
-    if (retailerIds.length === 0) {
+    if (beatIds.length === 0) {
+      console.log('No beat plans found for this date');
       setRetailers([]);
       return;
     }
 
-    const { data: retailersData, error: retailersError } = await supabase
+    // Get all retailers assigned to these beats
+    const { data: allRetailers, error: retailersError } = await supabase
       .from('retailers')
       .select('id, name, address, latitude, longitude')
-      .in('id', retailerIds);
+      .in('beat_id', beatIds);
 
     if (retailersError) {
       console.error('Error loading retailers:', retailersError);
-      toast.error('Failed to load retailer details');
       return;
     }
 
-    console.log('Found retailers:', retailersData);
-
-    if (retailersData) {
-      const retailersWithoutLocation = retailersData.filter(r => !r.latitude || !r.longitude);
-      
-      const parseLatLngFromAddress = (addr?: string | null) => {
-        if (!addr) return null;
-        const match = addr.match(/(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/);
-        if (!match) return null;
-        const lat = parseFloat(match[1]);
-        const lng = parseFloat(match[2]);
-        if (isNaN(lat) || isNaN(lng)) return null;
-        return { latitude: lat, longitude: lng };
-      };
-
-      const retailerLocations: RetailerLocation[] = visitsData
-        .map((visit: any) => {
-          const retailer = retailersData.find(r => r.id === visit.retailer_id);
-          let lat: number | null = null;
-          let lng: number | null = null;
-          let address: string = retailer?.address || '';
-
-          if (retailer?.latitude && retailer?.longitude) {
-            lat = parseFloat(retailer.latitude as unknown as string);
-            lng = parseFloat(retailer.longitude as unknown as string);
-          } else if (visit.check_in_location?.latitude && visit.check_in_location?.longitude) {
-            lat = visit.check_in_location.latitude;
-            lng = visit.check_in_location.longitude;
-            if (!address) address = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-          } else {
-            const parsed = parseLatLngFromAddress(visit.check_in_address);
-            if (parsed) {
-              lat = parsed.latitude;
-              lng = parsed.longitude;
-              if (!address) address = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-            }
-          }
-
-          if (lat == null || lng == null) {
-            console.log('Skipping - no coords from retailer or visit:', visit.retailer_id, retailer?.name);
-            return null;
-          }
-
-          return {
-            id: retailer?.id || visit.retailer_id,
-            name: retailer?.name || 'Retailer',
-            address,
-            latitude: lat,
-            longitude: lng,
-            visitId: visit.id,
-            checkInTime: visit.check_in_time,
-            status: visit.status
-          };
-        })
-        .filter((loc): loc is RetailerLocation => loc !== null);
-
-      console.log('Processed retailer locations (with fallbacks):', retailerLocations);
-      setRetailers(retailerLocations);
-
-      if (retailerLocations.length === 0 && retailersWithoutLocation.length > 0) {
-        const missingNames = retailersWithoutLocation.map(r => r.name).join(', ');
-        toast.error(
-          `${retailersWithoutLocation.length} retailer${retailersWithoutLocation.length > 1 ? 's' : ''} missing location data. Using visit locations when available. Missing: ${missingNames}`,
-          { duration: 8000 }
-        );
-      }
+    if (!allRetailers || allRetailers.length === 0) {
+      console.log('No retailers found for beats');
+      setRetailers([]);
+      return;
     }
+
+    // Get visits for this date
+    const { data: visitsData, error: visitsError } = await supabase
+      .from('visits')
+      .select('id, check_in_time, check_out_time, status, retailer_id, no_order_reason, check_in_location, check_in_address')
+      .eq('user_id', selectedMember)
+      .eq('planned_date', dateStr)
+      .not('retailer_id', 'is', null);
+
+    if (visitsError) {
+      console.error('Error loading visits:', visitsError);
+    }
+
+    // Get orders for this date
+    const { data: ordersData, error: ordersError } = await supabase
+      .from('orders')
+      .select('retailer_id')
+      .eq('user_id', selectedMember)
+      .eq('order_date', dateStr)
+      .eq('status', 'confirmed');
+
+    if (ordersError) {
+      console.error('Error loading orders:', ordersError);
+    }
+
+    const visits = visitsData || [];
+    const orders = ordersData || [];
+    
+    // Create a map of retailer visits
+    const visitsByRetailer = new Map<string, any[]>();
+    visits.forEach(v => {
+      if (v.retailer_id) {
+        const list = visitsByRetailer.get(v.retailer_id) || [];
+        list.push(v);
+        visitsByRetailer.set(v.retailer_id, list);
+      }
+    });
+
+    // Create a set of retailers with orders
+    const retailersWithOrders = new Set(orders.map(o => o.retailer_id));
+
+    // Check if any visits have started (to determine planned vs pending)
+    const hasAnyVisits = visits.length > 0;
+
+    // Helper to parse lat/lng from address
+    const parseLatLngFromAddress = (addr?: string | null) => {
+      if (!addr) return null;
+      const match = addr.match(/(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/);
+      if (!match) return null;
+      const lat = parseFloat(match[1]);
+      const lng = parseFloat(match[2]);
+      if (isNaN(lat) || isNaN(lng)) return null;
+      return { latitude: lat, longitude: lng };
+    };
+
+    // Map all retailers with their status
+    const enhancedRetailers: EnhancedRetailerLocation[] = allRetailers
+      .map((retailer) => {
+        const retailerVisits = visitsByRetailer.get(retailer.id) || [];
+        const hasOrder = retailersWithOrders.has(retailer.id);
+        const hasVisit = retailerVisits.length > 0;
+        const firstVisit = retailerVisits[0];
+
+        // Determine status
+        let status: RetailerStatus;
+        if (hasOrder || retailerVisits.some(v => v.status === 'productive')) {
+          status = 'productive';
+        } else if (retailerVisits.some(v => v.status === 'unproductive' || !!v.no_order_reason)) {
+          status = 'unproductive';
+        } else if (hasVisit) {
+          // Has visit but neither productive nor unproductive yet
+          status = 'pending';
+        } else if (hasAnyVisits) {
+          // No visit for this retailer, but other visits have started
+          status = 'pending';
+        } else {
+          // No visits at all - show as planned
+          status = 'planned';
+        }
+
+        // Get coordinates - prefer retailer data, fallback to visit check-in
+        let lat: number | null = null;
+        let lng: number | null = null;
+
+        if (retailer.latitude && retailer.longitude) {
+          lat = parseFloat(retailer.latitude as unknown as string);
+          lng = parseFloat(retailer.longitude as unknown as string);
+        } else if (firstVisit?.check_in_location?.latitude && firstVisit?.check_in_location?.longitude) {
+          lat = firstVisit.check_in_location.latitude;
+          lng = firstVisit.check_in_location.longitude;
+        } else if (firstVisit?.check_in_address) {
+          const parsed = parseLatLngFromAddress(firstVisit.check_in_address);
+          if (parsed) {
+            lat = parsed.latitude;
+            lng = parsed.longitude;
+          }
+        }
+
+        // Skip retailers without coordinates
+        if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) {
+          console.log('Skipping retailer without coordinates:', retailer.name);
+          return null;
+        }
+
+        const result: EnhancedRetailerLocation = {
+          id: retailer.id,
+          name: retailer.name || 'Retailer',
+          address: retailer.address || '',
+          latitude: lat,
+          longitude: lng,
+          visitId: firstVisit?.id,
+          checkInTime: firstVisit?.check_in_time || null,
+          status,
+          hasOrder,
+        };
+        return result;
+      })
+      .filter((r): r is EnhancedRetailerLocation => r !== null);
+
+    console.log('Enhanced retailer locations:', enhancedRetailers);
+    setRetailers(enhancedRetailers);
   };
 
   // Calculate distance between two points using Haversine formula
@@ -313,99 +356,28 @@ export default function GPSTrack() {
 
     const dateStr = date.toISOString().split('T')[0];
     
-    // CRITICAL FIX: Use the same calculation logic as Today's Progress
-    // Fetch both visits AND orders to calculate stats correctly
-    const [visitsRes, ordersRes, beatPlansRes] = await Promise.all([
-      supabase
-        .from('visits')
-        .select('id, retailer_id, status, no_order_reason')
-        .eq('user_id', selectedMember)
-        .eq('planned_date', dateStr),
-      supabase
-        .from('orders')
-        .select('id, retailer_id')
-        .eq('user_id', selectedMember)
-        .eq('order_date', dateStr)
-        .eq('status', 'confirmed'),
-      supabase
-        .from('beat_plans')
-        .select('beat_id')
-        .eq('user_id', selectedMember)
-        .eq('plan_date', dateStr)
-    ]);
+    // Calculate stats from the retailers state
+    const planned = retailers.length;
+    const productive = retailers.filter(r => r.status === 'productive').length;
+    const unproductive = retailers.filter(r => r.status === 'unproductive').length;
+    const pending = retailers.filter(r => r.status === 'pending' || r.status === 'planned').length;
+    
+    setVisitStats({ planned, productive, unproductive, pending });
+  };
 
-    if (visitsRes.error) {
-      console.error('Error loading visit stats:', visitsRes.error);
-      return;
+  // Calculate stats when retailers change
+  useEffect(() => {
+    if (retailers.length > 0) {
+      const planned = retailers.length;
+      const productive = retailers.filter(r => r.status === 'productive').length;
+      const unproductive = retailers.filter(r => r.status === 'unproductive').length;
+      const pending = retailers.filter(r => r.status === 'pending' || r.status === 'planned').length;
+      
+      setVisitStats({ planned, productive, unproductive, pending });
+    } else {
+      setVisitStats({ planned: 0, productive: 0, unproductive: 0, pending: 0 });
     }
-
-    const visits = visitsRes.data || [];
-    const orders = ordersRes.data || [];
-    const beatPlans = beatPlansRes.data || [];
-    
-    // Get beat IDs and fetch retailers assigned to those beats
-    const beatIds = beatPlans.map(bp => bp.beat_id);
-    let beatRetailers: { id: string }[] = [];
-    
-    if (beatIds.length > 0) {
-      const { data: retailers } = await supabase
-        .from('retailers')
-        .select('id')
-        .in('beat_id', beatIds);
-      beatRetailers = retailers || [];
-    }
-    
-    // Get retailer IDs with confirmed orders
-    const retailersWithOrders = new Set(orders.map(o => o.retailer_id));
-    
-    // Track unique retailers by status (same logic as Today's Progress)
-    const visitsByRetailer = new Map<string, any[]>();
-    visits.forEach(v => {
-      if (!v?.retailer_id) return;
-      const list = visitsByRetailer.get(v.retailer_id) || [];
-      list.push(v);
-      visitsByRetailer.set(v.retailer_id, list);
-    });
-
-    let productive = 0;
-    let unproductive = 0;
-    let pending = 0;
-    const countedRetailers = new Set<string>();
-
-    // Count from visits
-    visitsByRetailer.forEach((group, retailerId) => {
-      countedRetailers.add(retailerId);
-      if (retailersWithOrders.has(retailerId)) {
-        productive++;
-      } else if (group.some(v => v.status === 'productive')) {
-        productive++;
-      } else if (group.some(v => v.status === 'unproductive' || !!v.no_order_reason)) {
-        unproductive++;
-      } else {
-        pending++;
-      }
-    });
-
-    // Count retailers with orders but no visits as productive
-    retailersWithOrders.forEach(rid => {
-      if (!countedRetailers.has(rid)) {
-        productive++;
-        countedRetailers.add(rid);
-      }
-    });
-
-    // Count remaining planned retailers from beat assignments (retailers table)
-    for (const retailer of beatRetailers) {
-      if (!countedRetailers.has(retailer.id)) {
-        pending++;
-        countedRetailers.add(retailer.id);
-      }
-    }
-
-    const totalPlanned = countedRetailers.size;
-    
-    setVisitStats({ planned: totalPlanned, productive, unproductive, pending });
-  }
+  }, [retailers]);
 
   // Data loading effect - called after all functions are defined
   useEffect(() => {
@@ -413,11 +385,24 @@ export default function GPSTrack() {
       loadGPSData();
       loadRetailerLocations();
       loadBeatInfo();
-      loadVisitStats();
     }
   }, [selectedMember, date]);
 
   const isViewingOtherUser = currentLocationUser !== user?.id;
+
+  // Handle status card clicks
+  const handleStatusClick = (status: RetailerStatus) => {
+    setSelectedStatus(status);
+    setShowRetailerModal(true);
+  };
+
+  // Handle retailer click from modal - focus on map
+  const handleRetailerClick = (retailer: EnhancedRetailerLocation) => {
+    setShowRetailerModal(false);
+    setFocusRetailerId(retailer.id);
+    // Clear focus after a short delay
+    setTimeout(() => setFocusRetailerId(null), 2000);
+  };
 
   return (
     <Layout>
@@ -497,7 +482,7 @@ export default function GPSTrack() {
               </div>
             </Card>
 
-            {/* Stats Card */}
+            {/* Stats Card with click handlers */}
             <GPSStatsCard
               beatName={beatName}
               plannedVisits={visitStats.planned}
@@ -505,6 +490,10 @@ export default function GPSTrack() {
               unproductiveVisits={visitStats.unproductive}
               pendingVisits={visitStats.pending}
               totalKmTraveled={totalKmTraveled}
+              onPlannedClick={() => handleStatusClick('planned')}
+              onProductiveClick={() => handleStatusClick('productive')}
+              onUnproductiveClick={() => handleStatusClick('unproductive')}
+              onPendingClick={() => handleStatusClick('pending')}
             />
 
             {/* Map Display */}
@@ -527,7 +516,6 @@ export default function GPSTrack() {
                       loadGPSData();
                       loadRetailerLocations();
                       loadBeatInfo();
-                      loadVisitStats();
                     }}
                   >
                     Refresh Map
@@ -541,7 +529,12 @@ export default function GPSTrack() {
                 </Card>
               ) : (
               <Card className="overflow-hidden relative z-0">
-                  <JourneyMap positions={gpsData} retailers={retailers} height="500px" />
+                  <JourneyMap 
+                    positions={gpsData} 
+                    retailers={retailers} 
+                    height="500px"
+                    focusRetailerId={focusRetailerId}
+                  />
                 </Card>
               )}
 
@@ -572,6 +565,15 @@ export default function GPSTrack() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Retailer List Modal */}
+      <RetailerListModal
+        open={showRetailerModal}
+        onOpenChange={setShowRetailerModal}
+        status={selectedStatus}
+        retailers={retailers}
+        onRetailerClick={handleRetailerClick}
+      />
     </Layout>
   );
 }
