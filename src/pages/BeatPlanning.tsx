@@ -14,6 +14,7 @@ import { SearchInput } from "@/components/SearchInput";
 import { format, isAfter, startOfDay, startOfWeek, addDays, isSameDay, addWeeks, subWeeks } from "date-fns";
 import { cn } from "@/lib/utils";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
+import { clearMyVisitsSnapshot } from "@/lib/myVisitsSnapshot";
 import { toLocalISODate, getLocalTodayDate, parseLocalDate, formatWeekdayShort } from "@/utils/dateUtils";
 import { UserSelector } from "@/components/UserSelector";
 import { useSubordinates } from "@/hooks/useSubordinates";
@@ -821,6 +822,9 @@ export const BeatPlanning = () => {
                           .delete()
                           .eq('user_id', user.id)
                           .eq('plan_date', dateString);
+                        
+                        // Clear the snapshot so My Visit shows empty retailers
+                        await clearMyVisitsSnapshot(user.id, dateString);
                         
                         window.dispatchEvent(new Event('visitDataChanged'));
                         toast.success(`Cleared all beats for ${format(selectedDate, 'MMMM d, yyyy')}`);
