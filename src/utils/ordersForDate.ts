@@ -193,6 +193,10 @@ export function getOrderItemsFromOrders(orders: Order[]): OrderItem[] {
 /**
  * Calculate ordered quantities by product from merged orders
  * Returns a map of product_id -> total quantity
+ * 
+ * NOTE: product_id in order_items should now be:
+ * - For variants: the VARIANT UUID directly (matches van_stock_items.product_id)
+ * - For base products: the product UUID directly
  */
 export function calculateOrderedQuantitiesByProduct(orders: Order[]): Record<string, number> {
   const quantities: Record<string, number> = {};
@@ -202,17 +206,9 @@ export function calculateOrderedQuantitiesByProduct(orders: Order[]): Record<str
     items.forEach((item: any) => {
       const productId = item.product_id;
       if (productId) {
-        // Extract base product ID if this is a variant
-        const baseProductId = productId.includes('_variant_') 
-          ? productId.split('_variant_')[0] 
-          : productId;
-        
-        quantities[baseProductId] = (quantities[baseProductId] || 0) + Number(item.quantity || 0);
-        
-        // Also track the full product ID (including variant suffix)
-        if (productId !== baseProductId) {
-          quantities[productId] = (quantities[productId] || 0) + Number(item.quantity || 0);
-        }
+        // Simply aggregate by product_id - it should already be the correct ID
+        // (variant UUID for variants, product UUID for base products)
+        quantities[productId] = (quantities[productId] || 0) + Number(item.quantity || 0);
       }
     });
   });
