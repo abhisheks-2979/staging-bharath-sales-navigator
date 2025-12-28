@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { setCachedUser, clearCachedAuth } from '@/utils/cachedAuthIntegrity';
 import { devLog, devError } from '@/utils/devLog';
+import { Preferences } from '@capacitor/preferences';
+import { offlineStorage } from '@/lib/offlineStorage';
 
 interface AuthContextType {
   user: User | null;
@@ -338,6 +340,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Clear all auth-related storage with integrity cleanup
     clearCachedAuth();
     sessionStorage.clear();
+    
+    // CRITICAL: Clear all Capacitor Preferences (removes all user snapshots and cached data)
+    // This prevents data from one user appearing when another user logs in
+    try {
+      await Preferences.clear();
+      devLog('Cleared all Capacitor Preferences on sign out');
+    } catch (prefError) {
+      devError('Error clearing Preferences:', prefError);
+    }
+    
+    // Clear offline storage completely
+    try {
+      await offlineStorage.clearAll();
+      devLog('Cleared offline storage on sign out');
+    } catch (offlineError) {
+      devError('Error clearing offline storage:', offlineError);
+    }
     
     // Clear any Supabase-specific storage keys
     const supabaseKeys = Object.keys(localStorage).filter(key => 

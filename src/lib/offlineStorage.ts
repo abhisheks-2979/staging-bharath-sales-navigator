@@ -299,6 +299,27 @@ class OfflineStorage {
     const metadata = await this.getSyncMetadata(dataType, userId, date);
     return metadata?.lastSyncedAt || null;
   }
+
+  // CRITICAL: Clear all offline storage data (used on sign out to prevent data leakage)
+  async clearAll(): Promise<void> {
+    try {
+      // Clear all known stores
+      await Promise.all([
+        this.clear(STORES.ORDERS),
+        this.clear(STORES.PRODUCTS),
+        this.clear(STORES.RETAILERS),
+        this.clear(STORES.VISITS),
+        this.clear(STORES.BEATS),
+        this.clear(STORES.BEAT_PLANS),
+        this.clear(STORES.SYNC_QUEUE),
+        this.clear(STORES.SYNC_METADATA),
+      ]);
+      console.log('[OfflineStorage] ✅ Cleared all stores');
+    } catch (error) {
+      console.error('[OfflineStorage] Error clearing all stores:', error);
+      throw error;
+    }
+  }
 }
 
 // Export singleton instance

@@ -207,12 +207,27 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
   const userIdRef = useRef(effectiveUserId);
   const selectedDateRef = useRef(selectedDate);
   
-  // Clear cache when viewing different user
+  // CRITICAL: Clear ALL caches when viewing different user to prevent data leakage
   useEffect(() => {
     if (effectiveUserId && lastUserRef.current && effectiveUserId !== lastUserRef.current) {
-      console.log('[useVisitsDataOptimized] User changed, clearing cache');
+      console.log('[useVisitsDataOptimized] User changed from', lastUserRef.current, 'to', effectiveUserId, '- CLEARING ALL CACHES');
+      
+      // Clear in-memory caches
       cacheRef.current.clear();
       lastSyncTimeRef.current.clear();
+      
+      // Reset all state to prevent showing previous user's data
+      setBeatPlans([]);
+      setVisits([]);
+      setRetailers([]);
+      setOrders([]);
+      setPointsData({ total: 0, byRetailer: new Map() });
+      setHasLoadedOnce(false);
+      setIsLoading(true);
+      
+      // Reset fetch flags to force fresh load
+      isFetchingRef.current = false;
+      lastDateRef.current = '';
     }
     lastUserRef.current = effectiveUserId || '';
   }, [effectiveUserId]);
