@@ -405,17 +405,24 @@ const Analytics = () => {
       const fromDate = format(productivityDateRange.from, 'yyyy-MM-dd');
       const toDate = format(productivityDateRange.to, 'yyyy-MM-dd');
 
-      // Fetch visits with profile join, filtering by full_name
+      // First get the user's profile to find the user_id
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .ilike('full_name', productivityUser.trim())
+        .maybeSingle();
+      
+      if (!profile) {
+        setProductivityData([]);
+        setProductivityLoading(false);
+        return;
+      }
+
+      // Fetch visits for this user
       const { data: visits, error } = await supabase
         .from('visits')
-        .select(`
-          id, 
-          planned_date, 
-          status,
-          user_id,
-          profiles!inner(full_name)
-        `)
-        .ilike('profiles.full_name', productivityUser.trim())
+        .select('id, planned_date, status, user_id')
+        .eq('user_id', profile.id)
         .in('status', ['productive', 'unproductive'])
         .gte('planned_date', fromDate)
         .lte('planned_date', toDate)
@@ -438,8 +445,9 @@ const Analytics = () => {
         productivity_percentage: number;
       }> = {};
       
+      const fullName = profile.full_name || 'Unknown';
+      
       visits?.forEach(visit => {
-        const fullName = (visit.profiles as any)?.full_name || 'Unknown';
         const dateKey = `${fullName}_${visit.planned_date}`;
         if (!groupedData[dateKey]) {
           groupedData[dateKey] = {
