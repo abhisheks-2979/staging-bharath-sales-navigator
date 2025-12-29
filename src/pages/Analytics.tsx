@@ -404,25 +404,18 @@ const Analytics = () => {
     try {
       const fromDate = format(productivityDateRange.from, 'yyyy-MM-dd');
       const toDate = format(productivityDateRange.to, 'yyyy-MM-dd');
-      
-      // Get the user's profile to find the user_id
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .ilike('full_name', productivityUser.trim())
-        .maybeSingle();
-      
-      if (!profile) {
-        setProductivityData([]);
-        setProductivityLoading(false);
-        return;
-      }
 
-      // Fetch visits for this user
+      // Fetch visits with profile join, filtering by full_name
       const { data: visits, error } = await supabase
         .from('visits')
-        .select('id, planned_date, status')
-        .eq('user_id', profile.id)
+        .select(`
+          id, 
+          planned_date, 
+          status,
+          user_id,
+          profiles!inner(full_name)
+        `)
+        .ilike('profiles.full_name', productivityUser.trim())
         .in('status', ['productive', 'unproductive'])
         .gte('planned_date', fromDate)
         .lte('planned_date', toDate)
@@ -435,8 +428,9 @@ const Analytics = () => {
         return;
       }
 
-      // Group by date and calculate stats
+      // Group by full_name and date, calculate stats
       const groupedData: Record<string, { 
+        full_name: string;
         planned_date: string; 
         productive_visits: number; 
         unproductive_visits: number;
@@ -445,10 +439,12 @@ const Analytics = () => {
       }> = {};
       
       visits?.forEach(visit => {
-        const dateKey = visit.planned_date;
+        const fullName = (visit.profiles as any)?.full_name || 'Unknown';
+        const dateKey = `${fullName}_${visit.planned_date}`;
         if (!groupedData[dateKey]) {
           groupedData[dateKey] = {
-            planned_date: dateKey,
+            full_name: fullName,
+            planned_date: visit.planned_date,
             productive_visits: 0,
             unproductive_visits: 0,
             total_visits: 0,
@@ -470,9 +466,12 @@ const Analytics = () => {
           : 0;
       });
 
-      setProductivityData(Object.values(groupedData).sort((a, b) => 
-        new Date(b.planned_date).getTime() - new Date(a.planned_date).getTime()
-      ));
+      // Sort by date descending, then by full_name
+      setProductivityData(Object.values(groupedData).sort((a, b) => {
+        const dateCompare = new Date(b.planned_date).getTime() - new Date(a.planned_date).getTime();
+        if (dateCompare !== 0) return dateCompare;
+        return a.full_name.localeCompare(b.full_name);
+      }));
     } catch (error) {
       console.error('Error in productivity report:', error);
       setProductivityData([]);
@@ -2050,6 +2049,7 @@ const Analytics = () => {
                       <table className="w-full">
                         <thead className="bg-muted/50">
                           <tr className="border-b">
+                            <th className="text-left p-3 text-sm font-medium">Full Name</th>
                             <th className="text-left p-3 text-sm font-medium">Planned Date</th>
                             <th className="text-right p-3 text-sm font-medium">Productive Visits</th>
                             <th className="text-right p-3 text-sm font-medium">Unproductive Visits</th>
@@ -2060,6 +2060,7 @@ const Analytics = () => {
                         <tbody>
                           {productivityData.map((row, index) => (
                             <tr key={index} className="border-b hover:bg-muted/30">
+                              <td className="p-3 text-sm font-medium">{row.full_name}</td>
                               <td className="p-3 text-sm">{format(new Date(row.planned_date), 'MMMM dd, yyyy')}</td>
                               <td className="p-3 text-sm text-right text-green-600 font-medium">{row.productive_visits}</td>
                               <td className="p-3 text-sm text-right text-orange-600 font-medium">{row.unproductive_visits}</td>
@@ -2075,6 +2076,7 @@ const Analytics = () => {
                         <tfoot className="bg-muted/30">
                           <tr>
                             <td className="p-3 text-sm font-semibold">Total</td>
+                            <td className="p-3"></td>
                             <td className="p-3 text-sm text-right font-bold text-green-600">
                               {productivityData.reduce((sum, row) => sum + row.productive_visits, 0)}
                             </td>
