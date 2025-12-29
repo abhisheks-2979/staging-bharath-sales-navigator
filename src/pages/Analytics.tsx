@@ -1956,6 +1956,31 @@ const Analytics = () => {
                       Please select a user to view the report
                     </div>
                   )}
+
+                  {/* Horizontal Bar Chart for Order Summary */}
+                  {sqlReportData.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-sm font-semibold mb-4">Order Summary Data for {sqlReportUser}</h4>
+                      <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={sqlReportData.map(row => ({
+                              date: format(new Date(row.order_date), 'MMM dd'),
+                              value: row.total_order_value
+                            }))}
+                            layout="vertical"
+                            margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis type="number" tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`} fontSize={9} />
+                            <YAxis type="category" dataKey="date" fontSize={9} />
+                            <Tooltip formatter={(value: number) => `₹${value.toLocaleString()}`} />
+                            <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
