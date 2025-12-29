@@ -402,28 +402,10 @@ const Analytics = () => {
     
     setProductivityLoading(true);
     try {
-      // Hardcoded date range as per the SQL query
-      const fromDate = '2025-12-19';
-      const toDate = '2025-12-26';
-
-      // Find the selected user from the users array (productivityUser stores user.id)
-      const selectedUser = users.find(u => u.id === productivityUser);
-      
-      if (!selectedUser) {
-        setProductivityData([]);
-        setProductivityLoading(false);
-        return;
-      }
-
-      // Fetch visits for this user
-      const { data: visits, error } = await supabase
-        .from('visits')
-        .select('id, planned_date, status, user_id')
-        .eq('user_id', selectedUser.id)
-        .in('status', ['productive', 'unproductive'])
-        .gte('planned_date', fromDate)
-        .lte('planned_date', toDate)
-        .order('planned_date', { ascending: false });
+      // Call the RPC function with the selected user's full_name
+      const { data, error } = await supabase.rpc('get_productivity_summary', {
+        user_full_name: productivityUser
+      });
 
       if (error) {
         console.error('Error fetching productivity report:', error);
@@ -432,51 +414,7 @@ const Analytics = () => {
         return;
       }
 
-      // Group by full_name and date, calculate stats
-      const groupedData: Record<string, { 
-        full_name: string;
-        planned_date: string; 
-        productive_visits: number; 
-        unproductive_visits: number;
-        total_visits: number;
-        productivity_percentage: number;
-      }> = {};
-      
-      const fullName = selectedUser.full_name || 'Unknown';
-      
-      visits?.forEach(visit => {
-        const dateKey = `${fullName}_${visit.planned_date}`;
-        if (!groupedData[dateKey]) {
-          groupedData[dateKey] = {
-            full_name: fullName,
-            planned_date: visit.planned_date,
-            productive_visits: 0,
-            unproductive_visits: 0,
-            total_visits: 0,
-            productivity_percentage: 0
-          };
-        }
-        groupedData[dateKey].total_visits += 1;
-        if (visit.status === 'productive') {
-          groupedData[dateKey].productive_visits += 1;
-        } else if (visit.status === 'unproductive') {
-          groupedData[dateKey].unproductive_visits += 1;
-        }
-      });
-
-      // Calculate productivity percentage
-      Object.values(groupedData).forEach(day => {
-        day.productivity_percentage = day.total_visits > 0 
-          ? Math.round((day.productive_visits / day.total_visits) * 100 * 100) / 100
-          : 0;
-      });
-
-      // Sort by date descending, then by full_name
-      setProductivityData(Object.values(groupedData).sort((a, b) => {
-        const dateCompare = new Date(b.planned_date).getTime() - new Date(a.planned_date).getTime();
-        if (dateCompare !== 0) return dateCompare;
-        return a.full_name.localeCompare(b.full_name);
-      }));
+      setProductivityData(data || []);
     } catch (error) {
       console.error('Error in productivity report:', error);
       setProductivityData([]);
@@ -1997,7 +1935,7 @@ const Analytics = () => {
                         </SelectTrigger>
                         <SelectContent>
                           {users.filter(user => user.full_name).map((user) => (
-                            <SelectItem key={user.id} value={user.id}>
+                            <SelectItem key={user.id} value={user.full_name!}>
                               {user.full_name}
                             </SelectItem>
                           ))}
@@ -2031,7 +1969,7 @@ const Analytics = () => {
                           {productivityData.map((row, index) => (
                             <tr key={index} className="border-b hover:bg-muted/30">
                               <td className="p-3 text-sm font-medium">{row.full_name}</td>
-                              <td className="p-3 text-sm">{format(new Date(row.planned_date), 'MMMM dd, yyyy')}</td>
+                              <td className="p-3 text-sm">{row.planned_date}</td>
                               <td className="p-3 text-sm text-right text-green-600 font-medium">{row.productive_visits}</td>
                               <td className="p-3 text-sm text-right text-orange-600 font-medium">{row.unproductive_visits}</td>
                               <td className="p-3 text-sm text-right font-medium">{row.total_visits}</td>
