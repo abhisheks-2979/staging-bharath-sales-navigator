@@ -17,14 +17,25 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Plus, Target, Package, Store, Trash2, ChevronDown, ChevronRight, X, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+const QUANTITY_UNITS = ['Units', 'Kg', 'Liters', 'Pcs', 'Boxes', 'Cartons', 'Tonnes', 'Quintals'];
 
 interface BusinessPlan {
   id: string;
   year: number;
   revenue_target: number;
+  quantity_target: number;
+  quantity_unit: string;
   coverage_target: string | null;
   territory_target: string | null;
   notes: string | null;
@@ -58,7 +69,8 @@ interface RetailerCategory {
 interface CategoryTarget {
   categoryId: string;
   categoryName: string;
-  target: number;
+  quantityTarget: number;
+  revenueTarget: number;
   equalDivide: boolean;
   products: ProductTarget[];
 }
@@ -67,12 +79,14 @@ interface ProductTarget {
   productId: string;
   productName: string;
   percentage: number;
-  target: number;
+  quantityTarget: number;
+  revenueTarget: number;
 }
 
 interface RetailerCategoryTarget {
   category: string;
-  target: number;
+  quantityTarget: number;
+  revenueTarget: number;
   equalDivide: boolean;
   retailers: RetailerTargetItem[];
 }
@@ -81,14 +95,16 @@ interface RetailerTargetItem {
   retailerId: string;
   retailerName: string;
   percentage: number;
-  target: number;
+  quantityTarget: number;
+  revenueTarget: number;
 }
 
 interface MonthTarget {
   monthNumber: number;
   monthName: string;
   percentage: number;
-  target: number;
+  quantityTarget: number;
+  revenueTarget: number;
 }
 
 const FY_MONTHS = [
@@ -129,10 +145,13 @@ export function DistributorFYPlan({ distributorId }: Props) {
   // Monthly targets state
   const [monthTargets, setMonthTargets] = useState<MonthTarget[]>([]);
   const [monthEqualDivide, setMonthEqualDivide] = useState(true);
-  const [monthTotalTarget, setMonthTotalTarget] = useState(0);
+  const [monthTotalQuantity, setMonthTotalQuantity] = useState(0);
+  const [monthTotalRevenue, setMonthTotalRevenue] = useState(0);
 
   const [planForm, setPlanForm] = useState({
     year: new Date().getFullYear() + 1,
+    quantity_target: "",
+    quantity_unit: "Units",
     revenue_target: "",
     coverage_target: "",
     territory_target: "",
@@ -160,9 +179,14 @@ export function DistributorFYPlan({ distributorId }: Props) {
         .order('year', { ascending: false });
 
       if (error) throw error;
-      setPlans(data || []);
-      if (data && data.length > 0) {
-        setSelectedPlan(data[0]);
+      const plansData = (data || []).map((p: any) => ({
+        ...p,
+        quantity_target: p.quantity_target || 0,
+        quantity_unit: p.quantity_unit || 'Units'
+      }));
+      setPlans(plansData);
+      if (plansData.length > 0) {
+        setSelectedPlan(plansData[0]);
       }
     } catch (error: any) {
       toast.error("Failed to load FY plans: " + error.message);
@@ -268,7 +292,8 @@ export function DistributorFYPlan({ distributorId }: Props) {
     const newCategoryTargets: CategoryTarget[] = productCategories.map(cat => ({
       categoryId: cat.id,
       categoryName: cat.name,
-      target: 0,
+      quantityTarget: 0,
+      revenueTarget: 0,
       equalDivide: true,
       products: cat.products.map(p => {
         const existing = productData?.find(pd => pd.product_id === p.id);
@@ -276,18 +301,21 @@ export function DistributorFYPlan({ distributorId }: Props) {
           productId: p.id,
           productName: p.name,
           percentage: 100 / cat.products.length,
-          target: existing?.revenue_target || 0
+          quantityTarget: existing?.quantity_target || 0,
+          revenueTarget: existing?.revenue_target || 0
         };
       })
     }));
 
     // Calculate category totals from existing data
     newCategoryTargets.forEach(cat => {
-      const categoryTotal = cat.products.reduce((sum, p) => sum + p.target, 0);
-      cat.target = categoryTotal;
-      if (categoryTotal > 0) {
+      const categoryQtyTotal = cat.products.reduce((sum, p) => sum + p.quantityTarget, 0);
+      const categoryRevTotal = cat.products.reduce((sum, p) => sum + p.revenueTarget, 0);
+      cat.quantityTarget = categoryQtyTotal;
+      cat.revenueTarget = categoryRevTotal;
+      if (categoryRevTotal > 0) {
         cat.products.forEach(p => {
-          p.percentage = categoryTotal > 0 ? (p.target / categoryTotal) * 100 : 100 / cat.products.length;
+          p.percentage = categoryRevTotal > 0 ? (p.revenueTarget / categoryRevTotal) * 100 : 100 / cat.products.length;
         });
       }
     });
@@ -297,7 +325,8 @@ export function DistributorFYPlan({ distributorId }: Props) {
     // Initialize retailer category targets
     const newRetailerCategoryTargets: RetailerCategoryTarget[] = retailerCategories.map(cat => ({
       category: cat.category,
-      target: 0,
+      quantityTarget: 0,
+      revenueTarget: 0,
       equalDivide: true,
       retailers: cat.retailers.map(r => {
         const existing = retailerData?.find(rd => rd.retailer_id === r.id);
@@ -305,45 +334,53 @@ export function DistributorFYPlan({ distributorId }: Props) {
           retailerId: r.id,
           retailerName: r.name,
           percentage: 100 / cat.retailers.length,
-          target: existing?.target_revenue || 0
+          quantityTarget: existing?.quantity_target || 0,
+          revenueTarget: existing?.target_revenue || 0
         };
       })
     }));
 
     // Calculate category totals from existing retailer data
     newRetailerCategoryTargets.forEach(cat => {
-      const categoryTotal = cat.retailers.reduce((sum, r) => sum + r.target, 0);
-      cat.target = categoryTotal;
-      if (categoryTotal > 0) {
+      const categoryQtyTotal = cat.retailers.reduce((sum, r) => sum + r.quantityTarget, 0);
+      const categoryRevTotal = cat.retailers.reduce((sum, r) => sum + r.revenueTarget, 0);
+      cat.quantityTarget = categoryQtyTotal;
+      cat.revenueTarget = categoryRevTotal;
+      if (categoryRevTotal > 0) {
         cat.retailers.forEach(r => {
-          r.percentage = categoryTotal > 0 ? (r.target / categoryTotal) * 100 : 100 / cat.retailers.length;
+          r.percentage = categoryRevTotal > 0 ? (r.revenueTarget / categoryRevTotal) * 100 : 100 / cat.retailers.length;
         });
       }
     });
 
     setRetailerCategoryTargets(newRetailerCategoryTargets);
 
-    // Initialize monthly targets
+    // Initialize monthly targets - use plan's main targets if no existing data
+    const hasExistingMonthData = monthData && monthData.length > 0;
     const newMonthTargets: MonthTarget[] = FY_MONTHS.map(m => {
       const existing = monthData?.find(md => md.month_number === m.number);
       return {
         monthNumber: m.number,
         monthName: m.name,
         percentage: 100 / 12,
-        target: existing?.target_revenue || 0
+        quantityTarget: existing?.quantity_target || (hasExistingMonthData ? 0 : (selectedPlan.quantity_target || 0) / 12),
+        revenueTarget: existing?.target_revenue || (hasExistingMonthData ? 0 : (selectedPlan.revenue_target || 0) / 12)
       };
     });
 
-    const totalMonthly = newMonthTargets.reduce((sum, m) => sum + m.target, 0);
-    if (totalMonthly > 0) {
+    const totalMonthlyQty = newMonthTargets.reduce((sum, m) => sum + m.quantityTarget, 0);
+    const totalMonthlyRev = newMonthTargets.reduce((sum, m) => sum + m.revenueTarget, 0);
+    
+    if (totalMonthlyRev > 0 && hasExistingMonthData) {
       newMonthTargets.forEach(m => {
-        m.percentage = (m.target / totalMonthly) * 100;
+        m.percentage = (m.revenueTarget / totalMonthlyRev) * 100;
       });
       setMonthEqualDivide(false);
     } else {
       setMonthEqualDivide(true);
     }
-    setMonthTotalTarget(totalMonthly);
+    setMonthTotalQuantity(totalMonthlyQty);
+    setMonthTotalRevenue(totalMonthlyRev);
     setMonthTargets(newMonthTargets);
   };
 
@@ -361,6 +398,8 @@ export function DistributorFYPlan({ distributorId }: Props) {
         .insert({
           distributor_id: distributorId,
           year: planForm.year,
+          quantity_target: parseFloat(planForm.quantity_target) || 0,
+          quantity_unit: planForm.quantity_unit,
           revenue_target: parseFloat(planForm.revenue_target) || 0,
           coverage_target: planForm.coverage_target || null,
           territory_target: planForm.territory_target || null,
@@ -373,7 +412,11 @@ export function DistributorFYPlan({ distributorId }: Props) {
       toast.success("FY Plan created");
       setDialogOpen(false);
       loadPlans();
-      setSelectedPlan(data);
+      setSelectedPlan({
+        ...data,
+        quantity_target: data.quantity_target || 0,
+        quantity_unit: data.quantity_unit || 'Units'
+      });
     } catch (error: any) {
       toast.error("Failed to create plan: " + error.message);
     }
@@ -399,16 +442,18 @@ export function DistributorFYPlan({ distributorId }: Props) {
     setExpandedRetailerCategories(newExpanded);
   };
 
-  const handleCategoryTargetChange = (categoryId: string, value: number) => {
+  // Product handlers with quantity
+  const handleCategoryTargetChange = (categoryId: string, quantityValue: number, revenueValue: number) => {
     setCategoryTargets(prev => prev.map(cat => {
       if (cat.categoryId !== categoryId) return cat;
       
       const newProducts = cat.products.map(p => ({
         ...p,
-        target: cat.equalDivide ? value / cat.products.length : (p.percentage / 100) * value
+        quantityTarget: cat.equalDivide ? quantityValue / cat.products.length : (p.percentage / 100) * quantityValue,
+        revenueTarget: cat.equalDivide ? revenueValue / cat.products.length : (p.percentage / 100) * revenueValue
       }));
       
-      return { ...cat, target: value, products: newProducts };
+      return { ...cat, quantityTarget: quantityValue, revenueTarget: revenueValue, products: newProducts };
     }));
   };
 
@@ -419,7 +464,8 @@ export function DistributorFYPlan({ distributorId }: Props) {
       const newProducts = cat.products.map(p => ({
         ...p,
         percentage: checked ? 100 / cat.products.length : p.percentage,
-        target: checked ? cat.target / cat.products.length : (p.percentage / 100) * cat.target
+        quantityTarget: checked ? cat.quantityTarget / cat.products.length : (p.percentage / 100) * cat.quantityTarget,
+        revenueTarget: checked ? cat.revenueTarget / cat.products.length : (p.percentage / 100) * cat.revenueTarget
       }));
       
       return { ...cat, equalDivide: checked, products: newProducts };
@@ -435,7 +481,8 @@ export function DistributorFYPlan({ distributorId }: Props) {
         return {
           ...p,
           percentage,
-          target: (percentage / 100) * cat.target
+          quantityTarget: (percentage / 100) * cat.quantityTarget,
+          revenueTarget: (percentage / 100) * cat.revenueTarget
         };
       });
       
@@ -455,17 +502,18 @@ export function DistributorFYPlan({ distributorId }: Props) {
     }));
   };
 
-  // Retailer handlers
-  const handleRetailerCategoryTargetChange = (category: string, value: number) => {
+  // Retailer handlers with quantity
+  const handleRetailerCategoryTargetChange = (category: string, quantityValue: number, revenueValue: number) => {
     setRetailerCategoryTargets(prev => prev.map(cat => {
       if (cat.category !== category) return cat;
       
       const newRetailers = cat.retailers.map(r => ({
         ...r,
-        target: cat.equalDivide ? value / cat.retailers.length : (r.percentage / 100) * value
+        quantityTarget: cat.equalDivide ? quantityValue / cat.retailers.length : (r.percentage / 100) * quantityValue,
+        revenueTarget: cat.equalDivide ? revenueValue / cat.retailers.length : (r.percentage / 100) * revenueValue
       }));
       
-      return { ...cat, target: value, retailers: newRetailers };
+      return { ...cat, quantityTarget: quantityValue, revenueTarget: revenueValue, retailers: newRetailers };
     }));
   };
 
@@ -476,7 +524,8 @@ export function DistributorFYPlan({ distributorId }: Props) {
       const newRetailers = cat.retailers.map(r => ({
         ...r,
         percentage: checked ? 100 / cat.retailers.length : r.percentage,
-        target: checked ? cat.target / cat.retailers.length : (r.percentage / 100) * cat.target
+        quantityTarget: checked ? cat.quantityTarget / cat.retailers.length : (r.percentage / 100) * cat.quantityTarget,
+        revenueTarget: checked ? cat.revenueTarget / cat.retailers.length : (r.percentage / 100) * cat.revenueTarget
       }));
       
       return { ...cat, equalDivide: checked, retailers: newRetailers };
@@ -492,7 +541,8 @@ export function DistributorFYPlan({ distributorId }: Props) {
         return {
           ...r,
           percentage,
-          target: (percentage / 100) * cat.target
+          quantityTarget: (percentage / 100) * cat.quantityTarget,
+          revenueTarget: (percentage / 100) * cat.revenueTarget
         };
       });
       
@@ -524,12 +574,12 @@ export function DistributorFYPlan({ distributorId }: Props) {
 
       // Insert new
       const productsToInsert = categoryTargets.flatMap(cat => 
-        cat.products.filter(p => p.target > 0).map(p => ({
+        cat.products.filter(p => p.quantityTarget > 0 || p.revenueTarget > 0).map(p => ({
           business_plan_id: selectedPlan.id,
           product_id: p.productId,
           product_name: p.productName,
-          quantity_target: 0,
-          revenue_target: Math.round(p.target)
+          quantity_target: Math.round(p.quantityTarget),
+          revenue_target: Math.round(p.revenueTarget)
         }))
       );
 
@@ -558,12 +608,13 @@ export function DistributorFYPlan({ distributorId }: Props) {
 
       // Insert new
       const retailersToInsert = retailerCategoryTargets.flatMap(cat => 
-        cat.retailers.filter(r => r.target > 0).map(r => ({
+        cat.retailers.filter(r => r.quantityTarget > 0 || r.revenueTarget > 0).map(r => ({
           business_plan_id: selectedPlan.id,
           retailer_id: r.retailerId,
           retailer_name: r.retailerName,
           last_year_revenue: 0,
-          target_revenue: Math.round(r.target),
+          quantity_target: Math.round(r.quantityTarget),
+          target_revenue: Math.round(r.revenueTarget),
           growth_percent: 0
         }))
       );
@@ -581,19 +632,22 @@ export function DistributorFYPlan({ distributorId }: Props) {
     }
   };
 
-  // Month target handlers
-  const handleMonthTotalTargetChange = (value: number) => {
-    setMonthTotalTarget(value);
+  // Month target handlers with quantity
+  const handleMonthTotalTargetChange = (quantityValue: number, revenueValue: number) => {
+    setMonthTotalQuantity(quantityValue);
+    setMonthTotalRevenue(revenueValue);
     if (monthEqualDivide) {
       setMonthTargets(prev => prev.map(m => ({
         ...m,
-        target: value / 12,
+        quantityTarget: quantityValue / 12,
+        revenueTarget: revenueValue / 12,
         percentage: 100 / 12
       })));
     } else {
       setMonthTargets(prev => prev.map(m => ({
         ...m,
-        target: (m.percentage / 100) * value
+        quantityTarget: (m.percentage / 100) * quantityValue,
+        revenueTarget: (m.percentage / 100) * revenueValue
       })));
     }
   };
@@ -604,7 +658,8 @@ export function DistributorFYPlan({ distributorId }: Props) {
       setMonthTargets(prev => prev.map(m => ({
         ...m,
         percentage: 100 / 12,
-        target: monthTotalTarget / 12
+        quantityTarget: monthTotalQuantity / 12,
+        revenueTarget: monthTotalRevenue / 12
       })));
     }
   };
@@ -616,23 +671,26 @@ export function DistributorFYPlan({ distributorId }: Props) {
       return {
         ...m,
         percentage,
-        target: (percentage / 100) * monthTotalTarget
+        quantityTarget: (percentage / 100) * monthTotalQuantity,
+        revenueTarget: (percentage / 100) * monthTotalRevenue
       };
     }));
   };
 
-  const handleMonthTargetChange = (monthNumber: number, target: number) => {
+  const handleMonthTargetChange = (monthNumber: number, quantityTarget: number, revenueTarget: number) => {
     setMonthEqualDivide(false);
     setMonthTargets(prev => {
       const newTargets = prev.map(m => {
         if (m.monthNumber !== monthNumber) return m;
-        return { ...m, target };
+        return { ...m, quantityTarget, revenueTarget };
       });
-      const newTotal = newTargets.reduce((sum, m) => sum + m.target, 0);
-      setMonthTotalTarget(newTotal);
+      const newTotalQty = newTargets.reduce((sum, m) => sum + m.quantityTarget, 0);
+      const newTotalRev = newTargets.reduce((sum, m) => sum + m.revenueTarget, 0);
+      setMonthTotalQuantity(newTotalQty);
+      setMonthTotalRevenue(newTotalRev);
       return newTargets.map(m => ({
         ...m,
-        percentage: newTotal > 0 ? (m.target / newTotal) * 100 : 100 / 12
+        percentage: newTotalRev > 0 ? (m.revenueTarget / newTotalRev) * 100 : 100 / 12
       }));
     });
   };
@@ -648,11 +706,12 @@ export function DistributorFYPlan({ distributorId }: Props) {
         .eq('business_plan_id', selectedPlan.id);
 
       // Insert new
-      const monthsToInsert = monthTargets.filter(m => m.target > 0).map(m => ({
+      const monthsToInsert = monthTargets.filter(m => m.quantityTarget > 0 || m.revenueTarget > 0).map(m => ({
         business_plan_id: selectedPlan.id,
         month_number: m.monthNumber,
         month_name: m.monthName,
-        target_revenue: Math.round(m.target)
+        quantity_target: Math.round(m.quantityTarget),
+        target_revenue: Math.round(m.revenueTarget)
       }));
 
       if (monthsToInsert.length > 0) {
@@ -668,20 +727,38 @@ export function DistributorFYPlan({ distributorId }: Props) {
     }
   };
 
-  const totalProductTarget = useMemo(() => 
-    categoryTargets.reduce((sum, cat) => sum + cat.target, 0), 
+  // Computed totals
+  const totalProductQuantity = useMemo(() => 
+    categoryTargets.reduce((sum, cat) => sum + cat.quantityTarget, 0), 
     [categoryTargets]
   );
 
-  const totalRetailerTarget = useMemo(() => 
-    retailerCategoryTargets.reduce((sum, cat) => sum + cat.target, 0), 
+  const totalProductRevenue = useMemo(() => 
+    categoryTargets.reduce((sum, cat) => sum + cat.revenueTarget, 0), 
+    [categoryTargets]
+  );
+
+  const totalRetailerQuantity = useMemo(() => 
+    retailerCategoryTargets.reduce((sum, cat) => sum + cat.quantityTarget, 0), 
     [retailerCategoryTargets]
   );
 
-  const totalMonthTargetComputed = useMemo(() => 
-    monthTargets.reduce((sum, m) => sum + m.target, 0), 
+  const totalRetailerRevenue = useMemo(() => 
+    retailerCategoryTargets.reduce((sum, cat) => sum + cat.revenueTarget, 0), 
+    [retailerCategoryTargets]
+  );
+
+  const totalMonthQuantityComputed = useMemo(() => 
+    monthTargets.reduce((sum, m) => sum + m.quantityTarget, 0), 
     [monthTargets]
   );
+
+  const totalMonthRevenueComputed = useMemo(() => 
+    monthTargets.reduce((sum, m) => sum + m.revenueTarget, 0), 
+    [monthTargets]
+  );
+
+  const quantityUnit = selectedPlan?.quantity_unit || 'Units';
 
   return (
     <div className="space-y-4">
@@ -711,6 +788,33 @@ export function DistributorFYPlan({ distributorId }: Props) {
                   min={2020}
                   max={2050}
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Quantity Target</Label>
+                  <Input
+                    type="number"
+                    value={planForm.quantity_target}
+                    onChange={(e) => setPlanForm(prev => ({ ...prev, quantity_target: e.target.value }))}
+                    placeholder="Annual quantity"
+                  />
+                </div>
+                <div>
+                  <Label>Unit of Measure</Label>
+                  <Select
+                    value={planForm.quantity_unit}
+                    onValueChange={(value) => setPlanForm(prev => ({ ...prev, quantity_unit: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {QUANTITY_UNITS.map(unit => (
+                        <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div>
                 <Label>Revenue Target (₹)</Label>
@@ -767,12 +871,12 @@ export function DistributorFYPlan({ distributorId }: Props) {
                 <CardContent className="p-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-xs text-muted-foreground">Revenue Target</p>
-                      <p className="text-lg font-bold">₹{selectedPlan.revenue_target.toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">Quantity Target</p>
+                      <p className="text-lg font-bold">{selectedPlan.quantity_target.toLocaleString()} {quantityUnit}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Coverage</p>
-                      <p className="text-sm">{selectedPlan.coverage_target || '-'}</p>
+                      <p className="text-xs text-muted-foreground">Revenue Target</p>
+                      <p className="text-lg font-bold">₹{selectedPlan.revenue_target.toLocaleString()}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -798,9 +902,11 @@ export function DistributorFYPlan({ distributorId }: Props) {
                 {/* PRODUCT TARGETS TAB */}
                 <TabsContent value="products" className="mt-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium">
-                      Total: ₹{totalProductTarget.toLocaleString()}
-                    </p>
+                    <div className="text-sm">
+                      <span className="font-medium">Qty: {Math.round(totalProductQuantity).toLocaleString()} {quantityUnit}</span>
+                      <span className="mx-2 text-muted-foreground">|</span>
+                      <span className="font-medium">₹{Math.round(totalProductRevenue).toLocaleString()}</span>
+                    </div>
                     <Button size="sm" onClick={saveProductTargets}>
                       Save Targets
                     </Button>
@@ -831,16 +937,23 @@ export function DistributorFYPlan({ distributorId }: Props) {
                                     )}
                                     <span className="font-medium text-sm">{cat.categoryName}</span>
                                     <span className="text-xs text-muted-foreground">
-                                      ({cat.products.length} products)
+                                      ({cat.products.length})
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                                     <Input
                                       type="number"
-                                      value={cat.target || ''}
-                                      onChange={(e) => handleCategoryTargetChange(cat.categoryId, parseFloat(e.target.value) || 0)}
-                                      className="w-28 h-8 text-right text-sm"
-                                      placeholder="₹ Target"
+                                      value={cat.quantityTarget || ''}
+                                      onChange={(e) => handleCategoryTargetChange(cat.categoryId, parseFloat(e.target.value) || 0, cat.revenueTarget)}
+                                      className="w-20 h-8 text-right text-sm"
+                                      placeholder="Qty"
+                                    />
+                                    <Input
+                                      type="number"
+                                      value={cat.revenueTarget || ''}
+                                      onChange={(e) => handleCategoryTargetChange(cat.categoryId, cat.quantityTarget, parseFloat(e.target.value) || 0)}
+                                      className="w-24 h-8 text-right text-sm"
+                                      placeholder="₹"
                                     />
                                     <Button
                                       variant="ghost"
@@ -869,7 +982,7 @@ export function DistributorFYPlan({ distributorId }: Props) {
                                 <div className="space-y-2">
                                   {cat.products.map(p => (
                                     <div key={p.productId} className="flex items-center justify-between py-2 border-b last:border-0">
-                                      <span className="text-sm">{p.productName}</span>
+                                      <span className="text-sm truncate max-w-[120px]">{p.productName}</span>
                                       <div className="flex items-center gap-2">
                                         {!cat.equalDivide && (
                                           <div className="flex items-center gap-1">
@@ -877,15 +990,18 @@ export function DistributorFYPlan({ distributorId }: Props) {
                                               type="number"
                                               value={p.percentage.toFixed(1)}
                                               onChange={(e) => handleProductPercentageChange(cat.categoryId, p.productId, parseFloat(e.target.value) || 0)}
-                                              className="w-16 h-7 text-right text-xs"
+                                              className="w-14 h-7 text-right text-xs"
                                               min={0}
                                               max={100}
                                             />
                                             <span className="text-xs text-muted-foreground">%</span>
                                           </div>
                                         )}
-                                        <span className="text-sm font-medium w-24 text-right">
-                                          ₹{Math.round(p.target).toLocaleString()}
+                                        <span className="text-xs w-16 text-right">
+                                          {Math.round(p.quantityTarget).toLocaleString()}
+                                        </span>
+                                        <span className="text-sm font-medium w-20 text-right">
+                                          ₹{Math.round(p.revenueTarget).toLocaleString()}
                                         </span>
                                         <Button
                                           variant="ghost"
@@ -906,14 +1022,30 @@ export function DistributorFYPlan({ distributorId }: Props) {
                       ))}
                     </div>
                   )}
+
+                  {/* Products Total Footer */}
+                  <Card className="bg-muted/50">
+                    <CardContent className="p-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Total Products Target</span>
+                        <div className="text-right">
+                          <span className="text-sm font-bold">{Math.round(totalProductQuantity).toLocaleString()} {quantityUnit}</span>
+                          <span className="mx-2 text-muted-foreground">|</span>
+                          <span className="text-sm font-bold">₹{Math.round(totalProductRevenue).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </TabsContent>
 
                 {/* RETAILER TARGETS TAB */}
                 <TabsContent value="retailers" className="mt-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium">
-                      Total: ₹{totalRetailerTarget.toLocaleString()}
-                    </p>
+                    <div className="text-sm">
+                      <span className="font-medium">Qty: {Math.round(totalRetailerQuantity).toLocaleString()} {quantityUnit}</span>
+                      <span className="mx-2 text-muted-foreground">|</span>
+                      <span className="font-medium">₹{Math.round(totalRetailerRevenue).toLocaleString()}</span>
+                    </div>
                     <Button size="sm" onClick={saveRetailerTargets}>
                       Save Targets
                     </Button>
@@ -944,16 +1076,23 @@ export function DistributorFYPlan({ distributorId }: Props) {
                                     )}
                                     <span className="font-medium text-sm">{cat.category}</span>
                                     <span className="text-xs text-muted-foreground">
-                                      ({cat.retailers.length} retailers)
+                                      ({cat.retailers.length})
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                                     <Input
                                       type="number"
-                                      value={cat.target || ''}
-                                      onChange={(e) => handleRetailerCategoryTargetChange(cat.category, parseFloat(e.target.value) || 0)}
-                                      className="w-28 h-8 text-right text-sm"
-                                      placeholder="₹ Target"
+                                      value={cat.quantityTarget || ''}
+                                      onChange={(e) => handleRetailerCategoryTargetChange(cat.category, parseFloat(e.target.value) || 0, cat.revenueTarget)}
+                                      className="w-20 h-8 text-right text-sm"
+                                      placeholder="Qty"
+                                    />
+                                    <Input
+                                      type="number"
+                                      value={cat.revenueTarget || ''}
+                                      onChange={(e) => handleRetailerCategoryTargetChange(cat.category, cat.quantityTarget, parseFloat(e.target.value) || 0)}
+                                      className="w-24 h-8 text-right text-sm"
+                                      placeholder="₹"
                                     />
                                     <Button
                                       variant="ghost"
@@ -982,7 +1121,7 @@ export function DistributorFYPlan({ distributorId }: Props) {
                                 <div className="space-y-2">
                                   {cat.retailers.map(r => (
                                     <div key={r.retailerId} className="flex items-center justify-between py-2 border-b last:border-0">
-                                      <span className="text-sm">{r.retailerName}</span>
+                                      <span className="text-sm truncate max-w-[120px]">{r.retailerName}</span>
                                       <div className="flex items-center gap-2">
                                         {!cat.equalDivide && (
                                           <div className="flex items-center gap-1">
@@ -990,15 +1129,18 @@ export function DistributorFYPlan({ distributorId }: Props) {
                                               type="number"
                                               value={r.percentage.toFixed(1)}
                                               onChange={(e) => handleRetailerPercentageChange(cat.category, r.retailerId, parseFloat(e.target.value) || 0)}
-                                              className="w-16 h-7 text-right text-xs"
+                                              className="w-14 h-7 text-right text-xs"
                                               min={0}
                                               max={100}
                                             />
                                             <span className="text-xs text-muted-foreground">%</span>
                                           </div>
                                         )}
-                                        <span className="text-sm font-medium w-24 text-right">
-                                          ₹{Math.round(r.target).toLocaleString()}
+                                        <span className="text-xs w-16 text-right">
+                                          {Math.round(r.quantityTarget).toLocaleString()}
+                                        </span>
+                                        <span className="text-sm font-medium w-20 text-right">
+                                          ₹{Math.round(r.revenueTarget).toLocaleString()}
                                         </span>
                                         <Button
                                           variant="ghost"
@@ -1019,14 +1161,30 @@ export function DistributorFYPlan({ distributorId }: Props) {
                       ))}
                     </div>
                   )}
+
+                  {/* Retailers Total Footer */}
+                  <Card className="bg-muted/50">
+                    <CardContent className="p-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Total Retailers Target</span>
+                        <div className="text-right">
+                          <span className="text-sm font-bold">{Math.round(totalRetailerQuantity).toLocaleString()} {quantityUnit}</span>
+                          <span className="mx-2 text-muted-foreground">|</span>
+                          <span className="text-sm font-bold">₹{Math.round(totalRetailerRevenue).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </TabsContent>
 
                 {/* MONTHLY TARGETS TAB */}
                 <TabsContent value="months" className="mt-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium">
-                      Total: ₹{totalMonthTargetComputed.toLocaleString()}
-                    </p>
+                    <div className="text-sm">
+                      <span className="font-medium">Qty: {Math.round(totalMonthQuantityComputed).toLocaleString()} {quantityUnit}</span>
+                      <span className="mx-2 text-muted-foreground">|</span>
+                      <span className="font-medium">₹{Math.round(totalMonthRevenueComputed).toLocaleString()}</span>
+                    </div>
                     <Button size="sm" onClick={saveMonthTargets}>
                       Save Targets
                     </Button>
@@ -1034,16 +1192,28 @@ export function DistributorFYPlan({ distributorId }: Props) {
 
                   <Card>
                     <CardContent className="p-4 space-y-4">
-                      {/* Total target input */}
-                      <div className="flex items-center justify-between gap-4">
-                        <Label className="text-sm font-medium">Annual Target (₹)</Label>
-                        <Input
-                          type="number"
-                          value={monthTotalTarget || ''}
-                          onChange={(e) => handleMonthTotalTargetChange(parseFloat(e.target.value) || 0)}
-                          className="w-36 h-8 text-right"
-                          placeholder="Enter total"
-                        />
+                      {/* Total target inputs */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex items-center justify-between gap-2">
+                          <Label className="text-xs font-medium">Annual Qty ({quantityUnit})</Label>
+                          <Input
+                            type="number"
+                            value={monthTotalQuantity || ''}
+                            onChange={(e) => handleMonthTotalTargetChange(parseFloat(e.target.value) || 0, monthTotalRevenue)}
+                            className="w-28 h-8 text-right"
+                            placeholder="Quantity"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <Label className="text-xs font-medium">Annual Revenue (₹)</Label>
+                          <Input
+                            type="number"
+                            value={monthTotalRevenue || ''}
+                            onChange={(e) => handleMonthTotalTargetChange(monthTotalQuantity, parseFloat(e.target.value) || 0)}
+                            className="w-28 h-8 text-right"
+                            placeholder="Revenue"
+                          />
+                        </div>
                       </div>
 
                       {/* Equal divide checkbox */}
@@ -1060,9 +1230,17 @@ export function DistributorFYPlan({ distributorId }: Props) {
 
                       {/* Month-wise targets */}
                       <div className="space-y-2">
+                        <div className="flex items-center justify-between py-1 border-b text-xs text-muted-foreground">
+                          <span className="w-20">Month</span>
+                          <div className="flex items-center gap-2">
+                            {!monthEqualDivide && <span className="w-16 text-center">%</span>}
+                            <span className="w-24 text-right">Quantity</span>
+                            <span className="w-28 text-right">Revenue</span>
+                          </div>
+                        </div>
                         {monthTargets.map(m => (
                           <div key={m.monthNumber} className="flex items-center justify-between py-2 border-b last:border-0">
-                            <span className="text-sm font-medium w-24">{m.monthName}</span>
+                            <span className="text-sm font-medium w-20">{m.monthName}</span>
                             <div className="flex items-center gap-2">
                               {!monthEqualDivide && (
                                 <div className="flex items-center gap-1">
@@ -1070,7 +1248,7 @@ export function DistributorFYPlan({ distributorId }: Props) {
                                     type="number"
                                     value={m.percentage.toFixed(1)}
                                     onChange={(e) => handleMonthPercentageChange(m.monthNumber, parseFloat(e.target.value) || 0)}
-                                    className="w-16 h-7 text-right text-xs"
+                                    className="w-14 h-7 text-right text-xs"
                                     min={0}
                                     max={100}
                                   />
@@ -1079,14 +1257,35 @@ export function DistributorFYPlan({ distributorId }: Props) {
                               )}
                               <Input
                                 type="number"
-                                value={Math.round(m.target) || ''}
-                                onChange={(e) => handleMonthTargetChange(m.monthNumber, parseFloat(e.target.value) || 0)}
+                                value={Math.round(m.quantityTarget) || ''}
+                                onChange={(e) => handleMonthTargetChange(m.monthNumber, parseFloat(e.target.value) || 0, m.revenueTarget)}
+                                className="w-24 h-7 text-right text-sm"
+                                placeholder="Qty"
+                              />
+                              <Input
+                                type="number"
+                                value={Math.round(m.revenueTarget) || ''}
+                                onChange={(e) => handleMonthTargetChange(m.monthNumber, m.quantityTarget, parseFloat(e.target.value) || 0)}
                                 className="w-28 h-7 text-right text-sm"
-                                placeholder="₹ Target"
+                                placeholder="₹"
                               />
                             </div>
                           </div>
                         ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Monthly Total Footer */}
+                  <Card className="bg-muted/50">
+                    <CardContent className="p-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Total Monthly Target</span>
+                        <div className="text-right">
+                          <span className="text-sm font-bold">{Math.round(totalMonthQuantityComputed).toLocaleString()} {quantityUnit}</span>
+                          <span className="mx-2 text-muted-foreground">|</span>
+                          <span className="text-sm font-bold">₹{Math.round(totalMonthRevenueComputed).toLocaleString()}</span>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
