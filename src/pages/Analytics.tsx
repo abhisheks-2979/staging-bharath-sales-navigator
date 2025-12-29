@@ -1780,9 +1780,9 @@ const Analytics = () => {
                           <SelectValue placeholder="Select a user" />
                         </SelectTrigger>
                         <SelectContent>
-                          {users.map((user) => (
-                            <SelectItem key={user.id} value={user.full_name || ''}>
-                              {user.full_name || 'Unknown User'}
+                          {users.filter(user => user.full_name).map((user) => (
+                            <SelectItem key={user.id} value={user.full_name!}>
+                              {user.full_name}
                             </SelectItem>
                           ))}
                         </SelectContent>
