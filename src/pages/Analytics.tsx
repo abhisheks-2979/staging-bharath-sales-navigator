@@ -2176,10 +2176,11 @@ const Analytics = () => {
                     <>
                       <div className="overflow-x-auto border rounded-lg">
                         <table className="w-full">
-                          <thead className="bg-muted/50">
+                        <thead className="bg-muted/50">
                             <tr className="border-b">
                               <th className="text-left p-3 text-sm font-medium">Full Name</th>
                               <th className="text-left p-3 text-sm font-medium">Product Name</th>
+                              <th className="text-left p-3 text-sm font-medium">Unit</th>
                               <th className="text-right p-3 text-sm font-medium">Quantity Sold</th>
                               <th className="text-right p-3 text-sm font-medium">Revenue</th>
                             </tr>
@@ -2189,6 +2190,7 @@ const Analytics = () => {
                               <tr key={index} className="border-b hover:bg-muted/30">
                                 <td className="p-3 text-sm font-medium">{row.full_name}</td>
                                 <td className="p-3 text-sm">{row.product_name}</td>
+                                <td className="p-3 text-sm">{row.unit || '-'}</td>
                                 <td className="p-3 text-sm text-right">{row.quantity_sold}</td>
                                 <td className="p-3 text-sm text-right font-semibold">₹{Number(row.revenue).toLocaleString()}</td>
                               </tr>
@@ -2196,7 +2198,7 @@ const Analytics = () => {
                           </tbody>
                           <tfoot className="bg-muted/30">
                             <tr>
-                              <td className="p-3 text-sm font-semibold" colSpan={2}>Total</td>
+                              <td className="p-3 text-sm font-semibold" colSpan={3}>Total</td>
                               <td className="p-3 text-sm text-right font-bold">
                                 {productRevenueData.reduce((sum, row) => sum + Number(row.quantity_sold), 0)}
                               </td>
