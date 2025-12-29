@@ -322,12 +322,12 @@ const Analytics = () => {
       const fromDate = format(sqlReportDateRange.from, 'yyyy-MM-dd');
       const toDate = format(sqlReportDateRange.to, 'yyyy-MM-dd');
       
-      // Get the user's profile to find the user_id
+      // Get the user's profile to find the user_id (use ilike to handle trailing spaces)
       const { data: profile } = await supabase
         .from('profiles')
         .select('id, full_name')
-        .eq('full_name', sqlReportUser)
-        .single();
+        .ilike('full_name', sqlReportUser.trim())
+        .maybeSingle();
       
       if (!profile) {
         setSqlReportData([]);
