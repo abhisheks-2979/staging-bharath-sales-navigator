@@ -100,6 +100,10 @@ const Analytics = () => {
   const [productRevenueUser, setProductRevenueUser] = useState<string>('');
   const [productRevenueData, setProductRevenueData] = useState<any[]>([]);
   const [productRevenueLoading, setProductRevenueLoading] = useState(false);
+  const [productRevenueDateRange, setProductRevenueDateRange] = useState<{ from: Date; to: Date }>({
+    from: subDays(new Date(), 7),
+    to: new Date()
+  });
 
   // Dashboard data state
   const [dashboardData, setDashboardData] = useState({
@@ -444,7 +448,9 @@ const Analytics = () => {
     setProductRevenueLoading(true);
     try {
       const { data, error } = await supabase.rpc('get_product_revenue_performance', {
-        user_full_name: productRevenueUser
+        user_full_name: productRevenueUser,
+        start_date: format(productRevenueDateRange.from, 'yyyy-MM-dd'),
+        end_date: format(productRevenueDateRange.to, 'yyyy-MM-dd')
       });
 
       if (error) {
@@ -469,7 +475,7 @@ const Analytics = () => {
     if (productRevenueUser) {
       fetchProductRevenueData();
     }
-  }, [productRevenueUser]);
+  }, [productRevenueUser, productRevenueDateRange]);
 
   const handleKpiPeriodChange = (value: string) => {
     setKpiPeriod(value);
@@ -2109,9 +2115,56 @@ const Analytics = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      Date Range: Dec 19, 2025 - Dec 26, 2025
-                    </p>
+                    <div className="flex gap-2 items-end">
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Start Date</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("w-[140px] justify-start text-left font-normal", !productRevenueDateRange.from && "text-muted-foreground")}>
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {productRevenueDateRange.from ? format(productRevenueDateRange.from, "MMM dd, yyyy") : "Start"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={productRevenueDateRange.from}
+                              onSelect={(date) => date && setProductRevenueDateRange(prev => ({ ...prev, from: date }))}
+                              initialFocus
+                              className="pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">End Date</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("w-[140px] justify-start text-left font-normal", !productRevenueDateRange.to && "text-muted-foreground")}>
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {productRevenueDateRange.to ? format(productRevenueDateRange.to, "MMM dd, yyyy") : "End"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={productRevenueDateRange.to}
+                              onSelect={(date) => date && setProductRevenueDateRange(prev => ({ ...prev, to: date }))}
+                              initialFocus
+                              className="pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setProductRevenueDateRange({ from: subDays(new Date(), 7), to: new Date() })}
+                        title="Reset to last 7 days"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
 
                   {productRevenueLoading ? (
