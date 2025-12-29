@@ -9653,6 +9653,17 @@ export type Database = {
           total_attempts: number
         }[]
       }
+      get_productivity_summary: {
+        Args: { user_full_name: string }
+        Returns: {
+          full_name: string
+          planned_date: string
+          productive_visits: number
+          productivity_percentage: number
+          total_visits: number
+          unproductive_visits: number
+        }[]
+      }
       get_public_vendors: {
         Args: never
         Returns: {
