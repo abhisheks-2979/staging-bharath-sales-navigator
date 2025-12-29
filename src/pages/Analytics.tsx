@@ -87,6 +87,15 @@ const Analytics = () => {
     to: new Date()
   });
 
+  // Productivity Report state
+  const [productivityUser, setProductivityUser] = useState<string>('');
+  const [productivityData, setProductivityData] = useState<any[]>([]);
+  const [productivityLoading, setProductivityLoading] = useState(false);
+  const [productivityDateRange, setProductivityDateRange] = useState<{ from: Date; to: Date }>({
+    from: subDays(new Date(), 7),
+    to: new Date()
+  });
+
   // Dashboard data state
   const [dashboardData, setDashboardData] = useState({
     attendance: { totalUsers: 0, punchedIn: 0, onField: 0, inOffice: 0, expected: 0 },
@@ -383,6 +392,100 @@ const Analytics = () => {
       fetchSqlReportData();
     }
   }, [sqlReportUser, sqlReportDateRange]);
+
+  // Fetch Productivity Report data
+  const fetchProductivityData = async () => {
+    if (!productivityUser) {
+      setProductivityData([]);
+      return;
+    }
+    
+    setProductivityLoading(true);
+    try {
+      const fromDate = format(productivityDateRange.from, 'yyyy-MM-dd');
+      const toDate = format(productivityDateRange.to, 'yyyy-MM-dd');
+      
+      // Get the user's profile to find the user_id
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .ilike('full_name', productivityUser.trim())
+        .maybeSingle();
+      
+      if (!profile) {
+        setProductivityData([]);
+        setProductivityLoading(false);
+        return;
+      }
+
+      // Fetch visits for this user
+      const { data: visits, error } = await supabase
+        .from('visits')
+        .select('id, planned_date, status')
+        .eq('user_id', profile.id)
+        .in('status', ['productive', 'unproductive'])
+        .gte('planned_date', fromDate)
+        .lte('planned_date', toDate)
+        .order('planned_date', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching productivity report:', error);
+        setProductivityData([]);
+        setProductivityLoading(false);
+        return;
+      }
+
+      // Group by date and calculate stats
+      const groupedData: Record<string, { 
+        planned_date: string; 
+        productive_visits: number; 
+        unproductive_visits: number;
+        total_visits: number;
+        productivity_percentage: number;
+      }> = {};
+      
+      visits?.forEach(visit => {
+        const dateKey = visit.planned_date;
+        if (!groupedData[dateKey]) {
+          groupedData[dateKey] = {
+            planned_date: dateKey,
+            productive_visits: 0,
+            unproductive_visits: 0,
+            total_visits: 0,
+            productivity_percentage: 0
+          };
+        }
+        groupedData[dateKey].total_visits += 1;
+        if (visit.status === 'productive') {
+          groupedData[dateKey].productive_visits += 1;
+        } else if (visit.status === 'unproductive') {
+          groupedData[dateKey].unproductive_visits += 1;
+        }
+      });
+
+      // Calculate productivity percentage
+      Object.values(groupedData).forEach(day => {
+        day.productivity_percentage = day.total_visits > 0 
+          ? Math.round((day.productive_visits / day.total_visits) * 100 * 100) / 100
+          : 0;
+      });
+
+      setProductivityData(Object.values(groupedData).sort((a, b) => 
+        new Date(b.planned_date).getTime() - new Date(a.planned_date).getTime()
+      ));
+    } catch (error) {
+      console.error('Error in productivity report:', error);
+      setProductivityData([]);
+    } finally {
+      setProductivityLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (productivityUser) {
+      fetchProductivityData();
+    }
+  }, [productivityUser, productivityDateRange]);
 
   const handleKpiPeriodChange = (value: string) => {
     setKpiPeriod(value);
@@ -1861,6 +1964,138 @@ const Analytics = () => {
                       </table>
                     </div>
                   ) : sqlReportUser ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No data found for the selected user and date range
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      Please select a user to view the report
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Productivity Summary Section */}
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle>SQL Report - Productivity Summary</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    View visit productivity grouped by date for selected user
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-wrap gap-4 items-end">
+                    <div className="flex-1 min-w-[200px]">
+                      <label className="text-sm font-medium mb-2 block">Select User</label>
+                      <Select value={productivityUser} onValueChange={setProductivityUser}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a user" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {users.filter(user => user.full_name).map((user) => (
+                            <SelectItem key={user.id} value={user.full_name!}>
+                              {user.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Date Range</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="min-w-[240px] justify-start text-left font-normal">
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {format(productivityDateRange.from, 'MMM dd, yyyy')} - {format(productivityDateRange.to, 'MMM dd, yyyy')}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="range"
+                              selected={{ from: productivityDateRange.from, to: productivityDateRange.to }}
+                              onSelect={(range: any) => {
+                                if (range?.from && range?.to) {
+                                  setProductivityDateRange({ from: range.from, to: range.to });
+                                }
+                              }}
+                              numberOfMonths={2}
+                              className={cn("p-3 pointer-events-auto")}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => setProductivityDateRange({ from: subDays(new Date(), 7), to: new Date() })}
+                        title="Clear date range"
+                      >
+                        <X size={16} />
+                      </Button>
+                    </div>
+                    <Button onClick={fetchProductivityData} disabled={productivityLoading || !productivityUser}>
+                      <RefreshCw size={16} className={cn("mr-2", productivityLoading && "animate-spin")} />
+                      Run Query
+                    </Button>
+                  </div>
+
+                  {productivityLoading ? (
+                    <div className="text-center py-8">
+                      <RefreshCw className="animate-spin mx-auto mb-2" size={24} />
+                      <p className="text-muted-foreground">Loading data...</p>
+                    </div>
+                  ) : productivityData.length > 0 ? (
+                    <div className="overflow-x-auto border rounded-lg">
+                      <table className="w-full">
+                        <thead className="bg-muted/50">
+                          <tr className="border-b">
+                            <th className="text-left p-3 text-sm font-medium">Planned Date</th>
+                            <th className="text-right p-3 text-sm font-medium">Productive Visits</th>
+                            <th className="text-right p-3 text-sm font-medium">Unproductive Visits</th>
+                            <th className="text-right p-3 text-sm font-medium">Total Visits</th>
+                            <th className="text-right p-3 text-sm font-medium">Productivity %</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {productivityData.map((row, index) => (
+                            <tr key={index} className="border-b hover:bg-muted/30">
+                              <td className="p-3 text-sm">{format(new Date(row.planned_date), 'MMMM dd, yyyy')}</td>
+                              <td className="p-3 text-sm text-right text-green-600 font-medium">{row.productive_visits}</td>
+                              <td className="p-3 text-sm text-right text-orange-600 font-medium">{row.unproductive_visits}</td>
+                              <td className="p-3 text-sm text-right font-medium">{row.total_visits}</td>
+                              <td className="p-3 text-sm text-right font-semibold">
+                                <span className={row.productivity_percentage >= 70 ? 'text-green-600' : row.productivity_percentage >= 50 ? 'text-yellow-600' : 'text-red-600'}>
+                                  {row.productivity_percentage}%
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="bg-muted/30">
+                          <tr>
+                            <td className="p-3 text-sm font-semibold">Total</td>
+                            <td className="p-3 text-sm text-right font-bold text-green-600">
+                              {productivityData.reduce((sum, row) => sum + row.productive_visits, 0)}
+                            </td>
+                            <td className="p-3 text-sm text-right font-bold text-orange-600">
+                              {productivityData.reduce((sum, row) => sum + row.unproductive_visits, 0)}
+                            </td>
+                            <td className="p-3 text-sm text-right font-bold">
+                              {productivityData.reduce((sum, row) => sum + row.total_visits, 0)}
+                            </td>
+                            <td className="p-3 text-sm text-right font-bold text-primary">
+                              {(() => {
+                                const totalProductive = productivityData.reduce((sum, row) => sum + row.productive_visits, 0);
+                                const totalVisits = productivityData.reduce((sum, row) => sum + row.total_visits, 0);
+                                return totalVisits > 0 ? Math.round((totalProductive / totalVisits) * 100 * 100) / 100 : 0;
+                              })()}%
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  ) : productivityUser ? (
                     <div className="text-center py-8 text-muted-foreground">
                       No data found for the selected user and date range
                     </div>
