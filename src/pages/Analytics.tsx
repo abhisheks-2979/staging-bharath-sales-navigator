@@ -2095,39 +2095,71 @@ const Analytics = () => {
                       <p className="text-muted-foreground">Loading data...</p>
                     </div>
                   ) : productRevenueData.length > 0 ? (
-                    <div className="overflow-x-auto border rounded-lg">
-                      <table className="w-full">
-                        <thead className="bg-muted/50">
-                          <tr className="border-b">
-                            <th className="text-left p-3 text-sm font-medium">Full Name</th>
-                            <th className="text-left p-3 text-sm font-medium">Product Name</th>
-                            <th className="text-right p-3 text-sm font-medium">Quantity Sold</th>
-                            <th className="text-right p-3 text-sm font-medium">Revenue</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {productRevenueData.map((row, index) => (
-                            <tr key={index} className="border-b hover:bg-muted/30">
-                              <td className="p-3 text-sm font-medium">{row.full_name}</td>
-                              <td className="p-3 text-sm">{row.product_name}</td>
-                              <td className="p-3 text-sm text-right">{row.quantity_sold}</td>
-                              <td className="p-3 text-sm text-right font-semibold">₹{Number(row.revenue).toLocaleString()}</td>
+                    <>
+                      <div className="overflow-x-auto border rounded-lg">
+                        <table className="w-full">
+                          <thead className="bg-muted/50">
+                            <tr className="border-b">
+                              <th className="text-left p-3 text-sm font-medium">Full Name</th>
+                              <th className="text-left p-3 text-sm font-medium">Product Name</th>
+                              <th className="text-right p-3 text-sm font-medium">Quantity Sold</th>
+                              <th className="text-right p-3 text-sm font-medium">Revenue</th>
                             </tr>
-                          ))}
-                        </tbody>
-                        <tfoot className="bg-muted/30">
-                          <tr>
-                            <td className="p-3 text-sm font-semibold" colSpan={2}>Total</td>
-                            <td className="p-3 text-sm text-right font-bold">
-                              {productRevenueData.reduce((sum, row) => sum + Number(row.quantity_sold), 0)}
-                            </td>
-                            <td className="p-3 text-sm text-right font-bold text-primary">
-                              ₹{productRevenueData.reduce((sum, row) => sum + Number(row.revenue), 0).toLocaleString()}
-                            </td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
+                          </thead>
+                          <tbody>
+                            {productRevenueData.map((row, index) => (
+                              <tr key={index} className="border-b hover:bg-muted/30">
+                                <td className="p-3 text-sm font-medium">{row.full_name}</td>
+                                <td className="p-3 text-sm">{row.product_name}</td>
+                                <td className="p-3 text-sm text-right">{row.quantity_sold}</td>
+                                <td className="p-3 text-sm text-right font-semibold">₹{Number(row.revenue).toLocaleString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot className="bg-muted/30">
+                            <tr>
+                              <td className="p-3 text-sm font-semibold" colSpan={2}>Total</td>
+                              <td className="p-3 text-sm text-right font-bold">
+                                {productRevenueData.reduce((sum, row) => sum + Number(row.quantity_sold), 0)}
+                              </td>
+                              <td className="p-3 text-sm text-right font-bold text-primary">
+                                ₹{productRevenueData.reduce((sum, row) => sum + Number(row.revenue), 0).toLocaleString()}
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+
+                      {/* Revenue Distribution Pie Chart */}
+                      <div className="mt-6">
+                        <h4 className="text-sm font-medium mb-4">Revenue Distribution by Product</h4>
+                        <div className="h-[300px]">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={productRevenueData.map((row, index) => ({
+                                  name: row.product_name,
+                                  value: Number(row.revenue),
+                                  fill: `hsl(${(index * 360) / productRevenueData.length}, 70%, 50%)`
+                                }))}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                outerRadius={100}
+                                dataKey="value"
+                              >
+                                {productRevenueData.map((_, index) => (
+                                  <Cell key={`cell-${index}`} fill={`hsl(${(index * 360) / productRevenueData.length}, 70%, 50%)`} />
+                                ))}
+                              </Pie>
+                              <Tooltip formatter={(value: number) => `₹${value.toLocaleString()}`} />
+                              <Legend />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    </>
                   ) : productRevenueUser ? (
                     <div className="text-center py-8 text-muted-foreground">
                       No data found for the selected user and date range
