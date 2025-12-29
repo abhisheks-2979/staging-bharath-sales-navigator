@@ -17,7 +17,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Plus, Target, Package, Store, Trash2, ChevronDown, ChevronRight, X } from "lucide-react";
+import { Plus, Target, Package, Store, Trash2, ChevronDown, ChevronRight, X, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -84,6 +84,28 @@ interface RetailerTargetItem {
   target: number;
 }
 
+interface MonthTarget {
+  monthNumber: number;
+  monthName: string;
+  percentage: number;
+  target: number;
+}
+
+const FY_MONTHS = [
+  { number: 1, name: 'April' },
+  { number: 2, name: 'May' },
+  { number: 3, name: 'June' },
+  { number: 4, name: 'July' },
+  { number: 5, name: 'August' },
+  { number: 6, name: 'September' },
+  { number: 7, name: 'October' },
+  { number: 8, name: 'November' },
+  { number: 9, name: 'December' },
+  { number: 10, name: 'January' },
+  { number: 11, name: 'February' },
+  { number: 12, name: 'March' },
+];
+
 interface Props {
   distributorId: string;
 }
@@ -103,6 +125,11 @@ export function DistributorFYPlan({ distributorId }: Props) {
   // Retailer targets state
   const [retailerCategoryTargets, setRetailerCategoryTargets] = useState<RetailerCategoryTarget[]>([]);
   const [expandedRetailerCategories, setExpandedRetailerCategories] = useState<Set<string>>(new Set());
+
+  // Monthly targets state
+  const [monthTargets, setMonthTargets] = useState<MonthTarget[]>([]);
+  const [monthEqualDivide, setMonthEqualDivide] = useState(true);
+  const [monthTotalTarget, setMonthTotalTarget] = useState(0);
 
   const [planForm, setPlanForm] = useState({
     year: new Date().getFullYear() + 1,
@@ -231,6 +258,12 @@ export function DistributorFYPlan({ distributorId }: Props) {
       .select('*')
       .eq('business_plan_id', selectedPlan.id);
 
+    // Load monthly targets
+    const { data: monthData } = await supabase
+      .from('distributor_business_plan_months')
+      .select('*')
+      .eq('business_plan_id', selectedPlan.id);
+
     // Initialize category targets from product categories
     const newCategoryTargets: CategoryTarget[] = productCategories.map(cat => ({
       categoryId: cat.id,
@@ -289,6 +322,29 @@ export function DistributorFYPlan({ distributorId }: Props) {
     });
 
     setRetailerCategoryTargets(newRetailerCategoryTargets);
+
+    // Initialize monthly targets
+    const newMonthTargets: MonthTarget[] = FY_MONTHS.map(m => {
+      const existing = monthData?.find(md => md.month_number === m.number);
+      return {
+        monthNumber: m.number,
+        monthName: m.name,
+        percentage: 100 / 12,
+        target: existing?.target_revenue || 0
+      };
+    });
+
+    const totalMonthly = newMonthTargets.reduce((sum, m) => sum + m.target, 0);
+    if (totalMonthly > 0) {
+      newMonthTargets.forEach(m => {
+        m.percentage = (m.target / totalMonthly) * 100;
+      });
+      setMonthEqualDivide(false);
+    } else {
+      setMonthEqualDivide(true);
+    }
+    setMonthTotalTarget(totalMonthly);
+    setMonthTargets(newMonthTargets);
   };
 
   useEffect(() => {
@@ -525,6 +581,93 @@ export function DistributorFYPlan({ distributorId }: Props) {
     }
   };
 
+  // Month target handlers
+  const handleMonthTotalTargetChange = (value: number) => {
+    setMonthTotalTarget(value);
+    if (monthEqualDivide) {
+      setMonthTargets(prev => prev.map(m => ({
+        ...m,
+        target: value / 12,
+        percentage: 100 / 12
+      })));
+    } else {
+      setMonthTargets(prev => prev.map(m => ({
+        ...m,
+        target: (m.percentage / 100) * value
+      })));
+    }
+  };
+
+  const handleMonthEqualDivideChange = (checked: boolean) => {
+    setMonthEqualDivide(checked);
+    if (checked) {
+      setMonthTargets(prev => prev.map(m => ({
+        ...m,
+        percentage: 100 / 12,
+        target: monthTotalTarget / 12
+      })));
+    }
+  };
+
+  const handleMonthPercentageChange = (monthNumber: number, percentage: number) => {
+    setMonthEqualDivide(false);
+    setMonthTargets(prev => prev.map(m => {
+      if (m.monthNumber !== monthNumber) return m;
+      return {
+        ...m,
+        percentage,
+        target: (percentage / 100) * monthTotalTarget
+      };
+    }));
+  };
+
+  const handleMonthTargetChange = (monthNumber: number, target: number) => {
+    setMonthEqualDivide(false);
+    setMonthTargets(prev => {
+      const newTargets = prev.map(m => {
+        if (m.monthNumber !== monthNumber) return m;
+        return { ...m, target };
+      });
+      const newTotal = newTargets.reduce((sum, m) => sum + m.target, 0);
+      setMonthTotalTarget(newTotal);
+      return newTargets.map(m => ({
+        ...m,
+        percentage: newTotal > 0 ? (m.target / newTotal) * 100 : 100 / 12
+      }));
+    });
+  };
+
+  const saveMonthTargets = async () => {
+    if (!selectedPlan) return;
+    
+    try {
+      // Delete existing
+      await supabase
+        .from('distributor_business_plan_months')
+        .delete()
+        .eq('business_plan_id', selectedPlan.id);
+
+      // Insert new
+      const monthsToInsert = monthTargets.filter(m => m.target > 0).map(m => ({
+        business_plan_id: selectedPlan.id,
+        month_number: m.monthNumber,
+        month_name: m.monthName,
+        target_revenue: Math.round(m.target)
+      }));
+
+      if (monthsToInsert.length > 0) {
+        const { error } = await supabase
+          .from('distributor_business_plan_months')
+          .insert(monthsToInsert);
+        if (error) throw error;
+      }
+
+      toast.success("Monthly targets saved");
+    } catch (error: any) {
+      toast.error("Failed to save: " + error.message);
+    }
+  };
+
   const totalProductTarget = useMemo(() => 
     categoryTargets.reduce((sum, cat) => sum + cat.target, 0), 
     [categoryTargets]
@@ -533,6 +676,11 @@ export function DistributorFYPlan({ distributorId }: Props) {
   const totalRetailerTarget = useMemo(() => 
     retailerCategoryTargets.reduce((sum, cat) => sum + cat.target, 0), 
     [retailerCategoryTargets]
+  );
+
+  const totalMonthTargetComputed = useMemo(() => 
+    monthTargets.reduce((sum, m) => sum + m.target, 0), 
+    [monthTargets]
   );
 
   return (
@@ -630,16 +778,20 @@ export function DistributorFYPlan({ distributorId }: Props) {
                 </CardContent>
               </Card>
 
-              {/* Tabs for Product and Retailer Targets */}
+              {/* Tabs for Product, Retailer and Month Targets */}
               <Tabs defaultValue="products">
-                <TabsList className="grid grid-cols-2 w-full">
+                <TabsList className="grid grid-cols-3 w-full">
                   <TabsTrigger value="products" className="text-xs gap-1">
                     <Package className="h-3 w-3" />
-                    Product Targets
+                    Products
                   </TabsTrigger>
                   <TabsTrigger value="retailers" className="text-xs gap-1">
                     <Store className="h-3 w-3" />
-                    Retailer Targets
+                    Retailers
+                  </TabsTrigger>
+                  <TabsTrigger value="months" className="text-xs gap-1">
+                    <Calendar className="h-3 w-3" />
+                    Monthly
                   </TabsTrigger>
                 </TabsList>
 
@@ -867,6 +1019,77 @@ export function DistributorFYPlan({ distributorId }: Props) {
                       ))}
                     </div>
                   )}
+                </TabsContent>
+
+                {/* MONTHLY TARGETS TAB */}
+                <TabsContent value="months" className="mt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">
+                      Total: ₹{totalMonthTargetComputed.toLocaleString()}
+                    </p>
+                    <Button size="sm" onClick={saveMonthTargets}>
+                      Save Targets
+                    </Button>
+                  </div>
+
+                  <Card>
+                    <CardContent className="p-4 space-y-4">
+                      {/* Total target input */}
+                      <div className="flex items-center justify-between gap-4">
+                        <Label className="text-sm font-medium">Annual Target (₹)</Label>
+                        <Input
+                          type="number"
+                          value={monthTotalTarget || ''}
+                          onChange={(e) => handleMonthTotalTargetChange(parseFloat(e.target.value) || 0)}
+                          className="w-36 h-8 text-right"
+                          placeholder="Enter total"
+                        />
+                      </div>
+
+                      {/* Equal divide checkbox */}
+                      <div className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+                        <Checkbox
+                          id="month-equal-divide"
+                          checked={monthEqualDivide}
+                          onCheckedChange={(checked) => handleMonthEqualDivideChange(checked as boolean)}
+                        />
+                        <Label htmlFor="month-equal-divide" className="text-xs cursor-pointer">
+                          Equally divide across all months
+                        </Label>
+                      </div>
+
+                      {/* Month-wise targets */}
+                      <div className="space-y-2">
+                        {monthTargets.map(m => (
+                          <div key={m.monthNumber} className="flex items-center justify-between py-2 border-b last:border-0">
+                            <span className="text-sm font-medium w-24">{m.monthName}</span>
+                            <div className="flex items-center gap-2">
+                              {!monthEqualDivide && (
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    type="number"
+                                    value={m.percentage.toFixed(1)}
+                                    onChange={(e) => handleMonthPercentageChange(m.monthNumber, parseFloat(e.target.value) || 0)}
+                                    className="w-16 h-7 text-right text-xs"
+                                    min={0}
+                                    max={100}
+                                  />
+                                  <span className="text-xs text-muted-foreground">%</span>
+                                </div>
+                              )}
+                              <Input
+                                type="number"
+                                value={Math.round(m.target) || ''}
+                                onChange={(e) => handleMonthTargetChange(m.monthNumber, parseFloat(e.target.value) || 0)}
+                                className="w-28 h-7 text-right text-sm"
+                                placeholder="₹ Target"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
                 </TabsContent>
               </Tabs>
             </>
