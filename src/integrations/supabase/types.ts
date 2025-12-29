@@ -9516,6 +9516,16 @@ export type Database = {
         }
         Relationships: []
       }
+      productive_summary_week: {
+        Row: {
+          planned_date: string | null
+          productive_visits: number | null
+          productivity_percentage: number | null
+          total_visits: number | null
+          unproductive_visits: number | null
+        }
+        Relationships: []
+      }
       productive_view: {
         Row: {
           full_name: string | null
