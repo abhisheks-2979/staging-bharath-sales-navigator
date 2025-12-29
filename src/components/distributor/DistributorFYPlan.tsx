@@ -24,7 +24,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Target, Package, Store, Trash2, ChevronDown, ChevronRight, X, Calendar } from "lucide-react";
+import { Plus, Target, Package, Store, Trash2, ChevronDown, ChevronRight, X, Calendar, Pencil, MoreVertical } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -133,6 +149,8 @@ export function DistributorFYPlan({ distributorId }: Props) {
   const [retailerCategories, setRetailerCategories] = useState<RetailerCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
   // Product targets state
   const [categoryTargets, setCategoryTargets] = useState<CategoryTarget[]>([]);
@@ -411,6 +429,15 @@ export function DistributorFYPlan({ distributorId }: Props) {
       if (error) throw error;
       toast.success("FY Plan created");
       setDialogOpen(false);
+      setPlanForm({
+        year: new Date().getFullYear() + 1,
+        quantity_target: "",
+        quantity_unit: "Units",
+        revenue_target: "",
+        coverage_target: "",
+        territory_target: "",
+        notes: "",
+      });
       loadPlans();
       setSelectedPlan({
         ...data,
@@ -419,6 +446,70 @@ export function DistributorFYPlan({ distributorId }: Props) {
       });
     } catch (error: any) {
       toast.error("Failed to create plan: " + error.message);
+    }
+  };
+
+  const handleEditPlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPlan) return;
+    try {
+      const { error } = await supabase
+        .from('distributor_business_plans')
+        .update({
+          year: planForm.year,
+          quantity_target: parseFloat(planForm.quantity_target) || 0,
+          quantity_unit: planForm.quantity_unit,
+          revenue_target: parseFloat(planForm.revenue_target) || 0,
+          coverage_target: planForm.coverage_target || null,
+          territory_target: planForm.territory_target || null,
+          notes: planForm.notes || null,
+        })
+        .eq('id', selectedPlan.id);
+
+      if (error) throw error;
+      toast.success("FY Plan updated");
+      setEditDialogOpen(false);
+      loadPlans();
+    } catch (error: any) {
+      toast.error("Failed to update plan: " + error.message);
+    }
+  };
+
+  const handleDeletePlan = async () => {
+    if (!selectedPlan) return;
+    try {
+      // Delete related data first
+      await supabase.from('distributor_business_plan_products').delete().eq('business_plan_id', selectedPlan.id);
+      await supabase.from('distributor_business_plan_retailers').delete().eq('business_plan_id', selectedPlan.id);
+      await supabase.from('distributor_business_plan_months').delete().eq('business_plan_id', selectedPlan.id);
+      
+      const { error } = await supabase
+        .from('distributor_business_plans')
+        .delete()
+        .eq('id', selectedPlan.id);
+
+      if (error) throw error;
+      toast.success("FY Plan deleted");
+      setDeleteDialogOpen(false);
+      setSelectedPlan(null);
+      loadPlans();
+    } catch (error: any) {
+      toast.error("Failed to delete plan: " + error.message);
+    }
+  };
+
+  const openEditDialog = () => {
+    if (selectedPlan) {
+      setPlanForm({
+        year: selectedPlan.year,
+        quantity_target: selectedPlan.quantity_target.toString(),
+        quantity_unit: selectedPlan.quantity_unit,
+        revenue_target: selectedPlan.revenue_target.toString(),
+        coverage_target: selectedPlan.coverage_target || "",
+        territory_target: selectedPlan.territory_target || "",
+        notes: selectedPlan.notes || "",
+      });
+      setEditDialogOpen(true);
     }
   };
 
@@ -727,24 +818,28 @@ export function DistributorFYPlan({ distributorId }: Props) {
     }
   };
 
-  // Computed totals
+  // Computed totals - sum of individual line items (not category totals)
   const totalProductQuantity = useMemo(() => 
-    categoryTargets.reduce((sum, cat) => sum + cat.quantityTarget, 0), 
+    categoryTargets.reduce((sum, cat) => 
+      sum + cat.products.reduce((pSum, p) => pSum + p.quantityTarget, 0), 0), 
     [categoryTargets]
   );
 
   const totalProductRevenue = useMemo(() => 
-    categoryTargets.reduce((sum, cat) => sum + cat.revenueTarget, 0), 
+    categoryTargets.reduce((sum, cat) => 
+      sum + cat.products.reduce((pSum, p) => pSum + p.revenueTarget, 0), 0), 
     [categoryTargets]
   );
 
   const totalRetailerQuantity = useMemo(() => 
-    retailerCategoryTargets.reduce((sum, cat) => sum + cat.quantityTarget, 0), 
+    retailerCategoryTargets.reduce((sum, cat) => 
+      sum + cat.retailers.reduce((rSum, r) => rSum + r.quantityTarget, 0), 0), 
     [retailerCategoryTargets]
   );
 
   const totalRetailerRevenue = useMemo(() => 
-    retailerCategoryTargets.reduce((sum, cat) => sum + cat.revenueTarget, 0), 
+    retailerCategoryTargets.reduce((sum, cat) => 
+      sum + cat.retailers.reduce((rSum, r) => rSum + r.revenueTarget, 0), 0), 
     [retailerCategoryTargets]
   );
 
@@ -869,6 +964,29 @@ export function DistributorFYPlan({ distributorId }: Props) {
               {/* Plan Overview */}
               <Card>
                 <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-medium">FY {selectedPlan.year} Overview</span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={openEditDialog}>
+                          <Pencil className="h-3.5 w-3.5 mr-2" />
+                          Edit Plan
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="text-destructive"
+                          onClick={() => setDeleteDialogOpen(true)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-2" />
+                          Delete Plan
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs text-muted-foreground">Quantity Target</p>
@@ -881,6 +999,90 @@ export function DistributorFYPlan({ distributorId }: Props) {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Edit Plan Dialog */}
+              <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit FY Plan</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleEditPlan} className="space-y-4">
+                    <div>
+                      <Label>Financial Year</Label>
+                      <Input
+                        type="number"
+                        value={planForm.year}
+                        onChange={(e) => setPlanForm(prev => ({ ...prev, year: parseInt(e.target.value) }))}
+                        min={2020}
+                        max={2050}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Quantity Target</Label>
+                        <Input
+                          type="number"
+                          value={planForm.quantity_target}
+                          onChange={(e) => setPlanForm(prev => ({ ...prev, quantity_target: e.target.value }))}
+                          placeholder="Annual quantity"
+                        />
+                      </div>
+                      <div>
+                        <Label>Unit of Measure</Label>
+                        <Select
+                          value={planForm.quantity_unit}
+                          onValueChange={(value) => setPlanForm(prev => ({ ...prev, quantity_unit: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {QUANTITY_UNITS.map(unit => (
+                              <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Revenue Target (₹)</Label>
+                      <Input
+                        type="number"
+                        value={planForm.revenue_target}
+                        onChange={(e) => setPlanForm(prev => ({ ...prev, revenue_target: e.target.value }))}
+                        placeholder="Annual revenue target"
+                      />
+                    </div>
+                    <div>
+                      <Label>Coverage Target</Label>
+                      <Input
+                        value={planForm.coverage_target}
+                        onChange={(e) => setPlanForm(prev => ({ ...prev, coverage_target: e.target.value }))}
+                        placeholder="e.g., 50 new retailers"
+                      />
+                    </div>
+                    <Button type="submit" className="w-full">Update Plan</Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+
+              {/* Delete Confirmation Dialog */}
+              <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete FY Plan</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete FY {selectedPlan.year} plan? This will also delete all product, retailer, and monthly targets associated with this plan. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeletePlan} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
 
               {/* Tabs for Product, Retailer and Month Targets */}
               <Tabs defaultValue="products">
