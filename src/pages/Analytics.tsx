@@ -454,7 +454,9 @@ const Analytics = () => {
         return;
       }
 
-      setProductRevenueData(data || []);
+      // Sort by revenue in descending order
+      const sortedData = (data || []).sort((a: any, b: any) => (b.revenue || 0) - (a.revenue || 0));
+      setProductRevenueData(sortedData);
     } catch (error) {
       console.error('Error in product revenue report:', error);
       setProductRevenueData([]);
