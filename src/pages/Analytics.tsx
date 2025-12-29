@@ -10,7 +10,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area
 } from "recharts";
-import { ArrowLeft, TrendingUp, TrendingDown, Users, ShoppingCart, Target, Heart, RefreshCw, Activity, Info, Calendar as CalendarIcon, Sparkles, AlertTriangle, MessageSquare } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Users, ShoppingCart, Target, Heart, RefreshCw, Activity, Info, Calendar as CalendarIcon, Sparkles, AlertTriangle, MessageSquare, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
@@ -1811,6 +1811,14 @@ const Analytics = () => {
                           />
                         </PopoverContent>
                       </Popover>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => setSqlReportDateRange({ from: subDays(new Date(), 7), to: new Date() })}
+                        title="Clear date range"
+                      >
+                        <X size={16} />
+                      </Button>
                     </div>
                     <Button onClick={fetchSqlReportData} disabled={sqlReportLoading || !sqlReportUser}>
                       <RefreshCw size={16} className={cn("mr-2", sqlReportLoading && "animate-spin")} />
