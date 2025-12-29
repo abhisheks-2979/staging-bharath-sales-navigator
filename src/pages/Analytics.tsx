@@ -2132,7 +2132,7 @@ const Analytics = () => {
 
                       {/* Revenue Distribution Pie Chart */}
                       <div className="mt-6">
-                        <h4 className="text-sm font-medium mb-4">Revenue Distribution by Product</h4>
+                        <h4 className="text-sm font-medium mb-4">Revenue Distribution by Product for {productRevenueUser}</h4>
                         <div className="h-[300px]">
                           <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
