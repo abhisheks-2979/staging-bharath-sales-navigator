@@ -402,8 +402,9 @@ const Analytics = () => {
     
     setProductivityLoading(true);
     try {
-      const fromDate = format(productivityDateRange.from, 'yyyy-MM-dd');
-      const toDate = format(productivityDateRange.to, 'yyyy-MM-dd');
+      // Hardcoded date range as per the SQL query
+      const fromDate = '2025-12-19';
+      const toDate = '2025-12-26';
 
       // First get the user's profile to find the user_id
       const { data: profile } = await supabase
@@ -492,7 +493,7 @@ const Analytics = () => {
     if (productivityUser) {
       fetchProductivityData();
     }
-  }, [productivityUser, productivityDateRange]);
+  }, [productivityUser]);
 
   const handleKpiPeriodChange = (value: string) => {
     setKpiPeriod(value);
@@ -2007,44 +2008,9 @@ const Analytics = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="flex items-end gap-2">
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Date Range</label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" className="min-w-[240px] justify-start text-left font-normal">
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {format(productivityDateRange.from, 'MMM dd, yyyy')} - {format(productivityDateRange.to, 'MMM dd, yyyy')}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="range"
-                              selected={{ from: productivityDateRange.from, to: productivityDateRange.to }}
-                              onSelect={(range: any) => {
-                                if (range?.from && range?.to) {
-                                  setProductivityDateRange({ from: range.from, to: range.to });
-                                }
-                              }}
-                              numberOfMonths={2}
-                              className={cn("p-3 pointer-events-auto")}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => setProductivityDateRange({ from: subDays(new Date(), 7), to: new Date() })}
-                        title="Clear date range"
-                      >
-                        <X size={16} />
-                      </Button>
-                    </div>
-                    <Button onClick={fetchProductivityData} disabled={productivityLoading || !productivityUser}>
-                      <RefreshCw size={16} className={cn("mr-2", productivityLoading && "animate-spin")} />
-                      Run Query
-                    </Button>
+                    <p className="text-sm text-muted-foreground">
+                      Date Range: Dec 19, 2025 - Dec 26, 2025
+                    </p>
                   </div>
 
                   {productivityLoading ? (
