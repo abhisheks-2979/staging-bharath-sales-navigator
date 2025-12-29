@@ -96,6 +96,11 @@ const Analytics = () => {
     to: new Date()
   });
 
+  // Product Revenue Performance state
+  const [productRevenueUser, setProductRevenueUser] = useState<string>('');
+  const [productRevenueData, setProductRevenueData] = useState<any[]>([]);
+  const [productRevenueLoading, setProductRevenueLoading] = useState(false);
+
   // Dashboard data state
   const [dashboardData, setDashboardData] = useState({
     attendance: { totalUsers: 0, punchedIn: 0, onField: 0, inOffice: 0, expected: 0 },
@@ -428,6 +433,41 @@ const Analytics = () => {
       fetchProductivityData();
     }
   }, [productivityUser]);
+
+  // Fetch Product Revenue Performance data
+  const fetchProductRevenueData = async () => {
+    if (!productRevenueUser) {
+      setProductRevenueData([]);
+      return;
+    }
+    
+    setProductRevenueLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('get_product_revenue_performance', {
+        user_full_name: productRevenueUser
+      });
+
+      if (error) {
+        console.error('Error fetching product revenue report:', error);
+        setProductRevenueData([]);
+        setProductRevenueLoading(false);
+        return;
+      }
+
+      setProductRevenueData(data || []);
+    } catch (error) {
+      console.error('Error in product revenue report:', error);
+      setProductRevenueData([]);
+    } finally {
+      setProductRevenueLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (productRevenueUser) {
+      fetchProductRevenueData();
+    }
+  }, [productRevenueUser]);
 
   const handleKpiPeriodChange = (value: string) => {
     setKpiPeriod(value);
@@ -2006,6 +2046,87 @@ const Analytics = () => {
                       </table>
                     </div>
                   ) : productivityUser ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No data found for the selected user and date range
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      Please select a user to view the report
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Product and Revenue Performance Section */}
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle>SQL Report - Product and Revenue Performance</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    View product-wise quantity sold and revenue for selected user
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-wrap gap-4 items-end">
+                    <div className="flex-1 min-w-[200px]">
+                      <label className="text-sm font-medium mb-2 block">Select User</label>
+                      <Select value={productRevenueUser} onValueChange={setProductRevenueUser}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a user" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {users.filter(user => user.full_name).map((user) => (
+                            <SelectItem key={user.id} value={user.full_name!}>
+                              {user.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Date Range: Dec 19, 2025 - Dec 26, 2025
+                    </p>
+                  </div>
+
+                  {productRevenueLoading ? (
+                    <div className="text-center py-8">
+                      <RefreshCw className="animate-spin mx-auto mb-2" size={24} />
+                      <p className="text-muted-foreground">Loading data...</p>
+                    </div>
+                  ) : productRevenueData.length > 0 ? (
+                    <div className="overflow-x-auto border rounded-lg">
+                      <table className="w-full">
+                        <thead className="bg-muted/50">
+                          <tr className="border-b">
+                            <th className="text-left p-3 text-sm font-medium">Full Name</th>
+                            <th className="text-left p-3 text-sm font-medium">Product Name</th>
+                            <th className="text-right p-3 text-sm font-medium">Quantity Sold</th>
+                            <th className="text-right p-3 text-sm font-medium">Revenue</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {productRevenueData.map((row, index) => (
+                            <tr key={index} className="border-b hover:bg-muted/30">
+                              <td className="p-3 text-sm font-medium">{row.full_name}</td>
+                              <td className="p-3 text-sm">{row.product_name}</td>
+                              <td className="p-3 text-sm text-right">{row.quantity_sold}</td>
+                              <td className="p-3 text-sm text-right font-semibold">₹{Number(row.revenue).toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="bg-muted/30">
+                          <tr>
+                            <td className="p-3 text-sm font-semibold" colSpan={2}>Total</td>
+                            <td className="p-3 text-sm text-right font-bold">
+                              {productRevenueData.reduce((sum, row) => sum + Number(row.quantity_sold), 0)}
+                            </td>
+                            <td className="p-3 text-sm text-right font-bold text-primary">
+                              ₹{productRevenueData.reduce((sum, row) => sum + Number(row.revenue), 0).toLocaleString()}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  ) : productRevenueUser ? (
                     <div className="text-center py-8 text-muted-foreground">
                       No data found for the selected user and date range
                     </div>
