@@ -2148,13 +2148,14 @@ const Analytics = () => {
                                 label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
                                 outerRadius={100}
                                 dataKey="value"
+                                fontSize={9}
                               >
                                 {productRevenueData.map((_, index) => (
                                   <Cell key={`cell-${index}`} fill={`hsl(${(index * 360) / productRevenueData.length}, 70%, 50%)`} />
                                 ))}
                               </Pie>
                               <Tooltip formatter={(value: number) => `₹${value.toLocaleString()}`} />
-                              <Legend />
+                              <Legend wrapperStyle={{ fontSize: '9px' }} />
                             </PieChart>
                           </ResponsiveContainer>
                         </div>
