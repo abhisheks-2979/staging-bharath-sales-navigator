@@ -406,14 +406,10 @@ const Analytics = () => {
       const fromDate = '2025-12-19';
       const toDate = '2025-12-26';
 
-      // First get the user's profile to find the user_id
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .ilike('full_name', productivityUser.trim())
-        .maybeSingle();
+      // Find the selected user from the users array (productivityUser stores user.id)
+      const selectedUser = users.find(u => u.id === productivityUser);
       
-      if (!profile) {
+      if (!selectedUser) {
         setProductivityData([]);
         setProductivityLoading(false);
         return;
@@ -423,7 +419,7 @@ const Analytics = () => {
       const { data: visits, error } = await supabase
         .from('visits')
         .select('id, planned_date, status, user_id')
-        .eq('user_id', profile.id)
+        .eq('user_id', selectedUser.id)
         .in('status', ['productive', 'unproductive'])
         .gte('planned_date', fromDate)
         .lte('planned_date', toDate)
@@ -446,7 +442,7 @@ const Analytics = () => {
         productivity_percentage: number;
       }> = {};
       
-      const fullName = profile.full_name || 'Unknown';
+      const fullName = selectedUser.full_name || 'Unknown';
       
       visits?.forEach(visit => {
         const dateKey = `${fullName}_${visit.planned_date}`;
@@ -2001,7 +1997,7 @@ const Analytics = () => {
                         </SelectTrigger>
                         <SelectContent>
                           {users.filter(user => user.full_name).map((user) => (
-                            <SelectItem key={user.id} value={user.full_name!}>
+                            <SelectItem key={user.id} value={user.id}>
                               {user.full_name}
                             </SelectItem>
                           ))}
