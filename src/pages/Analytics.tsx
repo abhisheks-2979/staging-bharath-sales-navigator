@@ -78,6 +78,15 @@ const Analytics = () => {
     topTerritories: []
   });
 
+  // SQL Report state
+  const [sqlReportUser, setSqlReportUser] = useState<string>('');
+  const [sqlReportData, setSqlReportData] = useState<any[]>([]);
+  const [sqlReportLoading, setSqlReportLoading] = useState(false);
+  const [sqlReportDateRange, setSqlReportDateRange] = useState<{ from: Date; to: Date }>({
+    from: subDays(new Date(), 7),
+    to: new Date()
+  });
+
   // Dashboard data state
   const [dashboardData, setDashboardData] = useState({
     attendance: { totalUsers: 0, punchedIn: 0, onField: 0, inOffice: 0, expected: 0 },
@@ -300,6 +309,80 @@ const Analytics = () => {
   useEffect(() => {
     fetchDashboardData();
   }, [selectedUserId]);
+
+  // Fetch SQL Report data
+  const fetchSqlReportData = async () => {
+    if (!sqlReportUser) {
+      setSqlReportData([]);
+      return;
+    }
+    
+    setSqlReportLoading(true);
+    try {
+      const fromDate = format(sqlReportDateRange.from, 'yyyy-MM-dd');
+      const toDate = format(sqlReportDateRange.to, 'yyyy-MM-dd');
+      
+      // Get the user's profile to find the user_id
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('full_name', sqlReportUser)
+        .single();
+      
+      if (!profile) {
+        setSqlReportData([]);
+        setSqlReportLoading(false);
+        return;
+      }
+
+      // Fetch orders for this user
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select('order_date, total_amount, status')
+        .eq('user_id', profile.id)
+        .eq('status', 'confirmed')
+        .gte('order_date', fromDate)
+        .lte('order_date', toDate)
+        .order('order_date', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching SQL report:', error);
+        setSqlReportData([]);
+        setSqlReportLoading(false);
+        return;
+      }
+
+      // Group by date and sum totals
+      const groupedData: Record<string, { order_date: string; full_name: string; total_order_value: number }> = {};
+      
+      orders?.forEach(order => {
+        const dateKey = order.order_date;
+        if (!groupedData[dateKey]) {
+          groupedData[dateKey] = {
+            order_date: dateKey,
+            full_name: sqlReportUser,
+            total_order_value: 0
+          };
+        }
+        groupedData[dateKey].total_order_value += Number(order.total_amount || 0);
+      });
+
+      setSqlReportData(Object.values(groupedData).sort((a, b) => 
+        new Date(a.order_date).getTime() - new Date(b.order_date).getTime()
+      ));
+    } catch (error) {
+      console.error('Error in SQL report:', error);
+      setSqlReportData([]);
+    } finally {
+      setSqlReportLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (sqlReportUser) {
+      fetchSqlReportData();
+    }
+  }, [sqlReportUser, sqlReportDateRange]);
 
   const handleKpiPeriodChange = (value: string) => {
     setKpiPeriod(value);
@@ -879,13 +962,14 @@ const Analytics = () => {
           </Card>
 
           <Tabs defaultValue="progress" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="kpi">KPI</TabsTrigger>
               <TabsTrigger value="progress">Dashboard</TabsTrigger>
               <TabsTrigger value="products">Products</TabsTrigger>
               <TabsTrigger value="retailers">Retailers</TabsTrigger>
               <TabsTrigger value="predictions">Predictions</TabsTrigger>
               <TabsTrigger value="calendar">Calendar</TabsTrigger>
+              <TabsTrigger value="sql-report">SQL Report</TabsTrigger>
             </TabsList>
 
             {/* KPI Dashboard */}
@@ -1674,6 +1758,109 @@ const Analytics = () => {
                       </div>
                     </CardContent>
                   </Card>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* SQL Report Tab */}
+            <TabsContent value="sql-report" className="space-y-4">
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle>SQL Report - Order Summary by User</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    View confirmed order totals grouped by date for selected user
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-wrap gap-4 items-end">
+                    <div className="flex-1 min-w-[200px]">
+                      <label className="text-sm font-medium mb-2 block">Select User</label>
+                      <Select value={sqlReportUser} onValueChange={setSqlReportUser}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a user" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {users.map((user) => (
+                            <SelectItem key={user.id} value={user.full_name || ''}>
+                              {user.full_name || 'Unknown User'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Date Range</label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="min-w-[240px] justify-start text-left font-normal">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {format(sqlReportDateRange.from, 'MMM dd, yyyy')} - {format(sqlReportDateRange.to, 'MMM dd, yyyy')}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="range"
+                            selected={{ from: sqlReportDateRange.from, to: sqlReportDateRange.to }}
+                            onSelect={(range: any) => {
+                              if (range?.from && range?.to) {
+                                setSqlReportDateRange({ from: range.from, to: range.to });
+                              }
+                            }}
+                            numberOfMonths={2}
+                            className={cn("p-3 pointer-events-auto")}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <Button onClick={fetchSqlReportData} disabled={sqlReportLoading || !sqlReportUser}>
+                      <RefreshCw size={16} className={cn("mr-2", sqlReportLoading && "animate-spin")} />
+                      Run Query
+                    </Button>
+                  </div>
+
+                  {sqlReportLoading ? (
+                    <div className="text-center py-8">
+                      <RefreshCw className="animate-spin mx-auto mb-2" size={24} />
+                      <p className="text-muted-foreground">Loading data...</p>
+                    </div>
+                  ) : sqlReportData.length > 0 ? (
+                    <div className="overflow-x-auto border rounded-lg">
+                      <table className="w-full">
+                        <thead className="bg-muted/50">
+                          <tr className="border-b">
+                            <th className="text-left p-3 text-sm font-medium">Order Date</th>
+                            <th className="text-left p-3 text-sm font-medium">Full Name</th>
+                            <th className="text-right p-3 text-sm font-medium">Total Order Value</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sqlReportData.map((row, index) => (
+                            <tr key={index} className="border-b hover:bg-muted/30">
+                              <td className="p-3 text-sm">{format(new Date(row.order_date), 'MMM dd, yyyy')}</td>
+                              <td className="p-3 text-sm">{row.full_name}</td>
+                              <td className="p-3 text-sm text-right font-semibold">₹{row.total_order_value.toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="bg-muted/30">
+                          <tr>
+                            <td className="p-3 text-sm font-semibold" colSpan={2}>Total</td>
+                            <td className="p-3 text-sm text-right font-bold text-primary">
+                              ₹{sqlReportData.reduce((sum, row) => sum + row.total_order_value, 0).toLocaleString()}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  ) : sqlReportUser ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No data found for the selected user and date range
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      Please select a user to view the report
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
