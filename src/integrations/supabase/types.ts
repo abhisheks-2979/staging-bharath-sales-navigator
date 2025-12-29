@@ -1923,6 +1923,7 @@ export type Database = {
           id: string
           month_name: string
           month_number: number
+          quantity_target: number | null
           target_revenue: number | null
           updated_at: string
         }
@@ -1932,6 +1933,7 @@ export type Database = {
           id?: string
           month_name: string
           month_number: number
+          quantity_target?: number | null
           target_revenue?: number | null
           updated_at?: string
         }
@@ -1941,6 +1943,7 @@ export type Database = {
           id?: string
           month_name?: string
           month_number?: number
+          quantity_target?: number | null
           target_revenue?: number | null
           updated_at?: string
         }
@@ -1999,6 +2002,7 @@ export type Database = {
           growth_percent: number | null
           id: string
           last_year_revenue: number | null
+          quantity_target: number | null
           retailer_id: string
           retailer_name: string
           target_revenue: number | null
@@ -2009,6 +2013,7 @@ export type Database = {
           growth_percent?: number | null
           id?: string
           last_year_revenue?: number | null
+          quantity_target?: number | null
           retailer_id: string
           retailer_name: string
           target_revenue?: number | null
@@ -2019,6 +2024,7 @@ export type Database = {
           growth_percent?: number | null
           id?: string
           last_year_revenue?: number | null
+          quantity_target?: number | null
           retailer_id?: string
           retailer_name?: string
           target_revenue?: number | null
@@ -2040,6 +2046,8 @@ export type Database = {
           distributor_id: string
           id: string
           notes: string | null
+          quantity_target: number | null
+          quantity_unit: string | null
           revenue_target: number | null
           territory_target: string | null
           updated_at: string
@@ -2051,6 +2059,8 @@ export type Database = {
           distributor_id: string
           id?: string
           notes?: string | null
+          quantity_target?: number | null
+          quantity_unit?: string | null
           revenue_target?: number | null
           territory_target?: string | null
           updated_at?: string
@@ -2062,6 +2072,8 @@ export type Database = {
           distributor_id?: string
           id?: string
           notes?: string | null
+          quantity_target?: number | null
+          quantity_unit?: string | null
           revenue_target?: number | null
           territory_target?: string | null
           updated_at?: string
