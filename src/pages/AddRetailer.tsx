@@ -716,6 +716,22 @@ export const AddRetailer = () => {
       });
       return;
     }
+    if (!retailerData.retailType) {
+      toast({
+        title: "Retailer Type Required",
+        description: "Please select a retailer type",
+        variant: "destructive"
+      });
+      return;
+    }
+    if (!retailerData.category) {
+      toast({
+        title: "Category Required",
+        description: "Please select a category",
+        variant: "destructive"
+      });
+      return;
+    }
     if (!selectedBeat || selectedBeat === 'unassigned') {
       toast({
         title: "Beat Required",
@@ -1281,7 +1297,7 @@ export const AddRetailer = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Retail Type</Label>
+                  <Label>Retail Type *</Label>
                   <Select 
                     value={retailerData.retailType === "Other" ? "Other" : retailerData.retailType} 
                     onValueChange={(value) => {
@@ -1314,7 +1330,7 @@ export const AddRetailer = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>{t('retailer.category')}</Label>
+                  <Label>{t('retailer.category')} *</Label>
                   <Select value={retailerData.category} onValueChange={(value) => handleInputChange("category", value)}>
                     <SelectTrigger className="bg-background">
                       <SelectValue placeholder={t('retailer.selectCategory')} />
