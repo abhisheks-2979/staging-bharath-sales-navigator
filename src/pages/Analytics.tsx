@@ -345,11 +345,23 @@ const Analytics = () => {
       let orders: { order_date: string; total_amount: number | null }[] = [];
       
       if (isManvith) {
-        // Special query for MANVITH - use RPC or join via profiles with LIKE
+        // Special query for MANVITH - first get all user IDs matching MANVITH%
+        const manvithProfiles = users.filter(u => 
+          u.full_name?.trim().toUpperCase().startsWith('MANVITH')
+        );
+        
+        if (manvithProfiles.length === 0) {
+          setSqlReportData([]);
+          setSqlReportLoading(false);
+          return;
+        }
+        
+        const manvithUserIds = manvithProfiles.map(p => p.id);
+        
         const { data, error } = await supabase
           .from('orders')
-          .select('order_date, total_amount, profiles!inner(full_name)')
-          .ilike('profiles.full_name', 'MANVITH%')
+          .select('order_date, total_amount')
+          .in('user_id', manvithUserIds)
           .eq('status', 'confirmed')
           .gte('order_date', fromDate)
           .lte('order_date', toDate)
