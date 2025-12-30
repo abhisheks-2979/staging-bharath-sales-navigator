@@ -1784,8 +1784,8 @@ export const TodaySummary = () => {
 
   return (
     <Layout>
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-4 space-y-4">
+      <div className="min-h-screen">
+        <div className="container mx-auto p-4 space-y-4">
         {/* Header */}
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
           <CardHeader className="pb-3 space-y-3">
@@ -1810,6 +1810,7 @@ export const TodaySummary = () => {
                 onUserChange={setManagerSelectedUserId}
                 showAllOption={true}
                 allOptionLabel="All Team"
+                variant="onDark"
                 className="w-fit"
               />
             )}
