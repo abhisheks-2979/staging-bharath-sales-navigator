@@ -2314,61 +2314,75 @@ export const TodaySummary = () => {
               </div>
             ) : (
               <>
-                {/* Pie Chart */}
-                <div className="h-[200px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={paymentMethodBreakdown}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={45}
-                        outerRadius={75}
-                        paddingAngle={2}
-                        dataKey="amount"
-                        nameKey="method"
-                        label={({ method, percent }) => `${method} ${(percent * 100).toFixed(0)}%`}
-                        labelLine={false}
-                      >
-                        {paymentMethodBreakdown.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        formatter={(value: number) => [`₹${value.toLocaleString('en-IN')}`, 'Amount']}
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--card))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px'
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
+                {/* Pie Chart with Legend */}
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  {/* Pie Chart */}
+                  <div className="h-[160px] w-[160px] flex-shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={paymentMethodBreakdown}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={40}
+                          outerRadius={70}
+                          paddingAngle={2}
+                          dataKey="amount"
+                          nameKey="method"
+                        >
+                          {paymentMethodBreakdown.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          formatter={(value: number) => [`₹${value.toLocaleString('en-IN')}`, 'Amount']}
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px',
+                            fontSize: '12px'
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
 
-                {/* Summary Cards */}
-                <div className="grid grid-cols-2 gap-2">
-                  {paymentMethodBreakdown.map((item, index) => (
-                    <div 
-                      key={index}
-                      className="p-3 rounded-lg border"
-                      style={{ borderLeftColor: item.color, borderLeftWidth: '4px' }}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        {item.method.toLowerCase() === 'cash' && <Banknote className="h-4 w-4" style={{ color: item.color }} />}
-                        {item.method.toLowerCase() === 'credit' && <CreditCard className="h-4 w-4" style={{ color: item.color }} />}
-                        {item.method.toLowerCase() === 'upi' && <Wallet className="h-4 w-4" style={{ color: item.color }} />}
-                        {!['cash', 'credit', 'upi'].includes(item.method.toLowerCase()) && <CreditCard className="h-4 w-4" style={{ color: item.color }} />}
-                        <span className="text-sm font-medium">{item.method}</span>
-                      </div>
-                      <div className="text-lg font-bold" style={{ color: item.color }}>
-                        ₹{item.amount.toLocaleString('en-IN')}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {item.count} {item.count === 1 ? 'order' : 'orders'}
-                      </div>
-                    </div>
-                  ))}
+                  {/* Legend */}
+                  <div className="flex-1 space-y-2">
+                    {paymentMethodBreakdown.map((item, index) => {
+                      const total = paymentMethodBreakdown.reduce((sum, p) => sum + p.amount, 0);
+                      const percent = total > 0 ? ((item.amount / total) * 100).toFixed(0) : 0;
+                      return (
+                        <div 
+                          key={index}
+                          className="flex items-center justify-between p-2 rounded-lg bg-muted/30"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: item.color }}
+                            />
+                            <div className="flex items-center gap-1.5">
+                              {item.method.toLowerCase() === 'cash' && <Banknote className="h-3.5 w-3.5" style={{ color: item.color }} />}
+                              {item.method.toLowerCase() === 'credit' && <CreditCard className="h-3.5 w-3.5" style={{ color: item.color }} />}
+                              {item.method.toLowerCase() === 'upi' && <Wallet className="h-3.5 w-3.5" style={{ color: item.color }} />}
+                              {!['cash', 'credit', 'upi'].includes(item.method.toLowerCase()) && <CreditCard className="h-3.5 w-3.5" style={{ color: item.color }} />}
+                              <span className="text-sm font-medium">{item.method}</span>
+                              <span className="text-xs text-muted-foreground">({percent}%)</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-bold" style={{ color: item.color }}>
+                              ₹{item.amount.toLocaleString('en-IN')}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">
+                              {item.count} {item.count === 1 ? 'order' : 'orders'}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Totals Summary */}
