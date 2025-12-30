@@ -1370,49 +1370,15 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
 
       finalY += boxHeight + 6;
 
-      // Bank Details and QR in single compact row - QR inside box
-      const bankBoxWidth = 88;
-      const bankBoxHeight = 22;
-      doc.setFillColor(248, 248, 248);
-      doc.setDrawColor(180, 180, 180);
-      doc.setLineWidth(0.3);
-      doc.rect(14, finalY, bankBoxWidth, bankBoxHeight, 'FD');
-      
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Payment Details', 16, finalY + 4);
-      
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6);
-      doc.text('Bank: ' + (company.bank_name || '-'), 16, finalY + 8);
-      doc.text('A/C: ' + (company.bank_account || '-') + ' | IFSC: ' + (company.ifsc || '-'), 16, finalY + 12);
-      doc.text('Holder: ' + (company.account_holder_name || '-'), 16, finalY + 16);
-      doc.text('UPI: ' + (company.qr_upi || '-'), 16, finalY + 20);
-
-      // QR Code - inside the payment details box on right side
-      if (company.qr_code_url) {
-        try {
-          const qrResponse = await fetch(company.qr_code_url);
-          const qrBlob = await qrResponse.blob();
-          const qrBase64 = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(qrBlob);
-          });
-          doc.addImage(qrBase64, 'PNG', 70, finalY + 2, 18, 18);
-        } catch (e) {
-          console.log('Could not load QR code:', e);
-        }
-      }
-
-      // Terms & Conditions - next to payment box
+      // Terms & Conditions - full width at bottom
       if (company.terms_conditions) {
-        doc.setFontSize(6);
+        doc.setFontSize(7);
         doc.setFont('helvetica', 'bold');
-        doc.text('Terms:', 124, finalY + 4);
+        doc.text('Terms & Conditions:', 14, finalY + 4);
         doc.setFont('helvetica', 'normal');
-        const terms = doc.splitTextToSize(company.terms_conditions, pageWidth - 138);
-        doc.text(terms.slice(0, 4), 124, finalY + 8);
+        doc.setFontSize(6);
+        const terms = doc.splitTextToSize(company.terms_conditions, pageWidth - 28);
+        doc.text(terms.slice(0, 4), 14, finalY + 9);
       }
 
       toast.info('Saving PDF...');
