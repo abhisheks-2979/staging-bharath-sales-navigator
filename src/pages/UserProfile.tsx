@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, User, Trophy, Award, TrendingUp, Users, Bell } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
-import { BaselinePhotoManagement } from '@/components/BaselinePhotoManagement';
+import { CompactProfilePhoto } from '@/components/profile/CompactProfilePhoto';
 import { BadgesDisplay } from '@/components/BadgesDisplay';
 import { PointsDetailsModal } from '@/components/PointsDetailsModal';
 import { PerformanceDashboard } from '@/components/profile/PerformanceDashboard';
@@ -186,40 +186,46 @@ const UserProfile = () => {
           </div>
 
         <Tabs defaultValue="about" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="about" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              About
+          <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1">
+            <TabsTrigger value="about" className="flex-1 min-w-[80px] text-xs sm:text-sm py-2">
+              <User className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">About</span>
             </TabsTrigger>
-            <TabsTrigger value="performance" className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Performance
+            <TabsTrigger value="performance" className="flex-1 min-w-[80px] text-xs sm:text-sm py-2">
+              <TrendingUp className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Performance</span>
             </TabsTrigger>
-            <TabsTrigger value="gamification" className="flex items-center gap-2">
-              <Trophy className="h-4 w-4" />
-              Points & Badges
+            <TabsTrigger value="gamification" className="flex-1 min-w-[80px] text-xs sm:text-sm py-2">
+              <Trophy className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Points</span>
             </TabsTrigger>
-            <TabsTrigger value="social" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Collaboration
+            <TabsTrigger value="social" className="flex-1 min-w-[80px] text-xs sm:text-sm py-2">
+              <Users className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Social</span>
             </TabsTrigger>
-            <TabsTrigger value="push-content" className="flex items-center gap-2">
-              <Bell className="h-4 w-4" />
-              Push Content
+            <TabsTrigger value="push-content" className="flex-1 min-w-[80px] text-xs sm:text-sm py-2">
+              <Bell className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Push</span>
             </TabsTrigger>
           </TabsList>
 
           {/* About Tab */}
           <TabsContent value="about" className="space-y-6">
-            <div className="flex justify-center mb-6">
-              <BaselinePhotoManagement userId={user.id} userProfile={userProfile} />
-            </div>
-            
             <Card>
-              <CardHeader>
-                <CardTitle>Personal Information</CardTitle>
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-4">
+                  <CompactProfilePhoto userId={user.id} userProfile={userProfile} />
+                  <div className="flex-1">
+                    <CardTitle className="text-xl">{userProfile?.full_name || 'User'}</CardTitle>
+                    <p className="text-sm text-muted-foreground">{formData.email}</p>
+                    {formData.hq && (
+                      <p className="text-sm text-muted-foreground">HQ: {formData.hq}</p>
+                    )}
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 pt-0">
+                <h3 className="text-lg font-medium border-t pt-4">Personal Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="email">Email (Read Only)</Label>
