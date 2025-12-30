@@ -17,6 +17,7 @@ import { PointsDetailsModal } from '@/components/PointsDetailsModal';
 import { PerformanceDashboard } from '@/components/profile/PerformanceDashboard';
 import { InstagramSocialFeed } from '@/components/profile/InstagramSocialFeed';
 import { PushContentConfigurator } from '@/components/profile/PushContentConfigurator';
+import { ProfileAttachments } from '@/components/profile/ProfileAttachments';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { Layout } from '@/components/Layout';
 
@@ -48,7 +49,8 @@ const UserProfile = () => {
     alternate_email: '',
     address: '',
     education: '',
-    emergency_contact_number: ''
+    emergency_contact_number: '',
+    band: ''
   });
 
   useEffect(() => {
@@ -95,7 +97,8 @@ const UserProfile = () => {
         alternate_email: employeeData.alternate_email || '',
         address: employeeData.address || '',
         education: employeeData.education || '',
-        emergency_contact_number: employeeData.emergency_contact_number || ''
+        emergency_contact_number: employeeData.emergency_contact_number || '',
+        band: employeeData.band?.toString() || ''
       });
     }
   };
@@ -337,6 +340,24 @@ const UserProfile = () => {
                       onChange={(e) => setFormData(prev => ({ ...prev, date_of_exit: e.target.value }))}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="band">Band</Label>
+                    <Select 
+                      value={formData.band} 
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, band: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select band" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1</SelectItem>
+                        <SelectItem value="2">2</SelectItem>
+                        <SelectItem value="3">3</SelectItem>
+                        <SelectItem value="4">4</SelectItem>
+                        <SelectItem value="5">5</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <h3 className="text-lg font-medium mt-6">Additional Information</h3>
@@ -376,6 +397,8 @@ const UserProfile = () => {
                 </Button>
               </CardContent>
             </Card>
+
+            <ProfileAttachments />
           </TabsContent>
 
           {/* Performance Tab */}

@@ -92,7 +92,8 @@ serve(async (req) => {
       alternate_email,
       address,
       education,
-      emergency_contact_number
+      emergency_contact_number,
+      band
     } = await req.json()
 
     console.log('Creating user with email:', email)
@@ -155,7 +156,8 @@ serve(async (req) => {
         alternate_email: alternate_email || null,
         address: address || null,
         education: education || null,
-        emergency_contact_number: emergency_contact_number || null
+        emergency_contact_number: emergency_contact_number || null,
+        band: band || null
       })
 
     if (employeeError) {

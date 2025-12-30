@@ -3114,6 +3114,7 @@ export type Database = {
           aadhar_document_url: string | null
           address: string | null
           alternate_email: string | null
+          band: number | null
           certifications: Json | null
           created_at: string
           daily_da_allowance: number | null
@@ -3136,6 +3137,7 @@ export type Database = {
           aadhar_document_url?: string | null
           address?: string | null
           alternate_email?: string | null
+          band?: number | null
           certifications?: Json | null
           created_at?: string
           daily_da_allowance?: number | null
@@ -3158,6 +3160,7 @@ export type Database = {
           aadhar_document_url?: string | null
           address?: string | null
           alternate_email?: string | null
+          band?: number | null
           certifications?: Json | null
           created_at?: string
           daily_da_allowance?: number | null
@@ -6171,6 +6174,45 @@ export type Database = {
           },
         ]
       }
+      profile_attachments: {
+        Row: {
+          attached_by: string
+          created_at: string
+          description: string | null
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attached_by: string
+          created_at?: string
+          description?: string | null
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attached_by?: string
+          created_at?: string
+          description?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profile_object_permissions: {
         Row: {
           can_create: boolean | null
@@ -7712,6 +7754,33 @@ export type Database = {
           },
         ]
       }
+      social_post_attachments: {
+        Row: {
+          created_at: string
+          file_name: string | null
+          file_type: string | null
+          file_url: string
+          id: string
+          post_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name?: string | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          post_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          post_id?: string
+        }
+        Relationships: []
+      }
       social_posts: {
         Row: {
           content: string
@@ -7758,6 +7827,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      social_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       stock: {
         Row: {

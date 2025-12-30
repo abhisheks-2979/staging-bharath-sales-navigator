@@ -53,7 +53,8 @@ const CreateUserForm = () => {
     alternate_email: '',
     address: '',
     education: '',
-    emergency_contact_number: ''
+    emergency_contact_number: '',
+    band: ''
   });
 
   // Fetch managers and security profiles
@@ -196,7 +197,8 @@ const CreateUserForm = () => {
         alternate_email: '',
         address: '',
         education: '',
-        emergency_contact_number: ''
+        emergency_contact_number: '',
+        band: ''
       });
       setFiles([]);
 
@@ -348,6 +350,22 @@ const CreateUserForm = () => {
                       {manager.full_name} ({manager.username})
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="band">Band</Label>
+              <Select value={formData.band} onValueChange={(value) => handleInputChange('band', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select band" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1</SelectItem>
+                  <SelectItem value="2">2</SelectItem>
+                  <SelectItem value="3">3</SelectItem>
+                  <SelectItem value="4">4</SelectItem>
+                  <SelectItem value="5">5</SelectItem>
                 </SelectContent>
               </Select>
             </div>
