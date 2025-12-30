@@ -689,7 +689,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     setStockItems([...stockItems, {
       product_id: '',
       product_name: '',
-      unit: '',
+      unit: 'kg', // Default to KG
       start_qty: 0,
       ordered_qty: 0,
       returned_qty: 0,
@@ -742,7 +742,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       const product = products.find(p => p.id === value);
       if (product) {
         updated[index].product_name = product.name;
-        updated[index].unit = product.unit;
+        // Always default to KG when selecting a product
+        updated[index].unit = 'kg';
       }
     }
 
