@@ -112,8 +112,8 @@ const numberToWords = (num: number): string => {
 };
 
 /**
- * Normalize item for display - convert grams to KG when appropriate
- * This solves the Rs.0 display issue for per-gram rates
+ * Normalize item for display - ALWAYS convert grams to KG for display
+ * Prices shown per KG, quantities in KG, but calculations remain accurate
  */
 const normalizeItemForDisplay = (item: any) => {
   const unit = (item.unit || '').toLowerCase();
@@ -122,40 +122,36 @@ const normalizeItemForDisplay = (item: any) => {
   const originalRate = Number(item.original_rate) || rate;
   const discountAmt = Number(item.discount_amount) || 0;
   
-  // If stored in grams with a very small rate (per-gram), convert to KG for display
   const isGramsUnit = unit === 'grams' || unit === 'gram' || unit === 'g';
-  const isSmallRate = rate > 0 && rate < 1; // Per-gram rate is typically < 1
   
-  if (isGramsUnit && qty >= 1000 && isSmallRate) {
-    // Convert to KG for cleaner invoice display
+  // ALWAYS convert grams to KG for invoice display
+  if (isGramsUnit) {
+    // Convert quantity from grams to KG
+    const displayQty = qty / 1000;
+    
+    // Convert rate to per-KG price
+    // If rate is small (< 1), it's per-gram rate - multiply by 1000 to get per-KG
+    // If rate is >= 1, it might already be per-KG rate (stored incorrectly), use as-is
+    const isPerGramRate = rate > 0 && rate < 1;
+    const displayRate = isPerGramRate ? rate * 1000 : rate;
+    const displayOriginalRate = isPerGramRate ? originalRate * 1000 : originalRate;
+    
     return {
       displayUnit: 'KG',
-      displayQty: qty / 1000,
-      displayRate: rate * 1000, // Rate per KG
-      displayOriginalRate: originalRate * 1000,
-      displayDiscountAmount: discountAmt, // Total discount stays same
-    };
-  }
-  
-  // If stored in grams but rate seems like per-KG (>=1), just show as KG
-  if (isGramsUnit && qty >= 1000 && rate >= 1) {
-    return {
-      displayUnit: 'KG',
-      displayQty: qty / 1000,
-      displayRate: rate, // Already per-unit rate
-      displayOriginalRate: originalRate,
+      displayQty: displayQty,
+      displayRate: displayRate,
+      displayOriginalRate: displayOriginalRate,
       displayDiscountAmount: discountAmt,
     };
   }
   
-  // For small gram quantities or already using display_unit/display_quantity
+  // For items with explicit display_unit/display_quantity
   if (item.display_unit && item.display_quantity) {
-    const displayRate = item.display_unit.toLowerCase() === 'kg' && isSmallRate 
-      ? rate * 1000 
-      : rate;
-    const displayOrigRate = item.display_unit.toLowerCase() === 'kg' && isSmallRate 
-      ? originalRate * 1000 
-      : originalRate;
+    const isDisplayKg = item.display_unit.toLowerCase() === 'kg';
+    const isPerGramRate = rate > 0 && rate < 1;
+    const displayRate = isDisplayKg && isPerGramRate ? rate * 1000 : rate;
+    const displayOrigRate = isDisplayKg && isPerGramRate ? originalRate * 1000 : originalRate;
+    
     return {
       displayUnit: item.display_unit,
       displayQty: item.display_quantity,
@@ -165,7 +161,7 @@ const normalizeItemForDisplay = (item: any) => {
     };
   }
   
-  // Default: use as-is
+  // Default: use as-is for non-gram units
   return {
     displayUnit: item.unit || 'Piece',
     displayQty: qty,
