@@ -574,15 +574,25 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           if (itemsWithStock.length > 0) {
             console.log('📦 Found van_stock from date:', stock.stock_date, 'items with left_qty:', itemsWithStock.length);
             
-            const newStockItems: StockItem[] = itemsWithStock.map((item: any) => ({
-              product_id: item.product_id,
-              product_name: item.product_name,
-              unit: item.unit || '',
-              start_qty: item.left_qty || 0, // Previous left becomes current start
-              ordered_qty: 0,
-              returned_qty: 0,
-              left_qty: item.left_qty || 0, // Initially same as start
-            }));
+            const newStockItems: StockItem[] = itemsWithStock.map((item: any) => {
+              const storedUnit = (item.unit || '').toLowerCase();
+              const leftQty = item.left_qty || 0;
+              
+              // Convert grams to KG for display - default to KG
+              const isGrams = storedUnit === 'grams' || storedUnit === 'gram' || storedUnit === 'g';
+              const displayQty = isGrams ? leftQty / 1000 : leftQty;
+              const displayUnit = isGrams ? 'kg' : (item.unit || 'kg');
+              
+              return {
+                product_id: item.product_id,
+                product_name: item.product_name,
+                unit: displayUnit, // Use KG as default unit
+                start_qty: displayQty, // Previous left becomes current start (converted to KG)
+                ordered_qty: 0,
+                returned_qty: 0,
+                left_qty: displayQty, // Initially same as start (converted to KG)
+              };
+            });
 
             console.log('✅ Loaded from van_stock_items:', newStockItems.length, 'items from:', stock.stock_date);
             setStockItems(newStockItems);
@@ -629,15 +639,25 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         
         const newStockItems: StockItem[] = latestInventory
           .filter((item: any) => (item.current_stock || 0) > 0)
-          .map((item: any) => ({
-            product_id: item.product_id,
-            product_name: (item.products as any)?.name || 'Unknown Product',
-            unit: (item.products as any)?.unit || '',
-            start_qty: item.current_stock || 0,
-            ordered_qty: 0,
-            returned_qty: 0,
-            left_qty: item.current_stock || 0,
-          }));
+          .map((item: any) => {
+            const storedUnit = ((item.products as any)?.unit || '').toLowerCase();
+            const currentStock = item.current_stock || 0;
+            
+            // Convert grams to KG for display - default to KG
+            const isGrams = storedUnit === 'grams' || storedUnit === 'gram' || storedUnit === 'g';
+            const displayQty = isGrams ? currentStock / 1000 : currentStock;
+            const displayUnit = isGrams ? 'kg' : ((item.products as any)?.unit || 'kg');
+            
+            return {
+              product_id: item.product_id,
+              product_name: (item.products as any)?.name || 'Unknown Product',
+              unit: displayUnit,
+              start_qty: displayQty,
+              ordered_qty: 0,
+              returned_qty: 0,
+              left_qty: displayQty,
+            };
+          });
 
         if (newStockItems.length > 0) {
           console.log('✅ Loaded from live inventory:', newStockItems.length, 'items from:', mostRecentDate);
