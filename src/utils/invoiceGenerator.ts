@@ -3,6 +3,48 @@ import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 
+// Helper function to check if text contains non-English characters (Indian languages)
+const containsNonEnglishChars = (text: string): boolean => {
+  if (!text) return false;
+  // Check for common Indian language Unicode ranges
+  // Devanagari: \u0900-\u097F, Kannada: \u0C80-\u0CFF, Tamil: \u0B80-\u0BFF
+  // Telugu: \u0C00-\u0C7F, Malayalam: \u0D00-\u0D7F, Bengali: \u0980-\u09FF
+  // Gujarati: \u0A80-\u0AFF, Punjabi: \u0A00-\u0A7F, Odia: \u0B00-\u0B7F
+  const indianLangPattern = /[\u0900-\u097F\u0C80-\u0CFF\u0B80-\u0BFF\u0C00-\u0C7F\u0D00-\u0D7F\u0980-\u09FF\u0A80-\u0AFF\u0A00-\u0A7F\u0B00-\u0B7F]/;
+  return indianLangPattern.test(text);
+};
+
+// Translate address from regional language to English using AI
+const translateAddressToEnglish = async (address: string): Promise<string> => {
+  if (!address || !containsNonEnglishChars(address)) {
+    return address; // Already in English or empty
+  }
+  
+  try {
+    console.log('🌐 Translating address from regional language to English:', address.substring(0, 50) + '...');
+    
+    const { data, error } = await supabase.functions.invoke('translate-address', {
+      body: { addresses: [address] }
+    });
+    
+    if (error) {
+      console.error('Translation error:', error);
+      return address; // Return original if translation fails
+    }
+    
+    const translatedAddress = data?.translatedAddresses?.[0];
+    if (translatedAddress) {
+      console.log('✅ Address translated successfully');
+      return translatedAddress;
+    }
+    
+    return address;
+  } catch (err) {
+    console.error('Failed to translate address:', err);
+    return address; // Return original on error
+  }
+};
+
 interface InvoiceData {
   orderId: string;
   company: any;
@@ -140,6 +182,10 @@ const normalizeItemForDisplay = (item: any) => {
 export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob> {
   const { orderId, company, retailer, cartItems, displayInvoiceNumber, displayInvoiceDate, displayInvoiceTime, beatName, salesmanName, schemeDetails } = data;
 
+  // Translate retailer address if it contains non-English characters
+  const translatedRetailerAddress = await translateAddressToEnglish(retailer?.address || '');
+  const retailerWithTranslatedAddress = { ...retailer, address: translatedRetailerAddress };
+
   // Get display name - show only variant name if it's a variant, or base product name
   const getDisplayName = (item: any) => {
     const fullName = item.product_name || item.name || "";
@@ -236,25 +282,25 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(0, 0, 0); // Retailer name in black for professional look
-  doc.text(retailer.name || "Customer Name", 15, yPos);
+  doc.text(retailerWithTranslatedAddress.name || "Customer Name", 15, yPos);
   
   doc.setTextColor(0, 0, 0);
   yPos += 5;
-  if (retailer.address) {
-    const addressLines = doc.splitTextToSize(retailer.address, 80);
+  if (retailerWithTranslatedAddress.address) {
+    const addressLines = doc.splitTextToSize(retailerWithTranslatedAddress.address, 80);
     doc.text(addressLines, 15, yPos);
     yPos += addressLines.length * 4;
   }
-  if (retailer.phone) {
-    doc.text(`Phone: ${retailer.phone}`, 15, yPos);
+  if (retailerWithTranslatedAddress.phone) {
+    doc.text(`Phone: ${retailerWithTranslatedAddress.phone}`, 15, yPos);
     yPos += 4;
   }
-  if (retailer.state) {
-    doc.text(`State: ${retailer.state}`, 15, yPos);
+  if (retailerWithTranslatedAddress.state) {
+    doc.text(`State: ${retailerWithTranslatedAddress.state}`, 15, yPos);
     yPos += 4;
   }
   // GST must always be shown - use XXXXXXXX if not available
-  doc.text(`GSTIN: ${retailer.gst_number || retailer.gstin || "XXXXXXXX"}`, 15, yPos);
+  doc.text(`GSTIN: ${retailerWithTranslatedAddress.gst_number || retailerWithTranslatedAddress.gstin || "XXXXXXXX"}`, 15, yPos);
 
   // Invoice details (right side) - add more space after header
   let invoiceY = 62;
