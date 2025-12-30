@@ -2182,25 +2182,39 @@ const Analytics = () => {
                               <th className="text-left p-3 text-sm font-medium">Product Name</th>
                               <th className="text-left p-3 text-sm font-medium">Unit</th>
                               <th className="text-right p-3 text-sm font-medium">Quantity Sold</th>
+                              <th className="text-right p-3 text-sm font-medium">Order in KG</th>
                               <th className="text-right p-3 text-sm font-medium">Revenue</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {productRevenueData.map((row, index) => (
-                              <tr key={index} className="border-b hover:bg-muted/30">
-                                <td className="p-3 text-sm font-medium">{row.full_name}</td>
-                                <td className="p-3 text-sm">{row.product_name}</td>
-                                <td className="p-3 text-sm">{row.unit || '-'}</td>
-                                <td className="p-3 text-sm text-right">{row.quantity_sold}</td>
-                                <td className="p-3 text-sm text-right font-semibold">₹{Number(row.revenue).toLocaleString()}</td>
-                              </tr>
-                            ))}
+                            {productRevenueData.map((row, index) => {
+                              const quantitySold = Number(row.quantity_sold);
+                              const orderInKg = row.unit?.toLowerCase() === 'grams' 
+                                ? (quantitySold / 1000).toFixed(2) 
+                                : quantitySold.toFixed(2);
+                              return (
+                                <tr key={index} className="border-b hover:bg-muted/30">
+                                  <td className="p-3 text-sm font-medium">{row.full_name}</td>
+                                  <td className="p-3 text-sm">{row.product_name}</td>
+                                  <td className="p-3 text-sm">{row.unit || '-'}</td>
+                                  <td className="p-3 text-sm text-right">{row.quantity_sold}</td>
+                                  <td className="p-3 text-sm text-right">{orderInKg}</td>
+                                  <td className="p-3 text-sm text-right font-semibold">₹{Number(row.revenue).toLocaleString()}</td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                           <tfoot className="bg-muted/30">
                             <tr>
                               <td className="p-3 text-sm font-semibold" colSpan={3}>Total</td>
                               <td className="p-3 text-sm text-right font-bold">
                                 {productRevenueData.reduce((sum, row) => sum + Number(row.quantity_sold), 0)}
+                              </td>
+                              <td className="p-3 text-sm text-right font-bold">
+                                {productRevenueData.reduce((sum, row) => {
+                                  const qty = Number(row.quantity_sold);
+                                  return sum + (row.unit?.toLowerCase() === 'grams' ? qty / 1000 : qty);
+                                }, 0).toFixed(2)}
                               </td>
                               <td className="p-3 text-sm text-right font-bold text-primary">
                                 ₹{productRevenueData.reduce((sum, row) => sum + Number(row.revenue), 0).toLocaleString()}
