@@ -17,6 +17,7 @@ interface UserSelectorProps {
   allOptionLabel?: string;
   className?: string;
   disabled?: boolean;
+  variant?: 'default' | 'onDark';
 }
 
 export const UserSelector = ({
@@ -26,6 +27,7 @@ export const UserSelector = ({
   allOptionLabel = 'All Team Members',
   className,
   disabled = false,
+  variant = 'default',
 }: UserSelectorProps) => {
   const { user } = useAuth();
   const { subordinates, isManager, isLoading } = useSubordinates();
@@ -60,13 +62,16 @@ export const UserSelector = ({
     );
   }
 
+  const triggerClassName = cn(
+    'h-8 w-auto min-w-[120px] max-w-[160px] text-sm',
+    variant === 'onDark' &&
+      'bg-background/10 text-primary-foreground border-primary-foreground/20 hover:bg-background/15 focus:ring-primary-foreground/30 backdrop-blur-sm',
+    className
+  );
+
   return (
-    <Select
-      value={selectedUserId}
-      onValueChange={onUserChange}
-      disabled={disabled}
-    >
-      <SelectTrigger className={cn('h-8 w-auto min-w-[120px] max-w-[160px] text-sm', className)}>
+    <Select value={selectedUserId} onValueChange={onUserChange} disabled={disabled}>
+      <SelectTrigger className={triggerClassName}>
         <SelectValue placeholder="Select">
           <span className="truncate">{getDisplayName(selectedUserId)}</span>
         </SelectValue>
