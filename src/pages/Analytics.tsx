@@ -341,10 +341,15 @@ const Analytics = () => {
       const toDate = format(sqlReportDateRange.to, 'yyyy-MM-dd');
       
       // Get the user's profile to find the user_id (use ilike to handle trailing spaces)
+      // Special handling for MANVITH - use prefix match
+      const searchPattern = sqlReportUser.trim().toUpperCase() === 'MANVITH' 
+        ? 'MANVITH%' 
+        : sqlReportUser.trim();
+      
       const { data: profile } = await supabase
         .from('profiles')
         .select('id, full_name')
-        .ilike('full_name', sqlReportUser.trim())
+        .ilike('full_name', searchPattern)
         .maybeSingle();
       
       if (!profile) {
