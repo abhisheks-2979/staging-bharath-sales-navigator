@@ -443,9 +443,11 @@ const Analytics = () => {
     
     setProductivityLoading(true);
     try {
-      // Call the RPC function with the selected user's full_name
+      // Call the RPC function with the selected user's full_name and date range
       const { data, error } = await supabase.rpc('get_productivity_summary', {
-        user_full_name: productivityUser
+        user_full_name: productivityUser,
+        start_date: format(productivityDateRange.from, 'yyyy-MM-dd'),
+        end_date: format(productivityDateRange.to, 'yyyy-MM-dd')
       });
 
       if (error) {
@@ -468,7 +470,7 @@ const Analytics = () => {
     if (productivityUser) {
       fetchProductivityData();
     }
-  }, [productivityUser]);
+  }, [productivityUser, productivityDateRange]);
 
   // Fetch Product Revenue Performance data
   const fetchProductRevenueData = async () => {
@@ -2065,9 +2067,57 @@ const Analytics = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      Date Range: Dec 19, 2025 - Dec 26, 2025
-                    </p>
+                    <div className="flex gap-2 items-end">
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Start Date</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("w-[140px] justify-start text-left font-normal", !productivityDateRange.from && "text-muted-foreground")}>
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {productivityDateRange.from ? format(productivityDateRange.from, "MMM dd, yyyy") : "Start"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={productivityDateRange.from}
+                              onSelect={(date) => date && setProductivityDateRange(prev => ({ ...prev, from: date }))}
+                              initialFocus
+                              className="pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">End Date</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("w-[140px] justify-start text-left font-normal", !productivityDateRange.to && "text-muted-foreground")}>
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {productivityDateRange.to ? format(productivityDateRange.to, "MMM dd, yyyy") : "End"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={productivityDateRange.to}
+                              onSelect={(date) => date && setProductivityDateRange(prev => ({ ...prev, to: date }))}
+                              initialFocus
+                              className="pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setProductivityDateRange({ from: subDays(new Date(), 7), to: new Date() })}
+                        className="text-muted-foreground"
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Clear
+                      </Button>
+                    </div>
                   </div>
 
                   {productivityLoading ? (
