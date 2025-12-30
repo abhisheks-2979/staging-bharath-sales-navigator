@@ -1908,16 +1908,27 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                           toast.info('No stock items to edit');
                           return;
                         }
-                        const itemsToEdit = savedItems.map((item: any) => ({
-                          id: item.id,
-                          product_id: item.product_id,
-                          product_name: item.product_name,
-                          unit: item.unit,
-                          start_qty: item.start_qty,
-                          ordered_qty: item.ordered_qty || 0,
-                          returned_qty: item.returned_qty || 0,
-                          left_qty: item.start_qty - (item.ordered_qty || 0) + (item.returned_qty || 0),
-                        }));
+                        const itemsToEdit = savedItems.map((item: any) => {
+                          const storedUnit = (item.unit || '').toLowerCase();
+                          const isGrams = storedUnit === 'grams' || storedUnit === 'gram' || storedUnit === 'g';
+                          const conversionFactor = isGrams ? 1000 : 1;
+                          const displayUnit = isGrams ? 'kg' : (item.unit || 'kg');
+                          
+                          const startQty = (item.start_qty || 0) / conversionFactor;
+                          const orderedQty = (item.ordered_qty || 0) / conversionFactor;
+                          const returnedQty = (item.returned_qty || 0) / conversionFactor;
+                          
+                          return {
+                            id: item.id,
+                            product_id: item.product_id,
+                            product_name: item.product_name,
+                            unit: displayUnit,
+                            start_qty: startQty,
+                            ordered_qty: orderedQty,
+                            returned_qty: returnedQty,
+                            left_qty: startQty - orderedQty + returnedQty,
+                          };
+                        });
                         setStockItems(itemsToEdit);
                         setShowDetailModal(null);
                         toast.info('All items loaded for editing. Modify and click Save Stock.');
