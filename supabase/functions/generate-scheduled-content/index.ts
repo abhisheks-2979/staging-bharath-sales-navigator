@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
 
     // Get active subscriptions for current time
     const { data: subscriptions, error: subsError } = await supabase
-      .from('push_content_user_subscriptions')
+      .from('user_push_content_subscriptions')
       .select(`
         id,
         user_id,
@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
         push_content_templates (
           id,
           template_type,
-          name
+          template_name
         )
       `)
       .eq('is_active', true)
@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
         user_id: sub.user_id,
         template_id: sub.template_id,
         template_type: (sub.push_content_templates as any).template_type,
-        template_name: (sub.push_content_templates as any).name,
+        template_name: (sub.push_content_templates as any).template_name,
         schedule_time: sub.schedule_time,
         custom_settings: sub.custom_settings || {}
       };
@@ -168,7 +168,7 @@ async function handlePostRegeneration(supabase: any, postId: string) {
       .from('social_posts')
       .select(`
         *,
-        push_content_templates(template_type, name)
+        push_content_templates(template_type, template_name)
       `)
       .eq('id', postId)
       .eq('is_automated', true)
@@ -183,7 +183,7 @@ async function handlePostRegeneration(supabase: any, postId: string) {
       user_id: post.user_id,
       template_id: post.template_id,
       template_type: post.push_content_templates.template_type,
-      template_name: post.push_content_templates.name,
+      template_name: post.push_content_templates.template_name,
       schedule_time: '',
       custom_settings: {}
     };
