@@ -1817,7 +1817,7 @@ export const TodaySummary = () => {
         </Card>
 
         {/* Date Filter Controls */}
-        <Card>
+        <Card className="shadow-card">
           <CardContent className="p-4">
             <div className="space-y-3">
               {/* Quick Filter Buttons */}
@@ -1959,7 +1959,7 @@ export const TodaySummary = () => {
         </div>
 
         {/* Selected Period Information - Beat on top, times below */}
-        <Card>
+        <Card className="shadow-card">
           <CardContent className="p-3 space-y-2">
             {/* Beat Name - Top */}
             <div className="flex items-center gap-1.5">
@@ -1988,7 +1988,7 @@ export const TodaySummary = () => {
         </Card>
 
         {/* Key Metrics */}
-        <Card>
+        <Card className="shadow-card">
           <CardHeader>
             <CardTitle className="text-lg">Key Metrics</CardTitle>
           </CardHeader>
@@ -2052,7 +2052,7 @@ export const TodaySummary = () => {
         </Card>
 
         {/* Performance Summary */}
-        <Card>
+        <Card className="shadow-card">
           <CardHeader>
             <CardTitle className="text-lg">Performance Summary</CardTitle>
           </CardHeader>
@@ -2129,7 +2129,7 @@ export const TodaySummary = () => {
         </Card>
 
         {/* Top Performing Retailers */}
-        <Card>
+        <Card className="shadow-card">
           <CardHeader>
             <CardTitle className="text-lg">Top Performing Retailers</CardTitle>
           </CardHeader>
@@ -2156,7 +2156,7 @@ export const TodaySummary = () => {
 
         {/* Joint Sales Highlight Section */}
         {jointSalesData && (
-          <Card className="border-purple-200 bg-purple-50/50">
+          <Card className="shadow-card border-purple-200 bg-purple-50/50">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -2249,7 +2249,7 @@ export const TodaySummary = () => {
 
 
         {/* Product-wise Sales */}
-        <Card>
+        <Card className="shadow-card">
           <CardHeader>
             <CardTitle className="text-lg">Product-wise Sales</CardTitle>
           </CardHeader>
@@ -2297,7 +2297,7 @@ export const TodaySummary = () => {
         />
 
         {/* Payment Method Breakdown */}
-        <Card>
+        <Card className="shadow-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <Wallet className="h-5 w-5 text-primary" />
