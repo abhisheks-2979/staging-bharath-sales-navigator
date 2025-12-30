@@ -4,49 +4,18 @@ import {
   Play,
   Users,
   Globe,
-  Target,
-  Store,
-  Truck,
-  Building2,
+  Smartphone,
   ArrowRight,
   CheckCircle2
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 
-// Solution card data
-const solutions = [
-  {
-    icon: Target,
-    title: "Field Sales AI",
-    description: "AI-powered beat optimization, voice updates & real-time insights for your field force.",
-    color: "from-amber-500/20 to-orange-500/20",
-    iconBg: "bg-amber-500/20",
-    iconColor: "text-amber-400"
-  },
-  {
-    icon: Store,
-    title: "Distributor Portal",
-    description: "Self-service dashboard for orders, inventory, claims & seamless Tally integration.",
-    color: "from-cyan-500/20 to-blue-500/20",
-    iconBg: "bg-cyan-500/20",
-    iconColor: "text-cyan-400"
-  },
-  {
-    icon: Building2,
-    title: "Institutional CRM",
-    description: "Enterprise sales tracking with pipeline management & automated follow-ups.",
-    color: "from-purple-500/20 to-pink-500/20",
-    iconBg: "bg-purple-500/20",
-    iconColor: "text-purple-400"
-  }
-];
-
 // Trust indicators
 const trustIndicators = [
   { icon: Users, text: "500+ Sales Teams" },
   { icon: Globe, text: "12 Indian Languages" },
-  { icon: Truck, text: "FMCG • Pharma • Beverages" }
+  { icon: Smartphone, text: "Offline and Mobile App" }
 ];
 
 // Animation variants
@@ -73,18 +42,6 @@ const itemVariants = {
   }
 };
 
-const cardVariants = {
-  hidden: { opacity: 0, y: 40, scale: 0.95 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: {
-      duration: 0.5,
-      ease: "easeOut" as const
-    }
-  }
-};
 
 export const HeroSection = () => {
   const navigate = useNavigate();
@@ -185,37 +142,6 @@ export const HeroSection = () => {
           ))}
         </motion.div>
 
-        {/* Solution cards */}
-        <motion.div 
-          variants={containerVariants}
-          className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto"
-        >
-          {solutions.map((solution, index) => (
-            <motion.div
-              key={index}
-              variants={cardVariants}
-              whileHover={{ y: -8, transition: { duration: 0.2 } }}
-              className={`relative group p-6 rounded-2xl bg-gradient-to-br ${solution.color} backdrop-blur-xl border border-white/10 hover:border-white/20 transition-all duration-300 cursor-pointer`}
-            >
-              {/* Glow effect on hover */}
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              
-              <div className="relative z-10">
-                <div className={`w-12 h-12 rounded-xl ${solution.iconBg} flex items-center justify-center mb-4`}>
-                  <solution.icon className={`h-6 w-6 ${solution.iconColor}`} />
-                </div>
-                <h3 className="text-xl font-semibold text-white mb-2">{solution.title}</h3>
-                <p className="text-white/60 text-sm leading-relaxed">{solution.description}</p>
-                
-                {/* Learn more link */}
-                <div className="mt-4 flex items-center gap-1 text-sm text-white/40 group-hover:text-white/70 transition-colors">
-                  <span>Learn more</span>
-                  <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
 
         {/* Bottom feature highlights */}
         <motion.div 
