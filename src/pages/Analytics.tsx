@@ -1913,36 +1913,54 @@ const Analytics = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Date Range</label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className="min-w-[240px] justify-start text-left font-normal">
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {format(sqlReportDateRange.from, 'MMM dd, yyyy')} - {format(sqlReportDateRange.to, 'MMM dd, yyyy')}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="range"
-                            selected={{ from: sqlReportDateRange.from, to: sqlReportDateRange.to }}
-                            onSelect={(range: any) => {
-                              if (range?.from && range?.to) {
-                                setSqlReportDateRange({ from: range.from, to: range.to });
-                              }
-                            }}
-                            numberOfMonths={2}
-                            className={cn("p-3 pointer-events-auto")}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <Button 
-                        variant="ghost" 
+                    <div className="flex gap-2 items-end">
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Start Date</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("w-[140px] justify-start text-left font-normal", !sqlReportDateRange.from && "text-muted-foreground")}>
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {sqlReportDateRange.from ? format(sqlReportDateRange.from, "MMM dd, yyyy") : "Start"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={sqlReportDateRange.from}
+                              onSelect={(date) => date && setSqlReportDateRange(prev => ({ ...prev, from: date }))}
+                              initialFocus
+                              className="pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">End Date</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("w-[140px] justify-start text-left font-normal", !sqlReportDateRange.to && "text-muted-foreground")}>
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {sqlReportDateRange.to ? format(sqlReportDateRange.to, "MMM dd, yyyy") : "End"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={sqlReportDateRange.to}
+                              onSelect={(date) => date && setSqlReportDateRange(prev => ({ ...prev, to: date }))}
+                              initialFocus
+                              className="pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <Button
+                        variant="ghost"
                         size="icon"
                         onClick={() => setSqlReportDateRange({ from: subDays(new Date(), 7), to: new Date() })}
-                        title="Clear date range"
+                        title="Reset to last 7 days"
                       >
-                        <X size={16} />
+                        <X className="h-4 w-4" />
                       </Button>
                     </div>
                     <Button onClick={fetchSqlReportData} disabled={sqlReportLoading || !sqlReportUser}>
