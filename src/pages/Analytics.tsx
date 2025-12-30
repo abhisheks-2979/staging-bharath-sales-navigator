@@ -346,11 +346,13 @@ const Analytics = () => {
         ? 'MANVITH%' 
         : sqlReportUser.trim();
       
-      const { data: profile } = await supabase
+      const { data: profiles } = await supabase
         .from('profiles')
         .select('id, full_name')
         .ilike('full_name', searchPattern)
-        .maybeSingle();
+        .limit(1);
+      
+      const profile = profiles?.[0];
       
       if (!profile) {
         setSqlReportData([]);
