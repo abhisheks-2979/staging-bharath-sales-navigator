@@ -340,49 +340,54 @@ const Analytics = () => {
       const fromDate = format(sqlReportDateRange.from, 'yyyy-MM-dd');
       const toDate = format(sqlReportDateRange.to, 'yyyy-MM-dd');
       
-      // Find user from the already loaded users array (more reliable than querying)
-      // For MANVITH, we want to match "MANVITH " (uppercase with trailing space)
-      let profile = users.find(u => u.full_name === sqlReportUser);
+      const isManvith = sqlReportUser.trim().toUpperCase().startsWith('MANVITH');
       
-      // If not found by exact match, try prefix match for MANVITH
-      if (!profile && sqlReportUser.trim().toUpperCase().startsWith('MANVITH')) {
-        profile = users.find(u => u.full_name?.trim().toUpperCase().startsWith('MANVITH'));
-      }
+      let orders: { order_date: string; total_amount: number | null }[] = [];
       
-      // Fallback: search by ilike if still not found
-      if (!profile) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .ilike('full_name', `${sqlReportUser.trim()}%`)
-          .limit(1);
-        profile = profiles?.[0];
-      }
-      
-      if (!profile) {
-        console.log('No profile found for:', sqlReportUser);
-        setSqlReportData([]);
-        setSqlReportLoading(false);
-        return;
-      }
-      
-      console.log('Found profile:', profile.id, profile.full_name);
+      if (isManvith) {
+        // Special query for MANVITH - use RPC or join via profiles with LIKE
+        const { data, error } = await supabase
+          .from('orders')
+          .select('order_date, total_amount, profiles!inner(full_name)')
+          .ilike('profiles.full_name', 'MANVITH%')
+          .eq('status', 'confirmed')
+          .gte('order_date', fromDate)
+          .lte('order_date', toDate)
+          .order('order_date', { ascending: true });
+        
+        if (error) {
+          console.error('Error fetching SQL report for MANVITH:', error);
+          setSqlReportData([]);
+          setSqlReportLoading(false);
+          return;
+        }
+        orders = data || [];
+      } else {
+        // Standard query for other users - find profile first
+        const profile = users.find(u => u.full_name === sqlReportUser);
+        
+        if (!profile) {
+          setSqlReportData([]);
+          setSqlReportLoading(false);
+          return;
+        }
 
-      // Fetch orders for this user
-      const { data: orders, error } = await supabase
-        .from('orders')
-        .select('order_date, total_amount, status')
-        .eq('user_id', profile.id)
-        .eq('status', 'confirmed')
-        .gte('order_date', fromDate)
-        .lte('order_date', toDate)
-        .order('order_date', { ascending: true });
+        const { data, error } = await supabase
+          .from('orders')
+          .select('order_date, total_amount')
+          .eq('user_id', profile.id)
+          .eq('status', 'confirmed')
+          .gte('order_date', fromDate)
+          .lte('order_date', toDate)
+          .order('order_date', { ascending: true });
 
-      if (error) {
-        console.error('Error fetching SQL report:', error);
-        setSqlReportData([]);
-        setSqlReportLoading(false);
-        return;
+        if (error) {
+          console.error('Error fetching SQL report:', error);
+          setSqlReportData([]);
+          setSqlReportLoading(false);
+          return;
+        }
+        orders = data || [];
       }
 
       // Group by date and sum totals
