@@ -340,25 +340,33 @@ const Analytics = () => {
       const fromDate = format(sqlReportDateRange.from, 'yyyy-MM-dd');
       const toDate = format(sqlReportDateRange.to, 'yyyy-MM-dd');
       
-      // Get the user's profile to find the user_id (use ilike to handle trailing spaces)
-      // Special handling for MANVITH - use prefix match
-      const searchPattern = sqlReportUser.trim().toUpperCase() === 'MANVITH' 
-        ? 'MANVITH%' 
-        : sqlReportUser.trim();
+      // Find user from the already loaded users array (more reliable than querying)
+      // For MANVITH, we want to match "MANVITH " (uppercase with trailing space)
+      let profile = users.find(u => u.full_name === sqlReportUser);
       
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .ilike('full_name', searchPattern)
-        .limit(1);
+      // If not found by exact match, try prefix match for MANVITH
+      if (!profile && sqlReportUser.trim().toUpperCase().startsWith('MANVITH')) {
+        profile = users.find(u => u.full_name?.trim().toUpperCase().startsWith('MANVITH'));
+      }
       
-      const profile = profiles?.[0];
+      // Fallback: search by ilike if still not found
+      if (!profile) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .ilike('full_name', `${sqlReportUser.trim()}%`)
+          .limit(1);
+        profile = profiles?.[0];
+      }
       
       if (!profile) {
+        console.log('No profile found for:', sqlReportUser);
         setSqlReportData([]);
         setSqlReportLoading(false);
         return;
       }
+      
+      console.log('Found profile:', profile.id, profile.full_name);
 
       // Fetch orders for this user
       const { data: orders, error } = await supabase
