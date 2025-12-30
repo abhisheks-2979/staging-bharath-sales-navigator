@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Layout } from "@/components/Layout";
 import { useManagedInterval } from "@/utils/intervalManager";
-import { Download, Share, FileText, Clock, MapPin, CalendarIcon, ExternalLink, Users, X } from "lucide-react";
+import { Download, Share, FileText, Clock, MapPin, CalendarIcon, ExternalLink, Users, X, CreditCard, Wallet, Banknote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +30,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { FeedbackSummarySection } from "@/components/FeedbackSummarySection";
 import { UserSelector } from "@/components/UserSelector";
 import { useSubordinates } from "@/hooks/useSubordinates";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 type DateFilterType = 'today' | 'week' | 'lastWeek' | 'month' | 'custom' | 'dateRange';
 
@@ -136,6 +138,14 @@ export const TodaySummary = () => {
   }>>([]);
 
   const [pointsEarnedToday, setPointsEarnedToday] = useState(0);
+  
+  // Payment method breakdown data for pie chart
+  const [paymentMethodBreakdown, setPaymentMethodBreakdown] = useState<Array<{
+    method: string;
+    amount: number;
+    count: number;
+    color: string;
+  }>>([]);
   
   // First and last retailer visit data for Time at Retailers modal
   const [firstLastRetailerVisit, setFirstLastRetailerVisit] = useState<{
@@ -1061,7 +1071,78 @@ export const TodaySummary = () => {
 
       setOrders(ordersData);
 
-      // Process product-grouped orders for Total Order Value dialog with KG
+      // Calculate payment method breakdown for pie chart
+      const paymentMethodMap = new Map<string, { amount: number; count: number }>();
+      const paymentMethodColors: Record<string, string> = {
+        'cash': 'hsl(142, 76%, 36%)', // green
+        'credit': 'hsl(0, 84%, 60%)',  // red
+        'upi': 'hsl(280, 67%, 50%)',   // purple
+        'neft': 'hsl(220, 90%, 56%)',  // blue
+        'cheque': 'hsl(38, 92%, 50%)', // orange
+        'check': 'hsl(38, 92%, 50%)',  // orange (alternate spelling)
+        'rtgs': 'hsl(190, 90%, 45%)',  // cyan
+        'n/a': 'hsl(220, 14%, 70%)',   // gray
+      };
+      
+      todayOrders?.forEach(order => {
+        const totalAmount = Number(order.total_amount ?? 0);
+        const paid = Number(order.credit_paid_amount ?? order.amount_paid ?? 0);
+        const isCreditOrder = order.is_credit_order;
+        const paymentMethod = order.payment_method?.toLowerCase() || '';
+        
+        // Determine the primary payment method
+        let primaryMethod = 'n/a';
+        
+        if (isCreditOrder) {
+          // If credit order with partial payment
+          if (paid > 0) {
+            // Add the paid portion to the payment method used
+            const paidMethod = paymentMethod || 'cash';
+            const existingPaid = paymentMethodMap.get(paidMethod) || { amount: 0, count: 0 };
+            paymentMethodMap.set(paidMethod, {
+              amount: existingPaid.amount + paid,
+              count: existingPaid.count
+            });
+            // Add the credit portion
+            const creditAmount = totalAmount - paid;
+            if (creditAmount > 0) {
+              const existingCredit = paymentMethodMap.get('credit') || { amount: 0, count: 0 };
+              paymentMethodMap.set('credit', {
+                amount: existingCredit.amount + creditAmount,
+                count: existingCredit.count + 1
+              });
+            }
+          } else {
+            // Full credit order
+            primaryMethod = 'credit';
+            const existing = paymentMethodMap.get(primaryMethod) || { amount: 0, count: 0 };
+            paymentMethodMap.set(primaryMethod, {
+              amount: existing.amount + totalAmount,
+              count: existing.count + 1
+            });
+          }
+        } else {
+          // Non-credit order - use payment method
+          primaryMethod = paymentMethod || 'cash';
+          const existing = paymentMethodMap.get(primaryMethod) || { amount: 0, count: 0 };
+          paymentMethodMap.set(primaryMethod, {
+            amount: existing.amount + totalAmount,
+            count: existing.count + 1
+          });
+        }
+      });
+
+      const paymentBreakdownData = Array.from(paymentMethodMap.entries())
+        .filter(([_, data]) => data.amount > 0)
+        .map(([method, data]) => ({
+          method: method.charAt(0).toUpperCase() + method.slice(1),
+          amount: Math.round(data.amount),
+          count: data.count,
+          color: paymentMethodColors[method.toLowerCase()] || 'hsl(220, 14%, 50%)'
+        }))
+        .sort((a, b) => b.amount - a.amount);
+
+      setPaymentMethodBreakdown(paymentBreakdownData);
       const productOrderMap = new Map();
       todayOrders?.forEach(order => {
         order.order_items?.forEach((item: any) => {
@@ -2124,7 +2205,7 @@ export const TodaySummary = () => {
                   {jointSalesData.feedback.slice(0, 3).map((feedback, index) => (
                     <div 
                       key={index} 
-                      className="p-3 bg-white rounded-lg border border-purple-100 text-sm cursor-pointer hover:border-purple-300 transition-colors"
+                      className="p-3 bg-card rounded-lg border border-purple-100 text-sm cursor-pointer hover:border-purple-300 transition-colors"
                       onClick={() => {
                         setSelectedJointFeedback({
                           retailerId: feedback.retailerId,
@@ -2208,12 +2289,127 @@ export const TodaySummary = () => {
           </CardContent>
         </Card>
 
-        {/* Feedback Summary Section - Moved to last */}
+        {/* Feedback Summary Section */}
         <FeedbackSummarySection 
           dateFrom={dateRange.from} 
           dateTo={dateRange.to}
           userId={isManager && managerSelectedUserId !== 'self' && managerSelectedUserId !== 'all' ? managerSelectedUserId : user?.id}
         />
+
+        {/* Payment Method Breakdown */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-primary" />
+              Payment Method Breakdown
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {loading ? (
+              <div className="text-center text-muted-foreground py-8">Loading payment data...</div>
+            ) : paymentMethodBreakdown.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                <Wallet className="h-12 w-12 mx-auto mb-2 text-muted-foreground/50" />
+                <p>No payment data for this period</p>
+              </div>
+            ) : (
+              <>
+                {/* Pie Chart */}
+                <div className="h-[200px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={paymentMethodBreakdown}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={45}
+                        outerRadius={75}
+                        paddingAngle={2}
+                        dataKey="amount"
+                        nameKey="method"
+                        label={({ method, percent }) => `${method} ${(percent * 100).toFixed(0)}%`}
+                        labelLine={false}
+                      >
+                        {paymentMethodBreakdown.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value: number) => [`₹${value.toLocaleString('en-IN')}`, 'Amount']}
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px'
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 gap-2">
+                  {paymentMethodBreakdown.map((item, index) => (
+                    <div 
+                      key={index}
+                      className="p-3 rounded-lg border"
+                      style={{ borderLeftColor: item.color, borderLeftWidth: '4px' }}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        {item.method.toLowerCase() === 'cash' && <Banknote className="h-4 w-4" style={{ color: item.color }} />}
+                        {item.method.toLowerCase() === 'credit' && <CreditCard className="h-4 w-4" style={{ color: item.color }} />}
+                        {item.method.toLowerCase() === 'upi' && <Wallet className="h-4 w-4" style={{ color: item.color }} />}
+                        {!['cash', 'credit', 'upi'].includes(item.method.toLowerCase()) && <CreditCard className="h-4 w-4" style={{ color: item.color }} />}
+                        <span className="text-sm font-medium">{item.method}</span>
+                      </div>
+                      <div className="text-lg font-bold" style={{ color: item.color }}>
+                        ₹{item.amount.toLocaleString('en-IN')}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {item.count} {item.count === 1 ? 'order' : 'orders'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Totals Summary */}
+                <div className="border-t pt-4 mt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center p-3 bg-success/10 rounded-lg">
+                      <div className="text-xs text-muted-foreground mb-1">Cash in Hand</div>
+                      <div className="text-lg font-bold text-success">
+                        ₹{paymentMethodBreakdown
+                          .filter(p => !['credit'].includes(p.method.toLowerCase()))
+                          .reduce((sum, p) => sum + p.amount, 0)
+                          .toLocaleString('en-IN')}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        (Cash + UPI + NEFT + Cheque)
+                      </div>
+                    </div>
+                    <div className="text-center p-3 bg-destructive/10 rounded-lg">
+                      <div className="text-xs text-muted-foreground mb-1">Credit (Pending)</div>
+                      <div className="text-lg font-bold text-destructive">
+                        ₹{paymentMethodBreakdown
+                          .filter(p => p.method.toLowerCase() === 'credit')
+                          .reduce((sum, p) => sum + p.amount, 0)
+                          .toLocaleString('en-IN')}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        To be collected
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 text-center p-3 bg-primary/10 rounded-lg">
+                    <div className="text-xs text-muted-foreground mb-1">Total Order Value</div>
+                    <div className="text-xl font-bold text-primary">
+                      ₹{paymentMethodBreakdown.reduce((sum, p) => sum + p.amount, 0).toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="sm:max-w-lg">
