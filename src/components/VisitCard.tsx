@@ -2174,12 +2174,12 @@ export const VisitCard = ({
         const getDisplayValues = (qty: number, rate: number, total: number, unit: string) => {
           const unitLower = (unit || '').toLowerCase().trim();
           
-          // If unit is grams and quantity >= 1000, convert to kg
-          if ((unitLower === 'grams' || unitLower === 'g' || unitLower === 'gram') && qty >= 1000) {
+          // Always convert grams to kg for display (consistent with invoice)
+          if (unitLower === 'grams' || unitLower === 'g' || unitLower === 'gram') {
             const kgQty = qty / 1000;
-            // Rate per kg = total / kgQty
-            const ratePerKg = total / kgQty;
-            return { displayQty: kgQty, displayUnit: 'kg', displayRate: ratePerKg };
+            // Rate per kg = total / kgQty (handles all quantities)
+            const ratePerKg = kgQty > 0 ? total / kgQty : rate * 1000;
+            return { displayQty: kgQty, displayUnit: 'KG', displayRate: ratePerKg };
           }
           
           // For other units, use rate from total/quantity to get actual discounted rate
