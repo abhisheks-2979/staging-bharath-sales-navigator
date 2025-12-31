@@ -8607,6 +8607,7 @@ export type Database = {
           quantity_target: number | null
           revenue_target: number | null
           updated_at: string
+          working_days: number | null
         }
         Insert: {
           business_plan_id: string
@@ -8617,6 +8618,7 @@ export type Database = {
           quantity_target?: number | null
           revenue_target?: number | null
           updated_at?: string
+          working_days?: number | null
         }
         Update: {
           business_plan_id?: string
@@ -8627,6 +8629,7 @@ export type Database = {
           quantity_target?: number | null
           revenue_target?: number | null
           updated_at?: string
+          working_days?: number | null
         }
         Relationships: [
           {
