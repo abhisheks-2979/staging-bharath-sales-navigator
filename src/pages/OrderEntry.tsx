@@ -1944,17 +1944,11 @@ export const OrderEntry = () => {
                   if (noOrderSubmitting) return;
                   setNoOrderSubmitting(true);
                   
-                  // Check online status at click time (more reliable than hook state)
-                  const isCurrentlyOnline = navigator.onLine;
-                  
-                  console.log('🔴 NO ORDER: Submit clicked', { 
+                  console.log('🔴 NO ORDER: Submit clicked (LOCAL-FIRST)', { 
                     noOrderReason, 
                     customNoOrderReason,
                     visitId,
-                    retailerId,
-                    isOnline,
-                    isCurrentlyOnline,
-                    navigatorOnLine: navigator.onLine
+                    retailerId
                   });
                   
                   const finalReason = noOrderReason === "other" ? customNoOrderReason.trim() : noOrderReason;
@@ -1965,6 +1959,7 @@ export const OrderEntry = () => {
                       description: "Please enter a reason",
                       variant: "destructive"
                     });
+                    setNoOrderSubmitting(false);
                     return;
                   }
                   
@@ -1974,6 +1969,7 @@ export const OrderEntry = () => {
                       description: "Retailer ID is missing",
                       variant: "destructive"
                     });
+                    setNoOrderSubmitting(false);
                     return;
                   }
                   
@@ -1983,346 +1979,25 @@ export const OrderEntry = () => {
                       description: "User not authenticated. Please log in again.",
                       variant: "destructive"
                     });
+                    setNoOrderSubmitting(false);
                     return;
                   }
                   
-                  // OFFLINE MODE: Store in sync queue (check current online status)
-                  if (!isCurrentlyOnline) {
-                    console.log('📴 NO ORDER OFFLINE: Storing in sync queue');
-                    try {
-                      const { offlineStorage, STORES } = await import('@/lib/offlineStorage');
-                      
-                      const today = getLocalDateString();
-                      let effectiveVisitId = visitId;
-                      
-                      // If no visit ID, try to find one from cache
-                      if (!effectiveVisitId) {
-                        console.log('📴 Looking for visit in offline cache');
-                        const cachedVisits = await offlineStorage.getAll<any>(STORES.VISITS);
-                        const todayVisit = cachedVisits.find(
-                          v => v.retailer_id === retailerId && 
-                               v.user_id === userId && 
-                               v.planned_date === today
-                        );
-                        
-                        if (todayVisit) {
-                          effectiveVisitId = todayVisit.id;
-                          console.log('✅ Found cached visit:', effectiveVisitId);
-                        }
-                      }
-                      
-                      console.log('📴 Adding to sync queue with data:', {
-                        action: 'UPDATE_VISIT_NO_ORDER',
-                        visitId: effectiveVisitId,
-                        retailerId,
-                        userId,
-                        noOrderReason: finalReason,
-                        plannedDate: today
-                      });
-                      
-                      // Store in sync queue
-                      await offlineStorage.addToSyncQueue('UPDATE_VISIT_NO_ORDER', {
-                        visitId: effectiveVisitId,
-                        retailerId,
-                        userId,
-                        noOrderReason: finalReason,
-                        plannedDate: today,
-                        timestamp: new Date().toISOString()
-                      });
-                      
-                      console.log('✅ Successfully added to sync queue');
-                      
-                      // Verify it was saved
-                      const queueItems = await offlineStorage.getSyncQueue();
-                      console.log('📦 Sync queue now contains:', queueItems.length, 'items');
-                      
-                      // CRITICAL: Always save/update visit in offline cache for progress stats to update
-                      const visitToSave = {
-                        id: effectiveVisitId || `offline_noorder_${retailerId}_${Date.now()}`,
-                        retailer_id: retailerId,
-                        user_id: userId,
-                        planned_date: today,
-                        status: 'unproductive',
-                        no_order_reason: finalReason,
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                      };
-                      
-                      // If we have an existing visit ID, try to merge with cached data
-                      if (effectiveVisitId) {
-                        const cachedVisit = await offlineStorage.getById<any>(STORES.VISITS, effectiveVisitId);
-                        if (cachedVisit) {
-                          visitToSave.id = cachedVisit.id;
-                          visitToSave.created_at = cachedVisit.created_at || visitToSave.created_at;
-                        }
-                      }
-                      
-                      await offlineStorage.save(STORES.VISITS, visitToSave);
-                      console.log('✅ Saved unproductive visit to offline cache:', visitToSave.id);
-
-                      // Also update status cache + snapshot so Visit status + Today progress update instantly
-                      // (useVisitsData prefers snapshot over offlineStorage, so this is critical)
-                      try {
-                        const [{ visitStatusCache }, { updateVisitStatusInSnapshot }] = await Promise.all([
-                          import('@/lib/visitStatusCache'),
-                          import('@/lib/myVisitsSnapshot'),
-                        ]);
-
-                        await Promise.allSettled([
-                          visitStatusCache.set(
-                            visitToSave.id,
-                            retailerId,
-                            userId,
-                            today,
-                            'unproductive',
-                            undefined,
-                            finalReason
-                          ),
-                          updateVisitStatusInSnapshot(userId, today, retailerId, 'unproductive', finalReason),
-                        ]);
-                      } catch (cacheUpdateError) {
-                        console.log('⚠️ NO ORDER: Local status caches update skipped:', cacheUpdateError);
-                      }
-
-                      toast({
-                        title: "📴 Saved Offline",
-                        description: "No order reason will sync when online",
-                        duration: 3000
-                      });
-
-                      // Clear cart and navigate
-                      try {
-                        const storageKey = validVisitId && validRetailerId 
-                          ? `order_cart:${validVisitId}:${validRetailerId}` 
-                          : validRetailerId 
-                            ? `order_cart:temp:${validRetailerId}` 
-                            : 'order_cart:fallback';
-                        localStorage.removeItem(storageKey);
-                      } catch (storageError) {
-                        console.log('⚠️ Cart clear skipped:', storageError);
-                      }
-                      
-                      // CRITICAL: Dispatch visitStatusChanged with proper details for progress stats update
-                      window.dispatchEvent(new CustomEvent('visitStatusChanged', {
-                        detail: { 
-                          visitId: effectiveVisitId, 
-                          status: 'unproductive', 
-                          retailerId,
-                          noOrderReason: finalReason
-                        }
-                      }));
-                      window.dispatchEvent(new Event('visitDataChanged'));
-                      console.log('✅ NO ORDER OFFLINE: Dispatched visitStatusChanged + visitDataChanged');
-                      
-                      setNoOrderSubmitting(false);
-                      setTimeout(() => {
-                        navigate("/visits/retailers");
-                      }, 300);
-
-                      return;
-                    } catch (error: any) {
-                      console.error('❌ Offline no-order save failed:', error);
-                      console.error('❌ Error details:', {
-                        message: error?.message,
-                        stack: error?.stack,
-                        name: error?.name
-                      });
-                      toast({
-                        title: "Failed to Save",
-                        description: error?.message || "Please try again",
-                        variant: "destructive"
-                      });
-                      setNoOrderSubmitting(false);
-                      return;
-                    }
-                  }
-                  
-                  // ONLINE MODE: Continue with existing logic
                   try {
-                    let effectiveVisitId = visitId;
+                    // Use LOCAL-FIRST pattern for instant response
+                    const { submitNoOrderLocalFirst } = await import('@/utils/noOrderUtils');
                     
-                    // CRITICAL FIX: If visit ID starts with "offline_" or "temp_", it's not a real UUID
-                    // We need to find or create a real visit in the database
-                    const isOfflineId = effectiveVisitId?.startsWith('offline_') || effectiveVisitId?.startsWith('temp_');
-                    if (isOfflineId) {
-                      console.log('⚠️ NO ORDER: Visit ID is offline-generated, will find/create real visit');
-                      effectiveVisitId = undefined; // Reset to trigger find/create logic below
-                    }
+                    const today = getLocalDateString();
                     
-                    // If no visit ID, try to find or create a visit for today
-                    if (!effectiveVisitId) {
-                      console.log('🔴 NO ORDER: No valid visit ID, checking for existing visit today...');
-                      
-                      const today = getLocalDateString();
-                      
-                      // Check if visit exists for this retailer today
-                      const { data: existingVisit } = await supabase
-                        .from('visits')
-                        .select('id')
-                        .eq('retailer_id', retailerId)
-                        .eq('user_id', userId)
-                        .eq('planned_date', today)
-                        .maybeSingle();
-                      
-                      if (existingVisit) {
-                        console.log('✅ NO ORDER: Found existing visit:', existingVisit.id);
-                        effectiveVisitId = existingVisit.id;
-                      } else {
-                        // Create a new visit for today
-                        console.log('🔴 NO ORDER: Creating new visit for today...');
-                        const { data: newVisit, error: createError } = await supabase
-                          .from('visits')
-                          .insert({
-                            retailer_id: retailerId,
-                            user_id: userId,
-                            planned_date: today,
-                            status: 'unproductive',
-                            no_order_reason: finalReason,
-                            created_at: new Date().toISOString()
-                          })
-                          .select()
-                          .single();
-                        
-                        if (createError) {
-                          console.error('❌ NO ORDER: Failed to create visit:', createError);
-                          throw createError;
-                        }
-                        
-                        console.log('✅ NO ORDER: Created new visit:', newVisit.id);
-                        effectiveVisitId = newVisit.id;
-                        
-                        // Update cache with new visit
-                        try {
-                          const { offlineStorage, STORES } = await import('@/lib/offlineStorage');
-                          await offlineStorage.save(STORES.VISITS, newVisit);
-                          console.log('✅ NO ORDER: Cached new visit');
-                        } catch (cacheError) {
-                          console.log('⚠️ NO ORDER: Cache save skipped (non-critical):', cacheError);
-                        }
-
-                        // Also update status cache + snapshot for instant UI/progress updates
-                        try {
-                          const [{ visitStatusCache }, { updateVisitStatusInSnapshot }] = await Promise.all([
-                            import('@/lib/visitStatusCache'),
-                            import('@/lib/myVisitsSnapshot'),
-                          ]);
-
-                          await Promise.allSettled([
-                            visitStatusCache.set(
-                              effectiveVisitId,
-                              retailerId,
-                              userId,
-                              today,
-                              'unproductive',
-                              undefined,
-                              finalReason
-                            ),
-                            updateVisitStatusInSnapshot(userId, today, retailerId, 'unproductive', finalReason),
-                          ]);
-                        } catch (cacheUpdateError) {
-                          console.log('⚠️ NO ORDER: Local status caches update skipped:', cacheUpdateError);
-                        }
-                        
-                        // Show success and navigate immediately
-                        toast({
-                          title: "✅ Visit Marked as Unproductive",
-                          description: `Reason: ${finalReason.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}`,
-                          duration: 3000
-                        });
-
-                        // CRITICAL: Dispatch visitStatusChanged for progress stats update
-                        window.dispatchEvent(new CustomEvent('visitStatusChanged', {
-                          detail: { 
-                            visitId: effectiveVisitId, 
-                            status: 'unproductive', 
-                            retailerId,
-                            noOrderReason: finalReason
-                          }
-                        }));
-                        window.dispatchEvent(new Event('visitDataChanged'));
-                        console.log('✅ NO ORDER: Dispatched visitStatusChanged + visitDataChanged');
-                        
-                        setNoOrderSubmitting(false);
-                        setTimeout(() => {
-                          navigate("/visits/retailers");
-                        }, 300);
-
-                        return;
-                      }
-                    }
-                    
-                    console.log('🔴 NO ORDER: Updating visit:', effectiveVisitId, 'with reason:', finalReason);
-                    
-                    // Update database
-                    const { data: updatedVisit, error: dbError } = await supabase
-                      .from('visits')
-                      .update({
-                        status: 'unproductive',
-                        no_order_reason: finalReason,
-                        updated_at: new Date().toISOString()
-                      })
-                      .eq('id', effectiveVisitId)
-                      .select()
-                      .single();
-                      
-                    if (dbError) {
-                      console.error('🔴 NO ORDER: Database update error:', dbError);
-                      throw dbError;
-                    }
-                    
-                    console.log('✅ NO ORDER: Database updated successfully', updatedVisit);
-                    
-                    // Update cache for immediate reflection
-                    try {
-                      const { offlineStorage, STORES } = await import('@/lib/offlineStorage');
-                      const cachedVisit = await offlineStorage.getById<any>(STORES.VISITS, effectiveVisitId);
-                      
-                      if (cachedVisit) {
-                        await offlineStorage.save(STORES.VISITS, {
-                          ...cachedVisit,
-                          status: 'unproductive',
-                          no_order_reason: finalReason,
-                          updated_at: new Date().toISOString()
-                        });
-                        console.log('✅ NO ORDER: Cache updated successfully');
-                      } else {
-                        console.log('⚠️ NO ORDER: No cached visit found, saving new cache');
-                        await offlineStorage.save(STORES.VISITS, updatedVisit);
-                      }
-                    } catch (cacheError) {
-                      console.log('⚠️ NO ORDER: Cache update skipped (non-critical):', cacheError);
-                    }
-
-                    // Also update status cache + snapshot for instant UI/progress updates
-                    try {
-                      const [{ visitStatusCache }, { updateVisitStatusInSnapshot }] = await Promise.all([
-                        import('@/lib/visitStatusCache'),
-                        import('@/lib/myVisitsSnapshot'),
-                      ]);
-
-                      await Promise.allSettled([
-                        visitStatusCache.set(
-                          effectiveVisitId,
-                          retailerId,
-                          userId,
-                          getLocalDateString(),
-                          'unproductive',
-                          undefined,
-                          finalReason
-                        ),
-                        updateVisitStatusInSnapshot(userId, getLocalDateString(), retailerId, 'unproductive', finalReason),
-                      ]);
-                    } catch (cacheUpdateError) {
-                      console.log('⚠️ NO ORDER: Local status caches update skipped:', cacheUpdateError);
-                    }
-                    
-                    toast({
-                      title: "✅ Visit Marked as Unproductive",
-                      description: `Reason: ${finalReason.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}`,
-                      duration: 3000
+                    await submitNoOrderLocalFirst({
+                      visitId,
+                      retailerId,
+                      userId,
+                      reason: finalReason,
+                      today
                     });
-
-                    // Clear the cart storage to prevent confusion
+                    
+                    // Clear cart storage
                     try {
                       const storageKey = validVisitId && validRetailerId 
                         ? `order_cart:${validVisitId}:${validRetailerId}` 
@@ -2330,37 +2005,31 @@ export const OrderEntry = () => {
                           ? `order_cart:temp:${validRetailerId}` 
                           : 'order_cart:fallback';
                       localStorage.removeItem(storageKey);
-                      console.log('✅ NO ORDER: Cart storage cleared:', storageKey);
                     } catch (storageError) {
-                      console.log('⚠️ NO ORDER: Cart clear skipped:', storageError);
+                      console.log('⚠️ Cart clear skipped:', storageError);
                     }
-
-                    // CRITICAL: Dispatch visitStatusChanged with proper details for progress stats update
-                    window.dispatchEvent(new CustomEvent('visitStatusChanged', {
-                      detail: { 
-                        visitId: effectiveVisitId, 
-                        status: 'unproductive', 
-                        retailerId,
-                        noOrderReason: finalReason
-                      }
-                    }));
-                    window.dispatchEvent(new Event('visitDataChanged'));
-                    console.log('✅ NO ORDER: Dispatched visitStatusChanged + visitDataChanged');
                     
-                    // Small delay to ensure cache/event processing, then navigate
+                    // Show success immediately
+                    toast({
+                      title: "✅ Visit Marked as Unproductive",
+                      description: `Reason: ${finalReason.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}`,
+                      duration: 3000
+                    });
+                    
+                    setNoOrderSubmitting(false);
+                    
+                    // Navigate immediately - no waiting for network
                     setTimeout(() => {
                       navigate("/visits/retailers");
-                    }, 300);
-
+                    }, 100);
                     
                   } catch (error: any) {
-                    console.error('🔴 NO ORDER: Error saving no order reason:', error);
+                    console.error('🔴 NO ORDER: Error:', error);
                     toast({
                       title: "Failed to Save",
                       description: error?.message || "Please try again",
                       variant: "destructive"
                     });
-                  } finally {
                     setNoOrderSubmitting(false);
                   }
                 }}

@@ -3,9 +3,11 @@ import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { supabase } from '@/integrations/supabase/client';
 import { useConnectivity } from './useConnectivity';
 import { toast } from './use-toast';
+import { isSlowConnection } from '@/utils/internetSpeedCheck';
 
 /**
  * Hook for managing retailers with offline support
+ * Uses LOCAL-FIRST pattern for instant UI response on slow connections
  */
 export function useOfflineRetailers() {
   const connectivityStatus = useConnectivity();
@@ -13,140 +15,163 @@ export function useOfflineRetailers() {
   const [loading, setLoading] = useState(false);
 
   /**
-   * Create retailer with offline support
+   * Create retailer with LOCAL-FIRST pattern
+   * Saves locally immediately, syncs in background
    */
   const createRetailer = useCallback(async (retailerData: any) => {
     try {
       setLoading(true);
+      const slowConnection = isSlowConnection();
 
-      if (isOnline) {
-        // Online: Submit directly
-        const { data, error } = await supabase
-          .from('retailers')
-          .insert(retailerData)
-          .select()
-          .single();
+      // STEP 1: ALWAYS create local retailer first for instant response
+      const retailerId = crypto.randomUUID();
+      const localRetailer = {
+        ...retailerData,
+        id: retailerId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
 
-        if (error) throw error;
+      // Save to local cache immediately
+      await offlineStorage.save(STORES.RETAILERS, localRetailer);
 
-        // Cache the new retailer
-        await offlineStorage.save(STORES.RETAILERS, data);
+      // Dispatch retailerAdded event immediately for instant UI update
+      window.dispatchEvent(new CustomEvent('retailerAdded', { 
+        detail: { retailer: localRetailer } 
+      }));
 
-        // Dispatch retailerAdded event for Smart Silent Background Sync
-        window.dispatchEvent(new CustomEvent('retailerAdded', { 
-          detail: { retailer: data } 
-        }));
+      // Show instant success feedback
+      toast({
+        title: "Retailer Saved",
+        description: slowConnection || !isOnline ? "Will sync when online" : "Syncing...",
+      });
 
-        toast({
-          title: "Retailer Created",
-          description: "Retailer has been created successfully.",
-        });
+      setLoading(false);
 
-        return { success: true, offline: false, data };
-      } else {
-        // Offline: Queue for sync
-        const offlineRetailer = {
-          ...retailerData,
-          id: crypto.randomUUID(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-
-        await offlineStorage.save(STORES.RETAILERS, offlineRetailer);
-        await offlineStorage.addToSyncQueue('CREATE_RETAILER', offlineRetailer);
-
-        // Dispatch retailerAdded event for Smart Silent Background Sync
-        window.dispatchEvent(new CustomEvent('retailerAdded', { 
-          detail: { retailer: offlineRetailer } 
-        }));
-
-        toast({
-          title: "Retailer Saved Offline",
-          description: "Retailer will be created when you're back online.",
-        });
-
-        return { success: true, offline: true, data: offlineRetailer };
+      // STEP 2: If offline or slow, queue for sync and return immediately
+      if (!isOnline || slowConnection) {
+        await offlineStorage.addToSyncQueue('CREATE_RETAILER', localRetailer);
+        console.log('📴 Retailer queued for sync (offline/slow):', retailerId);
+        return { success: true, offline: true, data: localRetailer };
       }
+
+      // STEP 3: Online with good connection - sync in background (non-blocking)
+      setTimeout(async () => {
+        try {
+          const { data, error } = await supabase
+            .from('retailers')
+            .insert({ ...retailerData, id: retailerId })
+            .select()
+            .single();
+
+          if (error) {
+            console.warn('Background sync failed, queuing:', error.message);
+            await offlineStorage.addToSyncQueue('CREATE_RETAILER', localRetailer);
+          } else {
+            // Update cache with server response
+            await offlineStorage.save(STORES.RETAILERS, data);
+            console.log('✅ Retailer synced successfully:', retailerId);
+          }
+        } catch (syncError) {
+          console.warn('Background sync error:', syncError);
+          await offlineStorage.addToSyncQueue('CREATE_RETAILER', localRetailer);
+        }
+      }, 0);
+
+      return { success: true, offline: false, data: localRetailer };
     } catch (error: any) {
       console.error('Error creating retailer:', error);
       toast({
-        title: "Failed to Create Retailer",
-        description: error.message || "Failed to create retailer",
+        title: "Failed to Save Retailer",
+        description: error.message || "Please try again",
         variant: "destructive",
       });
-      return { success: false, offline: false, data: null };
-    } finally {
       setLoading(false);
+      return { success: false, offline: false, data: null };
     }
   }, [isOnline]);
 
   /**
-   * Update retailer with offline support
+   * Update retailer with LOCAL-FIRST pattern
+   * Updates locally immediately, syncs in background
    */
   const updateRetailer = useCallback(async (retailerId: string, updates: any) => {
     try {
       setLoading(true);
+      const slowConnection = isSlowConnection();
 
-      if (isOnline) {
-        // Online: Update directly
-        const { data, error } = await supabase
-          .from('retailers')
-          .update(updates)
-          .eq('id', retailerId)
-          .select()
-          .single();
+      // STEP 1: Get current cached retailer
+      const cachedRetailer = await offlineStorage.getById(STORES.RETAILERS, retailerId);
+      
+      if (!cachedRetailer) {
+        throw new Error('Retailer not found');
+      }
+      
+      // STEP 2: Update local cache immediately
+      const updatedRetailer = {
+        ...(cachedRetailer as any),
+        ...updates,
+        updated_at: new Date().toISOString()
+      };
 
-        if (error) throw error;
+      await offlineStorage.save(STORES.RETAILERS, updatedRetailer);
 
-        // Update cache
-        await offlineStorage.save(STORES.RETAILERS, data);
+      // Show instant success
+      toast({
+        title: "Retailer Updated",
+        description: slowConnection || !isOnline ? "Will sync when online" : "Syncing...",
+      });
 
-        toast({
-          title: "Retailer Updated",
-          description: "Retailer has been updated successfully.",
-        });
+      setLoading(false);
 
-        return { success: true, offline: false, data };
-      } else {
-        // Offline: Queue for sync
-        const cachedRetailer = await offlineStorage.getById(STORES.RETAILERS, retailerId);
-        
-        if (!cachedRetailer) {
-          throw new Error('Retailer not found in offline storage');
-        }
-        
-        const updatedRetailer = {
-          ...(cachedRetailer as any),
-          ...updates,
-          updated_at: new Date().toISOString()
-        };
-
-        await offlineStorage.save(STORES.RETAILERS, updatedRetailer);
+      // STEP 3: If offline or slow, queue for sync
+      if (!isOnline || slowConnection) {
         await offlineStorage.addToSyncQueue('UPDATE_RETAILER', {
           id: retailerId,
-          updates: {
-            ...updates,
-            updated_at: new Date().toISOString()
-          }
+          updates: { ...updates, updated_at: new Date().toISOString() }
         });
-
-        toast({
-          title: "Retailer Updated Offline",
-          description: "Changes will sync when you're back online.",
-        });
-
         return { success: true, offline: true, data: updatedRetailer };
       }
+
+      // STEP 4: Sync in background (non-blocking)
+      setTimeout(async () => {
+        try {
+          const { data, error } = await supabase
+            .from('retailers')
+            .update(updates)
+            .eq('id', retailerId)
+            .select()
+            .single();
+
+          if (error) {
+            console.warn('Background update sync failed:', error.message);
+            await offlineStorage.addToSyncQueue('UPDATE_RETAILER', {
+              id: retailerId,
+              updates: { ...updates, updated_at: new Date().toISOString() }
+            });
+          } else {
+            await offlineStorage.save(STORES.RETAILERS, data);
+            console.log('✅ Retailer update synced:', retailerId);
+          }
+        } catch (syncError) {
+          console.warn('Background update error:', syncError);
+          await offlineStorage.addToSyncQueue('UPDATE_RETAILER', {
+            id: retailerId,
+            updates: { ...updates, updated_at: new Date().toISOString() }
+          });
+        }
+      }, 0);
+
+      return { success: true, offline: false, data: updatedRetailer };
     } catch (error: any) {
       console.error('Error updating retailer:', error);
       toast({
         title: "Failed to Update Retailer",
-        description: error.message || "Failed to update retailer",
+        description: error.message || "Please try again",
         variant: "destructive",
       });
-      return { success: false, offline: false, data: null };
-    } finally {
       setLoading(false);
+      return { success: false, offline: false, data: null };
     }
   }, [isOnline]);
 
