@@ -203,16 +203,16 @@ export default function InvoicePreview({
               <span className="text-xs">{invoiceTime}</span>
             </div>
           )}
-          {beatName && (
-            <div className="mb-2">
-              <span className="font-bold text-xs">ROUTE/BEAT:</span>{" "}
-              <span className="text-xs">{beatName}</span>
-            </div>
-          )}
           {salesmanName && (
             <div className="mb-2">
               <span className="font-bold text-xs">SALESMAN:</span>{" "}
               <span className="text-xs">{salesmanName}</span>
+            </div>
+          )}
+          {beatName && (
+            <div className="mb-2">
+              <span className="font-bold text-xs">BEAT:</span>{" "}
+              <span className="text-xs">{beatName}</span>
             </div>
           )}
         </div>
