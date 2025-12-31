@@ -2043,6 +2043,24 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                           toast.info('No stock items to edit');
                           return;
                         }
+                        
+                        // Store original values BEFORE editing for difference tracking
+                        const originalValues = savedItems.map((item: any) => {
+                          const storedUnit = (item.unit || '').toLowerCase();
+                          const isGrams = storedUnit === 'grams' || storedUnit === 'gram' || storedUnit === 'g';
+                          const conversionFactor = isGrams ? 1000 : 1;
+                          const displayUnit = isGrams ? 'kg' : (item.unit || 'kg');
+                          const startQty = (item.start_qty || 0) / conversionFactor;
+                          
+                          return {
+                            product_id: item.product_id,
+                            product_name: item.product_name,
+                            qty: startQty,
+                            unit: displayUnit
+                          };
+                        });
+                        setOriginalLoadedStock(originalValues);
+                        
                         const itemsToEdit = savedItems.map((item: any) => {
                           const storedUnit = (item.unit || '').toLowerCase();
                           const isGrams = storedUnit === 'grams' || storedUnit === 'gram' || storedUnit === 'g';
