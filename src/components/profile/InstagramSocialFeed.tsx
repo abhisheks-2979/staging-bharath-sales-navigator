@@ -138,6 +138,29 @@ export function InstagramSocialFeed() {
     }
   };
 
+  const fetchProfilesMap = async (ids: string[]) => {
+    const uniqueIds = Array.from(new Set(ids)).filter(Boolean);
+    const map = new Map<string, { full_name: string | null; profile_picture_url: string | null }>();
+
+    if (uniqueIds.length === 0) return map;
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, profile_picture_url")
+      .in("id", uniqueIds);
+
+    if (error) {
+      console.error("Error fetching profiles:", error);
+      return map;
+    }
+
+    data?.forEach((p: any) => {
+      map.set(p.id, { full_name: p.full_name, profile_picture_url: p.profile_picture_url });
+    });
+
+    return map;
+  };
+
   const fetchPosts = async () => {
     if (!user) return;
 
@@ -148,7 +171,6 @@ export function InstagramSocialFeed() {
         .from("social_posts")
         .select(`
           *,
-          profiles(full_name, profile_picture_url),
           social_likes(count),
           social_comments(count),
           social_post_attachments(id, file_url, file_type, file_name)
@@ -158,10 +180,13 @@ export function InstagramSocialFeed() {
 
       if (error) {
         console.error("Error fetching posts:", error);
+        toast.error("Unable to load posts");
         return;
       }
 
       if (data) {
+        const profilesMap = await fetchProfilesMap(data.map((p: any) => p.user_id));
+
         const formattedPosts: Post[] = await Promise.all(
           data.map(async (post: any) => {
             // Check if current user liked
@@ -191,14 +216,16 @@ export function InstagramSocialFeed() {
               });
             }
 
+            const profile = profilesMap.get(post.user_id);
+
             return {
               id: post.id,
               user_id: post.user_id,
               content: post.content,
               image_url: post.image_url,
               created_at: post.created_at,
-              user_name: post.profiles?.full_name || "Unknown User",
-              user_avatar: post.profiles?.profile_picture_url || null,
+              user_name: profile?.full_name || "Unknown User",
+              user_avatar: profile?.profile_picture_url || null,
               likes_count: post.social_likes?.[0]?.count || 0,
               comments_count: post.social_comments?.[0]?.count || 0,
               has_liked: !!likeData,
@@ -421,22 +448,33 @@ export function InstagramSocialFeed() {
     const { data, error } = await supabase
       .from("social_comments")
       .select(`
-        *,
-        profiles!social_comments_user_id_fkey(full_name, profile_picture_url)
+        *
       `)
       .eq("post_id", postId)
       .order("created_at", { ascending: true });
 
-    if (!error && data) {
-      const formattedComments: Comment[] = data.map((comment: any) => ({
-        id: comment.id,
-        user_id: comment.user_id,
-        post_id: comment.post_id,
-        content: comment.content,
-        created_at: comment.created_at,
-        user_name: comment.profiles?.full_name || "Unknown User",
-        user_avatar: comment.profiles?.profile_picture_url || null,
-      }));
+    if (error) {
+      console.error("Error fetching comments:", error);
+      toast.error("Unable to load comments");
+      return;
+    }
+
+    if (data) {
+      const profilesMap = await fetchProfilesMap(data.map((c: any) => c.user_id));
+
+      const formattedComments: Comment[] = data.map((comment: any) => {
+        const profile = profilesMap.get(comment.user_id);
+        return {
+          id: comment.id,
+          user_id: comment.user_id,
+          post_id: comment.post_id,
+          content: comment.content,
+          created_at: comment.created_at,
+          user_name: profile?.full_name || "Unknown User",
+          user_avatar: profile?.profile_picture_url || null,
+        };
+      });
+
       setComments((prev) => ({ ...prev, [postId]: formattedComments }));
     }
   };
@@ -465,11 +503,13 @@ export function InstagramSocialFeed() {
       if (error) throw error;
 
       setNewComment((prev) => ({ ...prev, [postId]: "" }));
+      setExpandedComments(postId);
       fetchComments(postId);
       fetchPosts();
     } catch (error) {
       toast.error("Failed to add comment");
     }
+  };
   };
 
   const getStorageUrl = (path: string) => {
