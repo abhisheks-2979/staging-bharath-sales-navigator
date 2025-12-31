@@ -1515,51 +1515,68 @@ const [productForm, setProductForm] = useState({
                   </DialogHeader>
                   <ScrollArea className="h-[calc(90vh-180px)]">
                     <div className="space-y-4 pr-4">
-                    <div>
-                      <Label htmlFor="variantName">Variant Name</Label>
-                      <Input
-                        id="variantName"
-                        value={variantForm.variant_name}
-                        onChange={(e) => setVariantForm({ ...variantForm, variant_name: e.target.value })}
-                        placeholder="e.g., 1kg, 5kg bag, Large"
+                    {/* Active toggle at top like product form */}
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="variantActive"
+                        checked={variantForm.is_active}
+                        onCheckedChange={(checked) => setVariantForm({ ...variantForm, is_active: checked === true })}
                       />
+                      <Label htmlFor="variantActive">Active</Label>
                     </div>
-                    <div>
-                      <Label htmlFor="variantSku">SKU</Label>
-                      <Input
-                        id="variantSku"
-                        value={variantForm.sku}
-                        onChange={(e) => setVariantForm({ ...variantForm, sku: e.target.value })}
-                        placeholder="Unique SKU for this variant"
-                      />
+
+                    {/* Variant Name and SKU in 2 columns like product form */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="variantName">Variant Name *</Label>
+                        <Input
+                          id="variantName"
+                          value={variantForm.variant_name}
+                          onChange={(e) => setVariantForm({ ...variantForm, variant_name: e.target.value })}
+                          placeholder="e.g., 1kg, 5kg bag"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="variantSku">SKU</Label>
+                        <Input
+                          id="variantSku"
+                          value={variantForm.sku}
+                          onChange={(e) => setVariantForm({ ...variantForm, sku: e.target.value })}
+                          placeholder="Unique SKU"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <Label htmlFor="variantPrice">Price (₹)</Label>
-                      <Input
-                        id="variantPrice"
-                        type="number"
-                        value={variantForm.price}
-                        onChange={(e) => {
-                          const price = parseFloat(e.target.value) || 0;
-                          const discountAmount = (price * variantForm.discount_percentage) / 100;
-                          setVariantForm({ 
-                            ...variantForm, 
-                            price,
-                            discount_amount: Number(discountAmount.toFixed(2))
-                          });
-                        }}
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="variantStock">Stock Quantity</Label>
-                      <Input
-                        id="variantStock"
-                        type="number"
-                        value={variantForm.stock_quantity}
-                        onChange={(e) => setVariantForm({ ...variantForm, stock_quantity: parseInt(e.target.value) || 0 })}
-                        placeholder="0"
-                      />
+
+                    {/* Price and Stock in 2 columns */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="variantPrice">Price (₹) *</Label>
+                        <Input
+                          id="variantPrice"
+                          type="number"
+                          value={variantForm.price}
+                          onChange={(e) => {
+                            const price = parseFloat(e.target.value) || 0;
+                            const discountAmount = (price * variantForm.discount_percentage) / 100;
+                            setVariantForm({ 
+                              ...variantForm, 
+                              price,
+                              discount_amount: Number(discountAmount.toFixed(2))
+                            });
+                          }}
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="variantStock">Stock Quantity</Label>
+                        <Input
+                          id="variantStock"
+                          type="number"
+                          value={variantForm.stock_quantity}
+                          onChange={(e) => setVariantForm({ ...variantForm, stock_quantity: parseInt(e.target.value) || 0 })}
+                          placeholder="0"
+                        />
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -1592,14 +1609,6 @@ const [productForm, setProductForm] = useState({
                           className="bg-muted"
                         />
                       </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="variantActive"
-                        checked={variantForm.is_active}
-                        onCheckedChange={(checked) => setVariantForm({ ...variantForm, is_active: checked })}
-                      />
-                      <Label htmlFor="variantActive">Active</Label>
                     </div>
 
                     {/* Focused Product Section for Variants */}
