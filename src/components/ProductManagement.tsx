@@ -160,7 +160,8 @@ const [productForm, setProductForm] = useState({
   sku_image_url: '',
   barcode: '',
   barcode_image_url: '',
-  qr_code: ''
+  qr_code: '',
+  hsn_code: ''
 });
   const [schemeForm, setSchemeForm] = useState({
     id: '',
@@ -566,7 +567,8 @@ const [productForm, setProductForm] = useState({
             focused_target_quantity: productForm.focused_target_quantity || 0,
             focused_territories: productForm.focused_territories || [],
             barcode: productForm.barcode || null,
-            qr_code: qrCode
+            qr_code: qrCode,
+            hsn_code: productForm.hsn_code || null
           })
           .eq('id', productForm.id);
         
@@ -593,7 +595,8 @@ const [productForm, setProductForm] = useState({
             focused_target_quantity: productForm.focused_target_quantity || 0,
             focused_territories: productForm.focused_territories || [],
             barcode: productForm.barcode || null,
-            qr_code: qrCode
+            qr_code: qrCode,
+            hsn_code: productForm.hsn_code || null
           });
         
         if (error) throw error;
@@ -627,7 +630,8 @@ const [productForm, setProductForm] = useState({
         sku_image_url: '',
         barcode: '',
         barcode_image_url: '',
-        qr_code: ''
+        qr_code: '',
+        hsn_code: ''
       });
       fetchProducts();
     } catch (error) {
@@ -984,7 +988,8 @@ const [productForm, setProductForm] = useState({
                         sku_image_url: '',
                         barcode: '',
                         barcode_image_url: '',
-                        qr_code: ''
+                        qr_code: '',
+                        hsn_code: ''
                       })}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Product
@@ -1069,7 +1074,8 @@ const [productForm, setProductForm] = useState({
                                   focused_recurring_config: undefined,
                                   barcode: '',
                                   barcode_image_url: '',
-                                  qr_code: ''
+                                  qr_code: '',
+                                  hsn_code: ''
                                 });
                                 setIsProductDialogOpen(true);
                               }}
@@ -1100,7 +1106,8 @@ const [productForm, setProductForm] = useState({
                                   focused_recurring_config: undefined,
                                   barcode: '',
                                   barcode_image_url: '',
-                                  qr_code: ''
+                                  qr_code: '',
+                                  hsn_code: ''
                                 });
                                 setIsProductDialogOpen(true);
                               }}
@@ -1185,7 +1192,8 @@ const [productForm, setProductForm] = useState({
                                   sku_image_url: (product as any).sku_image_url || '',
                                   barcode: (product as any).barcode || '',
                                   barcode_image_url: (product as any).barcode_image_url || '',
-                                  qr_code: (product as any).qr_code || ''
+                                  qr_code: (product as any).qr_code || '',
+                                  hsn_code: (product as any).hsn_code || ''
                                 });
                                 setIsProductDialogOpen(true);
                               }}

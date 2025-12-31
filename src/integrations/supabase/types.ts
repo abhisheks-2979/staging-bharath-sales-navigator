@@ -6051,6 +6051,7 @@ export type Database = {
           focused_target_quantity: number | null
           focused_territories: string[] | null
           focused_type: string | null
+          hsn_code: string | null
           id: string
           is_active: boolean | null
           is_focused_product: boolean | null
@@ -6073,6 +6074,7 @@ export type Database = {
           focused_target_quantity?: number | null
           focused_territories?: string[] | null
           focused_type?: string | null
+          hsn_code?: string | null
           id?: string
           is_active?: boolean | null
           is_focused_product?: boolean | null
@@ -6095,6 +6097,7 @@ export type Database = {
           focused_target_quantity?: number | null
           focused_territories?: string[] | null
           focused_type?: string | null
+          hsn_code?: string | null
           id?: string
           is_active?: boolean | null
           is_focused_product?: boolean | null
@@ -6131,6 +6134,7 @@ export type Database = {
           focused_target_quantity: number | null
           focused_territories: string[] | null
           focused_type: string | null
+          hsn_code: string | null
           id: string
           is_active: boolean | null
           is_focused_product: boolean | null
@@ -6157,6 +6161,7 @@ export type Database = {
           focused_target_quantity?: number | null
           focused_territories?: string[] | null
           focused_type?: string | null
+          hsn_code?: string | null
           id?: string
           is_active?: boolean | null
           is_focused_product?: boolean | null
@@ -6183,6 +6188,7 @@ export type Database = {
           focused_target_quantity?: number | null
           focused_territories?: string[] | null
           focused_type?: string | null
+          hsn_code?: string | null
           id?: string
           is_active?: boolean | null
           is_focused_product?: boolean | null
