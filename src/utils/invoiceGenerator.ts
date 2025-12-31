@@ -118,6 +118,7 @@ const numberToWords = (num: number): string => {
 const normalizeItemForDisplay = (item: any) => {
   const unit = (item.unit || '').toLowerCase();
   const qty = Number(item.quantity) || 0;
+  // Use high precision rates - avoid rounding
   const rate = Number(item.rate || item.price) || 0;
   const originalRate = Number(item.original_rate) || rate;
   const discountAmt = Number(item.discount_amount) || 0;
@@ -129,10 +130,24 @@ const normalizeItemForDisplay = (item: any) => {
     // Convert quantity from grams to KG
     const displayQty = qty / 1000;
     
-    // Convert rate to per-KG price
+    // Use precise_rate_per_kg if available (fetched from products table)
+    // This preserves full decimal precision lost in order_items.rate (numeric 10,2)
+    if (item.precise_rate_per_kg) {
+      const preciseRate = Number(item.precise_rate_per_kg);
+      return {
+        displayUnit: 'KG',
+        displayQty: displayQty,
+        displayRate: preciseRate,
+        displayOriginalRate: preciseRate,
+        displayDiscountAmount: discountAmt,
+      };
+    }
+    
+    // Convert rate to per-KG price - preserve full decimal precision
     // If rate is small (< 1), it's per-gram rate - multiply by 1000 to get per-KG
     // If rate is >= 1, it might already be per-KG rate (stored incorrectly), use as-is
     const isPerGramRate = rate > 0 && rate < 1;
+    // Preserve exact decimal values - no rounding
     const displayRate = isPerGramRate ? rate * 1000 : rate;
     const displayOriginalRate = isPerGramRate ? originalRate * 1000 : originalRate;
     
@@ -149,6 +164,7 @@ const normalizeItemForDisplay = (item: any) => {
   if (item.display_unit && item.display_quantity) {
     const isDisplayKg = item.display_unit.toLowerCase() === 'kg';
     const isPerGramRate = rate > 0 && rate < 1;
+    // Preserve exact decimal values - no rounding
     const displayRate = isDisplayKg && isPerGramRate ? rate * 1000 : rate;
     const displayOrigRate = isDisplayKg && isPerGramRate ? originalRate * 1000 : originalRate;
     
@@ -161,7 +177,7 @@ const normalizeItemForDisplay = (item: any) => {
     };
   }
   
-  // Default: use as-is for non-gram units
+  // Default: use as-is for non-gram units - preserve exact values
   return {
     displayUnit: item.unit || 'Piece',
     displayQty: qty,
@@ -896,12 +912,12 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
 
   if (!company) throw new Error("Company not found");
 
-  // Fetch retailer with state
+  // Fetch retailer with state and beat_name
   let retailer: any = null;
   if (order.retailer_id) {
     const { data: retailerData } = await supabase
       .from("retailers")
-      .select("name, address, phone, gst_number, state, beat_id")
+      .select("name, address, phone, gst_number, state, beat_id, beat_name")
       .eq("id", order.retailer_id)
       .single();
     retailer = retailerData;
@@ -911,9 +927,9 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
     retailer = { name: "Customer", address: "", phone: "", gst_number: "", state: "" };
   }
 
-  // Fetch beat name
-  let beatName = "";
-  if (retailer?.beat_id) {
+  // Fetch beat name - try retailer.beat_name first, then lookup from beats table
+  let beatName = retailer?.beat_name || "";
+  if (!beatName && retailer?.beat_id) {
     const { data: beatData } = await supabase
       .from("beats")
       .select("beat_name")
@@ -935,6 +951,63 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
 
   // Scheme details not stored in orders table currently
   let schemeDetails = "";
+
+  // Enrich order items with HSN codes and precise rates from products if missing
+  const orderItemsWithHsn = await Promise.all(
+    (order.order_items || []).map(async (item: any) => {
+      let enrichedItem = { ...item };
+      
+      // Try to fetch HSN code and precise rate from product or variant
+      if (item.product_id) {
+        // First try to get from product
+        const { data: productData } = await supabase
+          .from("products")
+          .select("hsn_code, rate, unit")
+          .eq("id", item.product_id)
+          .maybeSingle();
+        
+        if (productData) {
+          // Set HSN code if missing
+          if (!enrichedItem.hsn_code) {
+            enrichedItem.hsn_code = productData.hsn_code;
+          }
+          
+          // Use product's precise rate for better display accuracy
+          // Product rate is stored in per-unit format (e.g., per KG for grams items)
+          // Only override if unit matches and we can use precise rate
+          if (productData.rate && productData.unit) {
+            const productUnit = (productData.unit || '').toLowerCase();
+            const itemUnit = (item.unit || '').toLowerCase();
+            const isGramsUnit = itemUnit === 'grams' || itemUnit === 'gram' || itemUnit === 'g';
+            
+            // If product has precise rate stored (per KG), use it for display
+            if (isGramsUnit && productData.rate > 1) {
+              // Store the precise per-KG rate for display conversion
+              enrichedItem.precise_rate_per_kg = productData.rate;
+            }
+          }
+        }
+        
+        // Also check if it's a variant (product_id might be variant_id in some cases)
+        if (!enrichedItem.hsn_code) {
+          const { data: variantData } = await supabase
+            .from("product_variants")
+            .select("hsn_code, price")
+            .eq("id", item.product_id)
+            .maybeSingle();
+          
+          if (variantData?.hsn_code) {
+            enrichedItem.hsn_code = variantData.hsn_code;
+          }
+          if (variantData?.price && variantData.price > 1) {
+            enrichedItem.precise_rate_per_kg = variantData.price;
+          }
+        }
+      }
+      
+      return enrichedItem;
+    })
+  );
 
   const displayInvoiceNumber = (order as any).invoice_number || `INV-${order.id.substring(0, 8).toUpperCase()}`;
   const displayInvoiceDate = order.created_at ? new Date(order.created_at).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB");
@@ -963,7 +1036,7 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
         orderId: order.id,
         company,
         retailer,
-        cartItems: order.order_items,
+        cartItems: orderItemsWithHsn,
         displayInvoiceNumber,
         displayInvoiceDate,
         displayInvoiceTime,
