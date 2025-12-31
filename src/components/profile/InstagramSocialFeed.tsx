@@ -76,6 +76,7 @@ export function InstagramSocialFeed() {
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
+  const [postsLoading, setPostsLoading] = useState(true);
   const [expandedComments, setExpandedComments] = useState<string | null>(null);
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
   const [newComment, setNewComment] = useState<Record<string, string>>({});
@@ -140,66 +141,78 @@ export function InstagramSocialFeed() {
   const fetchPosts = async () => {
     if (!user) return;
 
-    // Get all posts - visible to all team members
-    const { data, error } = await supabase
-      .from("social_posts")
-      .select(`
-        *,
-        profiles!social_posts_user_id_fkey(full_name, profile_picture_url),
-        social_likes(count),
-        social_comments(count),
-        social_post_attachments(id, file_url, file_type, file_name)
-      `)
-      .order("created_at", { ascending: false })
-      .limit(50);
+    setPostsLoading(true);
+    try {
+      // Get all posts - visible to all team members
+      const { data, error } = await supabase
+        .from("social_posts")
+        .select(`
+          *,
+          profiles(full_name, profile_picture_url),
+          social_likes(count),
+          social_comments(count),
+          social_post_attachments(id, file_url, file_type, file_name)
+        `)
+        .order("created_at", { ascending: false })
+        .limit(50);
 
-    if (!error && data) {
-      const formattedPosts: Post[] = await Promise.all(
-        data.map(async (post: any) => {
-          // Check if current user liked
-          const { data: likeData } = await supabase
-            .from("social_likes")
-            .select("id")
-            .eq("post_id", post.id)
-            .eq("user_id", user.id)
-            .single();
+      if (error) {
+        console.error("Error fetching posts:", error);
+        return;
+      }
 
-          // Fetch reactions for this post
-          const { data: reactionsData } = await supabase
-            .from("social_reactions")
-            .select("emoji, user_id")
-            .eq("post_id", post.id);
+      if (data) {
+        const formattedPosts: Post[] = await Promise.all(
+          data.map(async (post: any) => {
+            // Check if current user liked
+            const { data: likeData } = await supabase
+              .from("social_likes")
+              .select("id")
+              .eq("post_id", post.id)
+              .eq("user_id", user.id)
+              .single();
 
-          const reactions: Record<string, Reaction> = {};
-          if (reactionsData) {
-            reactionsData.forEach((r: any) => {
-              if (!reactions[r.emoji]) {
-                reactions[r.emoji] = { emoji: r.emoji, count: 0, has_reacted: false };
-              }
-              reactions[r.emoji].count++;
-              if (r.user_id === user.id) {
-                reactions[r.emoji].has_reacted = true;
-              }
-            });
-          }
+            // Fetch reactions for this post
+            const { data: reactionsData } = await supabase
+              .from("social_reactions")
+              .select("emoji, user_id")
+              .eq("post_id", post.id);
 
-          return {
-            id: post.id,
-            user_id: post.user_id,
-            content: post.content,
-            image_url: post.image_url,
-            created_at: post.created_at,
-            user_name: post.profiles?.full_name || "Unknown User",
-            user_avatar: post.profiles?.profile_picture_url || null,
-            likes_count: post.social_likes?.[0]?.count || 0,
-            comments_count: post.social_comments?.[0]?.count || 0,
-            has_liked: !!likeData,
-            attachments: post.social_post_attachments || [],
-            reactions,
-          };
-        })
-      );
-      setPosts(formattedPosts);
+            const reactions: Record<string, Reaction> = {};
+            if (reactionsData) {
+              reactionsData.forEach((r: any) => {
+                if (!reactions[r.emoji]) {
+                  reactions[r.emoji] = { emoji: r.emoji, count: 0, has_reacted: false };
+                }
+                reactions[r.emoji].count++;
+                if (r.user_id === user.id) {
+                  reactions[r.emoji].has_reacted = true;
+                }
+              });
+            }
+
+            return {
+              id: post.id,
+              user_id: post.user_id,
+              content: post.content,
+              image_url: post.image_url,
+              created_at: post.created_at,
+              user_name: post.profiles?.full_name || "Unknown User",
+              user_avatar: post.profiles?.profile_picture_url || null,
+              likes_count: post.social_likes?.[0]?.count || 0,
+              comments_count: post.social_comments?.[0]?.count || 0,
+              has_liked: !!likeData,
+              attachments: post.social_post_attachments || [],
+              reactions,
+            };
+          })
+        );
+        setPosts(formattedPosts);
+      }
+    } catch (error) {
+      console.error("Error in fetchPosts:", error);
+    } finally {
+      setPostsLoading(false);
     }
   };
 
@@ -621,7 +634,14 @@ export function InstagramSocialFeed() {
 
       {/* Posts Feed */}
       <div className="space-y-4">
-        {posts.length === 0 ? (
+        {postsLoading ? (
+          <Card className="border border-border">
+            <CardContent className="py-12 text-center">
+              <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+              <p className="text-muted-foreground mt-2">Loading posts...</p>
+            </CardContent>
+          </Card>
+        ) : posts.length === 0 ? (
           <Card className="border border-border">
             <CardContent className="py-12 text-center">
               <p className="text-muted-foreground">No posts yet. Be the first to share something with the team!</p>
