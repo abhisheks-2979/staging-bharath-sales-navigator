@@ -118,6 +118,8 @@ interface RetailerTargetItem {
 interface MonthProductTarget {
   productId: string;
   productName: string;
+  categoryId: string;
+  categoryName: string;
   percentage: number;
   quantityTarget: number;
   revenueTarget: number;
@@ -426,6 +428,8 @@ export function DistributorFYPlan({ distributorId }: Props) {
           return {
             productId: p.id,
             productName: p.name,
+            categoryId: p.category_id || 'uncategorized',
+            categoryName: p.category_name || 'Uncategorized',
             percentage: existingMonthProduct.percentage || 0,
             quantityTarget: existingMonthProduct.quantity_target || 0,
             revenueTarget: existingMonthProduct.revenue_target || 0
@@ -437,6 +441,8 @@ export function DistributorFYPlan({ distributorId }: Props) {
         return {
           productId: p.id,
           productName: p.name,
+          categoryId: p.category_id || 'uncategorized',
+          categoryName: p.category_name || 'Uncategorized',
           percentage: pct,
           quantityTarget: (pct / 100) * monthQty,
           revenueTarget: (pct / 100) * monthRev
@@ -1682,7 +1688,7 @@ export function DistributorFYPlan({ distributorId }: Props) {
                                 <div className="px-3 pb-3 pt-0 border-t bg-muted/20">
                                   {/* Apply from Products tab button */}
                                   <div className="flex items-center justify-between py-2 mb-2">
-                                    <span className="text-xs text-muted-foreground">Product-wise breakdown</span>
+                                    <span className="text-xs text-muted-foreground">Product-wise breakdown by category</span>
                                     <Button
                                       variant="outline"
                                       size="sm"
@@ -1693,43 +1699,75 @@ export function DistributorFYPlan({ distributorId }: Props) {
                                     </Button>
                                   </div>
                                   
-                                  {/* Product header */}
-                                  <div className="flex items-center justify-between py-1 text-xs text-muted-foreground border-b">
-                                    <span>Product</span>
-                                    <div className="flex items-center gap-2">
-                                      <span className="w-14 text-center">%</span>
-                                      <span className="w-16 text-right">Qty</span>
-                                      <span className="w-20 text-right">Revenue</span>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Product list */}
-                                  <div className="space-y-1 max-h-60 overflow-y-auto">
-                                    {m.products.map(p => (
-                                      <div key={p.productId} className="flex items-center justify-between py-1.5 border-b last:border-0">
-                                        <span className="text-xs truncate max-w-[100px]" title={p.productName}>
-                                          {p.productName}
-                                        </span>
-                                        <div className="flex items-center gap-2">
-                                          <div className="flex items-center gap-1">
-                                            <Input
-                                              type="number"
-                                              value={p.percentage.toFixed(1)}
-                                              onChange={(e) => handleMonthProductPercentageChange(m.monthNumber, p.productId, parseFloat(e.target.value) || 0)}
-                                              className="w-14 h-6 text-right text-xs"
-                                              min={0}
-                                              max={100}
-                                            />
-                                          </div>
-                                          <span className="text-xs w-16 text-right">
-                                            {Math.round(p.quantityTarget).toLocaleString()}
-                                          </span>
-                                          <span className="text-xs font-medium w-20 text-right">
-                                            ₹{Math.round(p.revenueTarget).toLocaleString()}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    ))}
+                                  {/* Product list grouped by category */}
+                                  <div className="space-y-2 max-h-80 overflow-y-auto">
+                                    {(() => {
+                                      // Group products by category
+                                      const categoryGroups = m.products.reduce((acc, p) => {
+                                        const catId = p.categoryId || 'uncategorized';
+                                        if (!acc[catId]) {
+                                          acc[catId] = {
+                                            categoryId: catId,
+                                            categoryName: p.categoryName || 'Uncategorized',
+                                            products: []
+                                          };
+                                        }
+                                        acc[catId].products.push(p);
+                                        return acc;
+                                      }, {} as Record<string, { categoryId: string; categoryName: string; products: MonthProductTarget[] }>);
+                                      
+                                      return Object.values(categoryGroups).map(cat => {
+                                        const catQty = cat.products.reduce((sum, p) => sum + p.quantityTarget, 0);
+                                        const catRev = cat.products.reduce((sum, p) => sum + p.revenueTarget, 0);
+                                        const catPct = cat.products.reduce((sum, p) => sum + p.percentage, 0);
+                                        
+                                        return (
+                                          <Collapsible key={cat.categoryId} defaultOpen>
+                                            <CollapsibleTrigger asChild>
+                                              <div className="flex items-center justify-between py-1.5 px-2 bg-muted/50 rounded cursor-pointer hover:bg-muted/70">
+                                                <div className="flex items-center gap-1">
+                                                  <ChevronDown className="h-3 w-3" />
+                                                  <span className="text-xs font-medium">{cat.categoryName}</span>
+                                                  <span className="text-xs text-muted-foreground">({cat.products.length})</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-xs">
+                                                  <span className="w-14 text-center">{catPct.toFixed(1)}%</span>
+                                                  <span className="w-16 text-right">{Math.round(catQty).toLocaleString()}</span>
+                                                  <span className="w-20 text-right font-medium">₹{Math.round(catRev).toLocaleString()}</span>
+                                                </div>
+                                              </div>
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent>
+                                              <div className="pl-4 border-l ml-2 mt-1 space-y-1">
+                                                {cat.products.map(p => (
+                                                  <div key={p.productId} className="flex items-center justify-between py-1 border-b last:border-0">
+                                                    <span className="text-xs truncate max-w-[90px]" title={p.productName}>
+                                                      {p.productName}
+                                                    </span>
+                                                    <div className="flex items-center gap-2">
+                                                      <Input
+                                                        type="number"
+                                                        value={p.percentage.toFixed(1)}
+                                                        onChange={(e) => handleMonthProductPercentageChange(m.monthNumber, p.productId, parseFloat(e.target.value) || 0)}
+                                                        className="w-14 h-6 text-right text-xs"
+                                                        min={0}
+                                                        max={100}
+                                                      />
+                                                      <span className="text-xs w-16 text-right">
+                                                        {Math.round(p.quantityTarget).toLocaleString()}
+                                                      </span>
+                                                      <span className="text-xs font-medium w-20 text-right">
+                                                        ₹{Math.round(p.revenueTarget).toLocaleString()}
+                                                      </span>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </CollapsibleContent>
+                                          </Collapsible>
+                                        );
+                                      });
+                                    })()}
                                   </div>
                                   
                                   {/* Month product total */}
