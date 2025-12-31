@@ -55,11 +55,27 @@ export default function InvoiceTemplateRenderer({
         
         // Fetch beat name if beat_id exists
         if (retailerData.beat_id) {
-          const { data: beatData } = await supabase
+          // beat_id in retailers can be either UUID (id) or string (beat_id column in beats table)
+          // Try matching on beat_id column first, then fall back to id
+          let beatData = null;
+          
+          const { data: beatByBeatId } = await supabase
             .from("beats")
             .select("beat_name")
-            .eq("id", retailerData.beat_id)
-            .single();
+            .eq("beat_id", retailerData.beat_id)
+            .maybeSingle();
+          
+          if (beatByBeatId) {
+            beatData = beatByBeatId;
+          } else {
+            // Fallback: try matching on id (UUID)
+            const { data: beatById } = await supabase
+              .from("beats")
+              .select("beat_name")
+              .eq("id", retailerData.beat_id)
+              .maybeSingle();
+            beatData = beatById;
+          }
           
           if (beatData) {
             setBeatName(beatData.beat_name);
