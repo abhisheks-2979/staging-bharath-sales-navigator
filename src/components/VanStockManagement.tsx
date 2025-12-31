@@ -177,6 +177,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   const [startKm, setStartKm] = useState(0);
   const [endKm, setEndKm] = useState(0);
   const [showLoadPreviousConfirm, setShowLoadPreviousConfirm] = useState(false);
+  
+  // Track original loaded values from previous stock to detect edits
+  const [originalLoadedStock, setOriginalLoadedStock] = useState<{product_id: string; product_name: string; qty: number; unit: string}[]>([]);
   const [isRecalculating, setIsRecalculating] = useState(false);
   
   // Morning/Closing GRN states
@@ -597,6 +600,15 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
             console.log('✅ Loaded from van_stock_items:', newStockItems.length, 'items from:', stock.stock_date);
             setStockItems(newStockItems);
             
+            // Store original loaded values to track edits later
+            const originalValues = newStockItems.map(item => ({
+              product_id: item.product_id,
+              product_name: item.product_name,
+              qty: item.start_qty,
+              unit: item.unit
+            }));
+            setOriginalLoadedStock(originalValues);
+            
             // Also load end_km or start_km as reference for current start_km
             if (stock.end_km && stock.end_km > 0) {
               setStartKm(stock.end_km);
@@ -662,6 +674,16 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         if (newStockItems.length > 0) {
           console.log('✅ Loaded from live inventory:', newStockItems.length, 'items from:', mostRecentDate);
           setStockItems(newStockItems);
+          
+          // Store original loaded values to track edits later
+          const originalValues = newStockItems.map(item => ({
+            product_id: item.product_id,
+            product_name: item.product_name,
+            qty: item.start_qty,
+            unit: item.unit
+          }));
+          setOriginalLoadedStock(originalValues);
+          
           toast.success(`Loaded ${newStockItems.length} items from ${new Date(mostRecentDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`);
           setLoadingPreviousStock(false);
           return;
@@ -857,6 +879,112 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           if (insertError) throw insertError;
         }
       }
+
+      // Save opening edits if user loaded previous stock and made modifications
+      if (originalLoadedStock.length > 0) {
+        const edits: {
+          van_stock_id: string;
+          user_id: string;
+          product_id: string;
+          product_name: string;
+          previous_qty: number;
+          edited_qty: number;
+          difference: number;
+          unit: string;
+        }[] = [];
+
+        for (const item of stockItems) {
+          // Find the original loaded value for this product
+          const original = originalLoadedStock.find(o => o.product_id === item.product_id);
+          
+          if (original) {
+            // Compare current start_qty with original loaded qty
+            const currentQty = Number(item.start_qty || 0);
+            const originalQty = Number(original.qty || 0);
+            const difference = currentQty - originalQty;
+            
+            // Only track if there's a difference
+            if (difference !== 0) {
+              // Convert to grams for storage
+              const isKgUnit = item.unit?.toLowerCase() === 'kg';
+              const conversionFactor = isKgUnit ? 1000 : 1;
+              
+              edits.push({
+                van_stock_id: vanStock.id,
+                user_id: session.session.user.id,
+                product_id: item.product_id,
+                product_name: item.product_name,
+                previous_qty: Math.round(originalQty * conversionFactor),
+                edited_qty: Math.round(currentQty * conversionFactor),
+                difference: Math.round(difference * conversionFactor),
+                unit: isKgUnit ? 'Grams' : item.unit,
+              });
+            }
+          } else {
+            // New product added (not from previous stock) - track as addition
+            const currentQty = Number(item.start_qty || 0);
+            if (currentQty > 0) {
+              const isKgUnit = item.unit?.toLowerCase() === 'kg';
+              const conversionFactor = isKgUnit ? 1000 : 1;
+              
+              edits.push({
+                van_stock_id: vanStock.id,
+                user_id: session.session.user.id,
+                product_id: item.product_id,
+                product_name: item.product_name,
+                previous_qty: 0,
+                edited_qty: Math.round(currentQty * conversionFactor),
+                difference: Math.round(currentQty * conversionFactor),
+                unit: isKgUnit ? 'Grams' : item.unit,
+              });
+            }
+          }
+        }
+
+        // Check for removed products (in original but not in current)
+        for (const original of originalLoadedStock) {
+          const stillExists = stockItems.find(s => s.product_id === original.product_id);
+          if (!stillExists) {
+            const isKgUnit = original.unit?.toLowerCase() === 'kg';
+            const conversionFactor = isKgUnit ? 1000 : 1;
+            
+            edits.push({
+              van_stock_id: vanStock.id,
+              user_id: session.session.user.id,
+              product_id: original.product_id,
+              product_name: original.product_name,
+              previous_qty: Math.round(original.qty * conversionFactor),
+              edited_qty: 0,
+              difference: Math.round(-original.qty * conversionFactor),
+              unit: isKgUnit ? 'Grams' : original.unit,
+            });
+          }
+        }
+
+        // Delete previous edits for this van_stock_id and insert new ones
+        if (edits.length > 0) {
+          // First delete existing edits for this van_stock
+          await supabase
+            .from('van_stock_opening_edits')
+            .delete()
+            .eq('van_stock_id', vanStock.id);
+
+          // Insert new edits
+          const { error: editError } = await supabase
+            .from('van_stock_opening_edits')
+            .insert(edits);
+          
+          if (editError) {
+            console.error('Error saving opening edits:', editError);
+            // Don't throw - still save stock successfully
+          } else {
+            console.log('✅ Saved', edits.length, 'opening GRN edits');
+          }
+        }
+      }
+
+      // Clear original loaded stock after saving
+      setOriginalLoadedStock([]);
 
       toast.success('Morning GRN saved successfully');
       // Clear the entry form after save - items are now in Product Stock in Van

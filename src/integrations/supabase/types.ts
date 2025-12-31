@@ -9427,6 +9427,56 @@ export type Database = {
           },
         ]
       }
+      van_stock_opening_edits: {
+        Row: {
+          created_at: string
+          difference: number
+          edited_qty: number
+          id: string
+          previous_qty: number
+          product_id: string
+          product_name: string
+          unit: string | null
+          updated_at: string
+          user_id: string
+          van_stock_id: string
+        }
+        Insert: {
+          created_at?: string
+          difference?: number
+          edited_qty?: number
+          id?: string
+          previous_qty?: number
+          product_id: string
+          product_name: string
+          unit?: string | null
+          updated_at?: string
+          user_id: string
+          van_stock_id: string
+        }
+        Update: {
+          created_at?: string
+          difference?: number
+          edited_qty?: number
+          id?: string
+          previous_qty?: number
+          product_id?: string
+          product_name?: string
+          unit?: string | null
+          updated_at?: string
+          user_id?: string
+          van_stock_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "van_stock_opening_edits_van_stock_id_fkey"
+            columns: ["van_stock_id"]
+            isOneToOne: false
+            referencedRelation: "van_stock"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vans: {
         Row: {
           assigned_user_id: string | null
