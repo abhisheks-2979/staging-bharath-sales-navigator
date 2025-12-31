@@ -189,10 +189,16 @@ export function UserFYPlanTarget() {
   // Product targets state
   const [categoryTargets, setCategoryTargets] = useState<CategoryTarget[]>([]);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [productEqualDivide, setProductEqualDivide] = useState(true);
+  const [productTotalQuantity, setProductTotalQuantity] = useState(0);
+  const [productTotalRevenue, setProductTotalRevenue] = useState(0);
   
   // Retailer targets state
   const [retailerCategoryTargets, setRetailerCategoryTargets] = useState<RetailerCategoryTarget[]>([]);
   const [expandedRetailerCategories, setExpandedRetailerCategories] = useState<Set<string>>(new Set());
+  const [retailerEqualDivide, setRetailerEqualDivide] = useState(true);
+  const [retailerTotalQuantity, setRetailerTotalQuantity] = useState(0);
+  const [retailerTotalRevenue, setRetailerTotalRevenue] = useState(0);
 
   // Monthly targets state
   const [monthTargets, setMonthTargets] = useState<MonthTarget[]>([]);
@@ -350,40 +356,84 @@ export function UserFYPlanTarget() {
       .select('*')
       .eq('business_plan_id', selectedPlan.id);
 
+    // Check if we have existing product data
+    const hasExistingProductData = productData && productData.length > 0;
+    const planQty = selectedPlan.quantity_target || 0;
+    const planRev = selectedPlan.revenue_target || 0;
+    const numCategories = productCategories.length;
+    
     // Initialize category targets from product categories
-    const newCategoryTargets: CategoryTarget[] = productCategories.map(cat => ({
-      categoryId: cat.id,
-      categoryName: cat.name,
-      quantityTarget: 0,
-      revenueTarget: 0,
-      equalDivide: true,
-      products: cat.products.map(p => {
-        const existing = productData?.find(pd => pd.product_id === p.id);
-        return {
-          productId: p.id,
-          productName: p.name,
-          percentage: 100 / cat.products.length,
-          quantityTarget: existing?.quantity_target || 0,
-          revenueTarget: existing?.revenue_target || 0
-        };
-      })
-    }));
-
-    // Calculate category totals from existing data
-    newCategoryTargets.forEach(cat => {
-      const categoryQtyTotal = cat.products.reduce((sum, p) => sum + p.quantityTarget, 0);
-      const categoryRevTotal = cat.products.reduce((sum, p) => sum + p.revenueTarget, 0);
-      cat.quantityTarget = categoryQtyTotal;
-      cat.revenueTarget = categoryRevTotal;
-      if (categoryRevTotal > 0) {
-        cat.products.forEach(p => {
-          p.percentage = categoryRevTotal > 0 ? (p.revenueTarget / categoryRevTotal) * 100 : 100 / cat.products.length;
-        });
-      }
+    const newCategoryTargets: CategoryTarget[] = productCategories.map((cat, catIdx) => {
+      const equalCatQty = numCategories > 0 ? planQty / numCategories : 0;
+      const equalCatRev = numCategories > 0 ? planRev / numCategories : 0;
+      
+      return {
+        categoryId: cat.id,
+        categoryName: cat.name,
+        quantityTarget: 0,
+        revenueTarget: 0,
+        equalDivide: true,
+        products: cat.products.map(p => {
+          const existing = productData?.find(pd => pd.product_id === p.id);
+          return {
+            productId: p.id,
+            productName: p.name,
+            percentage: 100 / cat.products.length,
+            quantityTarget: existing?.quantity_target || 0,
+            revenueTarget: existing?.revenue_target || 0
+          };
+        })
+      };
     });
+
+    // Calculate category totals from existing data or use plan defaults
+    const existingProductQtyTotal = newCategoryTargets.reduce((sum, cat) => sum + cat.products.reduce((ps, p) => ps + p.quantityTarget, 0), 0);
+    const existingProductRevTotal = newCategoryTargets.reduce((sum, cat) => sum + cat.products.reduce((ps, p) => ps + p.revenueTarget, 0), 0);
+    
+    if (hasExistingProductData && existingProductRevTotal > 0) {
+      // Use existing data
+      newCategoryTargets.forEach(cat => {
+        const categoryQtyTotal = cat.products.reduce((sum, p) => sum + p.quantityTarget, 0);
+        const categoryRevTotal = cat.products.reduce((sum, p) => sum + p.revenueTarget, 0);
+        cat.quantityTarget = categoryQtyTotal;
+        cat.revenueTarget = categoryRevTotal;
+        if (categoryRevTotal > 0) {
+          cat.products.forEach(p => {
+            p.percentage = (p.revenueTarget / categoryRevTotal) * 100;
+          });
+        }
+      });
+      setProductTotalQuantity(existingProductQtyTotal);
+      setProductTotalRevenue(existingProductRevTotal);
+      setProductEqualDivide(false);
+    } else {
+      // Auto-populate from plan targets with equal divide
+      const numTotalProducts = productCategories.reduce((sum, cat) => sum + cat.products.length, 0);
+      const perProductQty = numTotalProducts > 0 ? planQty / numTotalProducts : 0;
+      const perProductRev = numTotalProducts > 0 ? planRev / numTotalProducts : 0;
+      
+      newCategoryTargets.forEach(cat => {
+        const catQty = perProductQty * cat.products.length;
+        const catRev = perProductRev * cat.products.length;
+        cat.quantityTarget = catQty;
+        cat.revenueTarget = catRev;
+        cat.products.forEach(p => {
+          p.quantityTarget = perProductQty;
+          p.revenueTarget = perProductRev;
+          p.percentage = cat.products.length > 0 ? 100 / cat.products.length : 0;
+        });
+      });
+      setProductTotalQuantity(planQty);
+      setProductTotalRevenue(planRev);
+      setProductEqualDivide(true);
+    }
 
     setCategoryTargets(newCategoryTargets);
 
+    // Check if we have existing retailer data
+    const hasExistingRetailerData = retailerData && retailerData.length > 0;
+    const numRetailerCategories = retailerCategories.length;
+    
     // Initialize retailer category targets
     const newRetailerCategoryTargets: RetailerCategoryTarget[] = retailerCategories.map(cat => ({
       category: cat.category,
@@ -402,18 +452,47 @@ export function UserFYPlanTarget() {
       })
     }));
 
-    // Calculate category totals from existing retailer data
-    newRetailerCategoryTargets.forEach(cat => {
-      const categoryQtyTotal = cat.retailers.reduce((sum, r) => sum + r.quantityTarget, 0);
-      const categoryRevTotal = cat.retailers.reduce((sum, r) => sum + r.revenueTarget, 0);
-      cat.quantityTarget = categoryQtyTotal;
-      cat.revenueTarget = categoryRevTotal;
-      if (categoryRevTotal > 0) {
+    // Calculate totals from existing data or use plan defaults
+    const existingRetailerQtyTotal = newRetailerCategoryTargets.reduce((sum, cat) => sum + cat.retailers.reduce((rs, r) => rs + r.quantityTarget, 0), 0);
+    const existingRetailerRevTotal = newRetailerCategoryTargets.reduce((sum, cat) => sum + cat.retailers.reduce((rs, r) => rs + r.revenueTarget, 0), 0);
+    
+    if (hasExistingRetailerData && existingRetailerRevTotal > 0) {
+      // Use existing data
+      newRetailerCategoryTargets.forEach(cat => {
+        const categoryQtyTotal = cat.retailers.reduce((sum, r) => sum + r.quantityTarget, 0);
+        const categoryRevTotal = cat.retailers.reduce((sum, r) => sum + r.revenueTarget, 0);
+        cat.quantityTarget = categoryQtyTotal;
+        cat.revenueTarget = categoryRevTotal;
+        if (categoryRevTotal > 0) {
+          cat.retailers.forEach(r => {
+            r.percentage = (r.revenueTarget / categoryRevTotal) * 100;
+          });
+        }
+      });
+      setRetailerTotalQuantity(existingRetailerQtyTotal);
+      setRetailerTotalRevenue(existingRetailerRevTotal);
+      setRetailerEqualDivide(false);
+    } else {
+      // Auto-populate from plan targets with equal divide
+      const numTotalRetailers = retailerCategories.reduce((sum, cat) => sum + cat.retailers.length, 0);
+      const perRetailerQty = numTotalRetailers > 0 ? planQty / numTotalRetailers : 0;
+      const perRetailerRev = numTotalRetailers > 0 ? planRev / numTotalRetailers : 0;
+      
+      newRetailerCategoryTargets.forEach(cat => {
+        const catQty = perRetailerQty * cat.retailers.length;
+        const catRev = perRetailerRev * cat.retailers.length;
+        cat.quantityTarget = catQty;
+        cat.revenueTarget = catRev;
         cat.retailers.forEach(r => {
-          r.percentage = categoryRevTotal > 0 ? (r.revenueTarget / categoryRevTotal) * 100 : 100 / cat.retailers.length;
+          r.quantityTarget = perRetailerQty;
+          r.revenueTarget = perRetailerRev;
+          r.percentage = cat.retailers.length > 0 ? 100 / cat.retailers.length : 0;
         });
-      }
-    });
+      });
+      setRetailerTotalQuantity(planQty);
+      setRetailerTotalRevenue(planRev);
+      setRetailerEqualDivide(true);
+    }
 
     setRetailerCategoryTargets(newRetailerCategoryTargets);
 
@@ -632,18 +711,98 @@ export function UserFYPlanTarget() {
   };
 
   // Product handlers with quantity
-  const handleCategoryTargetChange = (categoryId: string, quantityValue: number, revenueValue: number) => {
-    setCategoryTargets(prev => prev.map(cat => {
-      if (cat.categoryId !== categoryId) return cat;
+  const handleProductTotalTargetChange = (quantityValue: number, revenueValue: number) => {
+    setProductTotalQuantity(quantityValue);
+    setProductTotalRevenue(revenueValue);
+    
+    const numCategories = categoryTargets.length;
+    if (numCategories > 0) {
+      const numTotalProducts = categoryTargets.reduce((sum, cat) => sum + cat.products.length, 0);
+      const perProductQty = numTotalProducts > 0 ? quantityValue / numTotalProducts : 0;
+      const perProductRev = numTotalProducts > 0 ? revenueValue / numTotalProducts : 0;
       
-      const newProducts = cat.products.map(p => ({
-        ...p,
-        quantityTarget: cat.equalDivide ? quantityValue / cat.products.length : (p.percentage / 100) * quantityValue,
-        revenueTarget: cat.equalDivide ? revenueValue / cat.products.length : (p.percentage / 100) * revenueValue
+      setCategoryTargets(prev => prev.map(cat => {
+        if (productEqualDivide) {
+          const catQty = perProductQty * cat.products.length;
+          const catRev = perProductRev * cat.products.length;
+          return {
+            ...cat,
+            quantityTarget: catQty,
+            revenueTarget: catRev,
+            products: cat.products.map(p => ({
+              ...p,
+              quantityTarget: perProductQty,
+              revenueTarget: perProductRev,
+              percentage: cat.products.length > 0 ? 100 / cat.products.length : 0
+            }))
+          };
+        } else {
+          // Use percentage-based distribution
+          const catQty = (cat.quantityTarget / (productTotalQuantity || 1)) * quantityValue;
+          const catRev = (cat.revenueTarget / (productTotalRevenue || 1)) * revenueValue;
+          return {
+            ...cat,
+            quantityTarget: catQty,
+            revenueTarget: catRev,
+            products: cat.products.map(p => ({
+              ...p,
+              quantityTarget: cat.equalDivide ? catQty / cat.products.length : (p.percentage / 100) * catQty,
+              revenueTarget: cat.equalDivide ? catRev / cat.products.length : (p.percentage / 100) * catRev
+            }))
+          };
+        }
       }));
+    }
+  };
+
+  const handleProductEqualDivideChange = (checked: boolean) => {
+    setProductEqualDivide(checked);
+    if (checked && categoryTargets.length > 0) {
+      const numTotalProducts = categoryTargets.reduce((sum, cat) => sum + cat.products.length, 0);
+      const perProductQty = numTotalProducts > 0 ? productTotalQuantity / numTotalProducts : 0;
+      const perProductRev = numTotalProducts > 0 ? productTotalRevenue / numTotalProducts : 0;
       
-      return { ...cat, quantityTarget: quantityValue, revenueTarget: revenueValue, products: newProducts };
-    }));
+      setCategoryTargets(prev => prev.map(cat => {
+        const catQty = perProductQty * cat.products.length;
+        const catRev = perProductRev * cat.products.length;
+        return {
+          ...cat,
+          quantityTarget: catQty,
+          revenueTarget: catRev,
+          equalDivide: true,
+          products: cat.products.map(p => ({
+            ...p,
+            quantityTarget: perProductQty,
+            revenueTarget: perProductRev,
+            percentage: cat.products.length > 0 ? 100 / cat.products.length : 0
+          }))
+        };
+      }));
+    }
+  };
+
+  const handleCategoryTargetChange = (categoryId: string, quantityValue: number, revenueValue: number) => {
+    setProductEqualDivide(false);
+    setCategoryTargets(prev => {
+      const newTargets = prev.map(cat => {
+        if (cat.categoryId !== categoryId) return cat;
+        
+        const newProducts = cat.products.map(p => ({
+          ...p,
+          quantityTarget: cat.equalDivide ? quantityValue / cat.products.length : (p.percentage / 100) * quantityValue,
+          revenueTarget: cat.equalDivide ? revenueValue / cat.products.length : (p.percentage / 100) * revenueValue
+        }));
+        
+        return { ...cat, quantityTarget: quantityValue, revenueTarget: revenueValue, products: newProducts };
+      });
+      
+      const newTotalQty = newTargets.reduce((sum, c) => sum + c.quantityTarget, 0);
+      const newTotalRev = newTargets.reduce((sum, c) => sum + c.revenueTarget, 0);
+      setProductTotalQuantity(newTotalQty);
+      setProductTotalRevenue(newTotalRev);
+      
+      return newTargets;
+    });
   };
 
   const handleEqualDivideChange = (categoryId: string, checked: boolean) => {
@@ -692,18 +851,97 @@ export function UserFYPlanTarget() {
   };
 
   // Retailer handlers with quantity
-  const handleRetailerCategoryTargetChange = (category: string, quantityValue: number, revenueValue: number) => {
-    setRetailerCategoryTargets(prev => prev.map(cat => {
-      if (cat.category !== category) return cat;
+  const handleRetailerTotalTargetChange = (quantityValue: number, revenueValue: number) => {
+    setRetailerTotalQuantity(quantityValue);
+    setRetailerTotalRevenue(revenueValue);
+    
+    const numCategories = retailerCategoryTargets.length;
+    if (numCategories > 0) {
+      const numTotalRetailers = retailerCategoryTargets.reduce((sum, cat) => sum + cat.retailers.length, 0);
+      const perRetailerQty = numTotalRetailers > 0 ? quantityValue / numTotalRetailers : 0;
+      const perRetailerRev = numTotalRetailers > 0 ? revenueValue / numTotalRetailers : 0;
       
-      const newRetailers = cat.retailers.map(r => ({
-        ...r,
-        quantityTarget: cat.equalDivide ? quantityValue / cat.retailers.length : (r.percentage / 100) * quantityValue,
-        revenueTarget: cat.equalDivide ? revenueValue / cat.retailers.length : (r.percentage / 100) * revenueValue
+      setRetailerCategoryTargets(prev => prev.map(cat => {
+        if (retailerEqualDivide) {
+          const catQty = perRetailerQty * cat.retailers.length;
+          const catRev = perRetailerRev * cat.retailers.length;
+          return {
+            ...cat,
+            quantityTarget: catQty,
+            revenueTarget: catRev,
+            retailers: cat.retailers.map(r => ({
+              ...r,
+              quantityTarget: perRetailerQty,
+              revenueTarget: perRetailerRev,
+              percentage: cat.retailers.length > 0 ? 100 / cat.retailers.length : 0
+            }))
+          };
+        } else {
+          const catQty = (cat.quantityTarget / (retailerTotalQuantity || 1)) * quantityValue;
+          const catRev = (cat.revenueTarget / (retailerTotalRevenue || 1)) * revenueValue;
+          return {
+            ...cat,
+            quantityTarget: catQty,
+            revenueTarget: catRev,
+            retailers: cat.retailers.map(r => ({
+              ...r,
+              quantityTarget: cat.equalDivide ? catQty / cat.retailers.length : (r.percentage / 100) * catQty,
+              revenueTarget: cat.equalDivide ? catRev / cat.retailers.length : (r.percentage / 100) * catRev
+            }))
+          };
+        }
       }));
+    }
+  };
+
+  const handleRetailerTotalEqualDivideChange = (checked: boolean) => {
+    setRetailerEqualDivide(checked);
+    if (checked && retailerCategoryTargets.length > 0) {
+      const numTotalRetailers = retailerCategoryTargets.reduce((sum, cat) => sum + cat.retailers.length, 0);
+      const perRetailerQty = numTotalRetailers > 0 ? retailerTotalQuantity / numTotalRetailers : 0;
+      const perRetailerRev = numTotalRetailers > 0 ? retailerTotalRevenue / numTotalRetailers : 0;
       
-      return { ...cat, quantityTarget: quantityValue, revenueTarget: revenueValue, retailers: newRetailers };
-    }));
+      setRetailerCategoryTargets(prev => prev.map(cat => {
+        const catQty = perRetailerQty * cat.retailers.length;
+        const catRev = perRetailerRev * cat.retailers.length;
+        return {
+          ...cat,
+          quantityTarget: catQty,
+          revenueTarget: catRev,
+          equalDivide: true,
+          retailers: cat.retailers.map(r => ({
+            ...r,
+            quantityTarget: perRetailerQty,
+            revenueTarget: perRetailerRev,
+            percentage: cat.retailers.length > 0 ? 100 / cat.retailers.length : 0
+          }))
+        };
+      }));
+    }
+  };
+
+  const handleRetailerCategoryTargetChange = (category: string, quantityValue: number, revenueValue: number) => {
+    setRetailerEqualDivide(false);
+    setRetailerCategoryTargets(prev => {
+      const newTargets = prev.map(cat => {
+        if (cat.category !== category) return cat;
+        
+        const newRetailers = cat.retailers.map(r => ({
+          ...r,
+          quantityTarget: cat.equalDivide ? quantityValue / cat.retailers.length : (r.percentage / 100) * quantityValue,
+          revenueTarget: cat.equalDivide ? revenueValue / cat.retailers.length : (r.percentage / 100) * revenueValue
+        }));
+        
+        return { ...cat, quantityTarget: quantityValue, revenueTarget: revenueValue, retailers: newRetailers };
+      });
+      
+      const newTotalQty = newTargets.reduce((sum, c) => sum + c.quantityTarget, 0);
+      const newTotalRev = newTargets.reduce((sum, c) => sum + c.revenueTarget, 0);
+      setRetailerTotalQuantity(newTotalQty);
+      setRetailerTotalRevenue(newTotalRev);
+      
+      return newTargets;
+    });
   };
 
   const handleRetailerEqualDivideChange = (category: string, checked: boolean) => {
@@ -1334,7 +1572,7 @@ export function UserFYPlanTarget() {
 
                 {/* PRODUCT TARGETS TAB */}
                 <TabsContent value="products" className="mt-4 space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="text-sm">
                       <span className="font-medium">Qty: {Math.round(totalProductQuantity).toLocaleString()} {quantityUnit}</span>
                       <span className="mx-2 text-muted-foreground">|</span>
@@ -1352,7 +1590,47 @@ export function UserFYPlanTarget() {
                       </CardContent>
                     </Card>
                   ) : (
-                    <div className="space-y-2">
+                    <>
+                      {/* Total section with equal divide */}
+                      <Card>
+                        <CardContent className="p-3 sm:p-4 space-y-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <Label className="text-xs font-medium whitespace-nowrap">Total Qty ({quantityUnit})</Label>
+                              <Input
+                                type="number"
+                                value={productTotalQuantity || ''}
+                                onChange={(e) => handleProductTotalTargetChange(parseFloat(e.target.value) || 0, productTotalRevenue)}
+                                className="w-24 sm:w-28 h-8 text-right"
+                                placeholder="Quantity"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <Label className="text-xs font-medium whitespace-nowrap">Total Revenue (₹)</Label>
+                              <Input
+                                type="number"
+                                value={productTotalRevenue || ''}
+                                onChange={(e) => handleProductTotalTargetChange(productTotalQuantity, parseFloat(e.target.value) || 0)}
+                                className="w-24 sm:w-28 h-8 text-right"
+                                placeholder="Revenue"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+                            <Checkbox
+                              id="product-equal-divide-all"
+                              checked={productEqualDivide}
+                              onCheckedChange={(checked) => handleProductEqualDivideChange(checked as boolean)}
+                            />
+                            <Label htmlFor="product-equal-divide-all" className="text-xs cursor-pointer">
+                              Equally divide across all products
+                            </Label>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <div className="space-y-2">
                       {categoryTargets.map(cat => (
                         <Card key={cat.categoryId}>
                           <Collapsible
@@ -1453,7 +1731,8 @@ export function UserFYPlanTarget() {
                           </Collapsible>
                         </Card>
                       ))}
-                    </div>
+                      </div>
+                    </>
                   )}
 
                   {/* Product Total Footer */}
@@ -1473,7 +1752,7 @@ export function UserFYPlanTarget() {
 
                 {/* RETAILER TARGETS TAB */}
                 <TabsContent value="retailers" className="mt-4 space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="text-sm">
                       <span className="font-medium">Qty: {Math.round(totalRetailerQuantity).toLocaleString()} {quantityUnit}</span>
                       <span className="mx-2 text-muted-foreground">|</span>
@@ -1491,108 +1770,149 @@ export function UserFYPlanTarget() {
                       </CardContent>
                     </Card>
                   ) : (
-                    <div className="space-y-2">
-                      {retailerCategoryTargets.map(cat => (
-                        <Card key={cat.category}>
-                          <Collapsible
-                            open={expandedRetailerCategories.has(cat.category)}
-                            onOpenChange={() => toggleRetailerCategoryExpand(cat.category)}
-                          >
-                            <CollapsibleTrigger asChild>
-                              <CardHeader className="p-3 cursor-pointer hover:bg-muted/50">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    {expandedRetailerCategories.has(cat.category) ? (
-                                      <ChevronDown className="h-4 w-4" />
-                                    ) : (
-                                      <ChevronRight className="h-4 w-4" />
-                                    )}
-                                    <span className="font-medium text-sm">{cat.category}</span>
-                                    <span className="text-xs text-muted-foreground">
-                                      ({cat.retailers.length})
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                                    <Input
-                                      type="number"
-                                      value={cat.quantityTarget || ''}
-                                      onChange={(e) => handleRetailerCategoryTargetChange(cat.category, parseFloat(e.target.value) || 0, cat.revenueTarget)}
-                                      className="w-20 h-8 text-right text-sm"
-                                      placeholder="Qty"
-                                    />
-                                    <Input
-                                      type="number"
-                                      value={cat.revenueTarget || ''}
-                                      onChange={(e) => handleRetailerCategoryTargetChange(cat.category, cat.quantityTarget, parseFloat(e.target.value) || 0)}
-                                      className="w-24 h-8 text-right text-sm"
-                                      placeholder="₹"
-                                    />
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 text-destructive"
-                                      onClick={() => removeRetailerCategory(cat.category)}
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              </CardHeader>
-                            </CollapsibleTrigger>
-                            <CollapsibleContent>
-                              <CardContent className="px-3 pb-3 pt-0">
-                                <div className="flex items-center gap-2 mb-3 p-2 bg-muted/50 rounded">
-                                  <Checkbox
-                                    id={`retailer-equal-${cat.category}`}
-                                    checked={cat.equalDivide}
-                                    onCheckedChange={(checked) => handleRetailerEqualDivideChange(cat.category, checked as boolean)}
-                                  />
-                                  <Label htmlFor={`retailer-equal-${cat.category}`} className="text-xs cursor-pointer">
-                                    Equally divide across retailers
-                                  </Label>
-                                </div>
-                                <div className="space-y-2">
-                                  {cat.retailers.map(r => (
-                                    <div key={r.retailerId} className="flex items-center justify-between py-2 border-b last:border-0">
-                                      <span className="text-sm truncate max-w-[120px]">{r.retailerName}</span>
-                                      <div className="flex items-center gap-2">
-                                        {!cat.equalDivide && (
-                                          <div className="flex items-center gap-1">
-                                            <Input
-                                              type="number"
-                                              value={r.percentage.toFixed(1)}
-                                              onChange={(e) => handleRetailerPercentageChange(cat.category, r.retailerId, parseFloat(e.target.value) || 0)}
-                                              className="w-14 h-7 text-right text-xs"
-                                              min={0}
-                                              max={100}
-                                            />
-                                            <span className="text-xs text-muted-foreground">%</span>
-                                          </div>
-                                        )}
-                                        <span className="text-xs w-16 text-right">
-                                          {Math.round(r.quantityTarget).toLocaleString()}
-                                        </span>
-                                        <span className="text-sm font-medium w-20 text-right">
-                                          ₹{Math.round(r.revenueTarget).toLocaleString()}
-                                        </span>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-6 w-6 text-destructive"
-                                          onClick={() => removeRetailer(cat.category, r.retailerId)}
-                                        >
-                                          <Trash2 className="h-3 w-3" />
-                                        </Button>
-                                      </div>
+                    <>
+                      {/* Total section with equal divide */}
+                      <Card>
+                        <CardContent className="p-3 sm:p-4 space-y-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <Label className="text-xs font-medium whitespace-nowrap">Total Qty ({quantityUnit})</Label>
+                              <Input
+                                type="number"
+                                value={retailerTotalQuantity || ''}
+                                onChange={(e) => handleRetailerTotalTargetChange(parseFloat(e.target.value) || 0, retailerTotalRevenue)}
+                                className="w-24 sm:w-28 h-8 text-right"
+                                placeholder="Quantity"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <Label className="text-xs font-medium whitespace-nowrap">Total Revenue (₹)</Label>
+                              <Input
+                                type="number"
+                                value={retailerTotalRevenue || ''}
+                                onChange={(e) => handleRetailerTotalTargetChange(retailerTotalQuantity, parseFloat(e.target.value) || 0)}
+                                className="w-24 sm:w-28 h-8 text-right"
+                                placeholder="Revenue"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+                            <Checkbox
+                              id="retailer-equal-divide-all"
+                              checked={retailerEqualDivide}
+                              onCheckedChange={(checked) => handleRetailerTotalEqualDivideChange(checked as boolean)}
+                            />
+                            <Label htmlFor="retailer-equal-divide-all" className="text-xs cursor-pointer">
+                              Equally divide across all retailers
+                            </Label>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <div className="space-y-2">
+                        {retailerCategoryTargets.map(cat => (
+                          <Card key={cat.category}>
+                            <Collapsible
+                              open={expandedRetailerCategories.has(cat.category)}
+                              onOpenChange={() => toggleRetailerCategoryExpand(cat.category)}
+                            >
+                              <CollapsibleTrigger asChild>
+                                <CardHeader className="p-3 cursor-pointer hover:bg-muted/50">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      {expandedRetailerCategories.has(cat.category) ? (
+                                        <ChevronDown className="h-4 w-4" />
+                                      ) : (
+                                        <ChevronRight className="h-4 w-4" />
+                                      )}
+                                      <span className="font-medium text-sm">{cat.category}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        ({cat.retailers.length})
+                                      </span>
                                     </div>
-                                  ))}
-                                </div>
-                              </CardContent>
-                            </CollapsibleContent>
-                          </Collapsible>
-                        </Card>
-                      ))}
-                    </div>
+                                    <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                                      <Input
+                                        type="number"
+                                        value={cat.quantityTarget || ''}
+                                        onChange={(e) => handleRetailerCategoryTargetChange(cat.category, parseFloat(e.target.value) || 0, cat.revenueTarget)}
+                                        className="w-20 h-8 text-right text-sm"
+                                        placeholder="Qty"
+                                      />
+                                      <Input
+                                        type="number"
+                                        value={cat.revenueTarget || ''}
+                                        onChange={(e) => handleRetailerCategoryTargetChange(cat.category, cat.quantityTarget, parseFloat(e.target.value) || 0)}
+                                        className="w-24 h-8 text-right text-sm"
+                                        placeholder="₹"
+                                      />
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 text-destructive"
+                                        onClick={() => removeRetailerCategory(cat.category)}
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </CardHeader>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <CardContent className="px-3 pb-3 pt-0">
+                                  <div className="flex items-center gap-2 mb-3 p-2 bg-muted/50 rounded">
+                                    <Checkbox
+                                      id={`retailer-equal-${cat.category}`}
+                                      checked={cat.equalDivide}
+                                      onCheckedChange={(checked) => handleRetailerEqualDivideChange(cat.category, checked as boolean)}
+                                    />
+                                    <Label htmlFor={`retailer-equal-${cat.category}`} className="text-xs cursor-pointer">
+                                      Equally divide across retailers
+                                    </Label>
+                                  </div>
+                                  <div className="space-y-2">
+                                    {cat.retailers.map(r => (
+                                      <div key={r.retailerId} className="flex items-center justify-between py-2 border-b last:border-0">
+                                        <span className="text-sm truncate max-w-[120px]">{r.retailerName}</span>
+                                        <div className="flex items-center gap-2">
+                                          {!cat.equalDivide && (
+                                            <div className="flex items-center gap-1">
+                                              <Input
+                                                type="number"
+                                                value={r.percentage.toFixed(1)}
+                                                onChange={(e) => handleRetailerPercentageChange(cat.category, r.retailerId, parseFloat(e.target.value) || 0)}
+                                                className="w-14 h-7 text-right text-xs"
+                                                min={0}
+                                                max={100}
+                                              />
+                                              <span className="text-xs text-muted-foreground">%</span>
+                                            </div>
+                                          )}
+                                          <span className="text-xs w-16 text-right">
+                                            {Math.round(r.quantityTarget).toLocaleString()}
+                                          </span>
+                                          <span className="text-sm font-medium w-20 text-right">
+                                            ₹{Math.round(r.revenueTarget).toLocaleString()}
+                                          </span>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 text-destructive"
+                                            onClick={() => removeRetailer(cat.category, r.retailerId)}
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </CardContent>
+                              </CollapsibleContent>
+                            </Collapsible>
+                          </Card>
+                        ))}
+                      </div>
+                    </>
                   )}
 
                   {/* Retailers Total Footer */}
@@ -1628,7 +1948,7 @@ export function UserFYPlanTarget() {
                       {/* Total target inputs - responsive */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="flex items-center justify-between gap-2">
-                          <Label className="text-xs font-medium whitespace-nowrap">Annual Qty ({quantityUnit})</Label>
+                          <Label className="text-xs font-medium whitespace-nowrap">Total Qty ({quantityUnit})</Label>
                           <Input
                             type="number"
                             value={monthTotalQuantity || ''}
@@ -1638,7 +1958,7 @@ export function UserFYPlanTarget() {
                           />
                         </div>
                         <div className="flex items-center justify-between gap-2">
-                          <Label className="text-xs font-medium whitespace-nowrap">Annual Revenue (₹)</Label>
+                          <Label className="text-xs font-medium whitespace-nowrap">Total Revenue (₹)</Label>
                           <Input
                             type="number"
                             value={monthTotalRevenue || ''}
