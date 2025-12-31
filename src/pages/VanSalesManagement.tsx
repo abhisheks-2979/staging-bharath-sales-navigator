@@ -517,6 +517,10 @@ export default function VanSalesManagement() {
             <TabsTrigger value="van-inventory" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
               Van Inventory & Stock
+              <span className="flex items-center gap-1 ml-1 px-1.5 py-0.5 bg-green-500/20 text-green-600 text-xs rounded-full">
+                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                Live
+              </span>
             </TabsTrigger>
           </TabsList>
 
