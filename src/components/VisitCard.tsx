@@ -2150,7 +2150,7 @@ export const VisitCard = ({
         let allItems: any[] = [];
         
         if (dbOrderIds_arr.length > 0) {
-          const { data: items } = await supabase.from('order_items').select('product_name, quantity, rate, total, order_id, unit').in('order_id', dbOrderIds_arr);
+          const { data: items } = await supabase.from('order_items').select('product_name, quantity, rate, original_rate, total, order_id, unit').in('order_id', dbOrderIds_arr);
           allItems = items || [];
         }
         
@@ -2162,6 +2162,7 @@ export const VisitCard = ({
                 product_name: item.product_name || item.name,
                 quantity: item.quantity,
                 rate: item.rate,
+                original_rate: item.original_rate || item.rate,
                 total: item.total || (item.quantity * item.rate),
                 order_id: order.id,
                 unit: item.unit || 'piece'
@@ -2171,20 +2172,22 @@ export const VisitCard = ({
         });
 
         // Helper function to convert quantity and rate for display
-        // Must match invoice display logic: rate * 1000 for gram-based products
-        const getDisplayValues = (qty: number, rate: number, total: number, unit: string) => {
+        // Uses original_rate (MRP from product master) for accurate display
+        const getDisplayValues = (qty: number, rate: number, originalRate: number, total: number, unit: string) => {
           const unitLower = (unit || '').toLowerCase().trim();
+          // Use original_rate for display (full precision), fallback to rate
+          const displayRateBase = originalRate || rate;
           
           // Always convert grams to kg for display (consistent with invoice)
           if (unitLower === 'grams' || unitLower === 'g' || unitLower === 'gram') {
             const kgQty = qty / 1000;
-            // Use rate * 1000 to match invoice display (rate is per gram, convert to per KG)
-            const ratePerKg = rate * 1000;
+            // Use original rate * 1000 to get per KG rate (matches product master)
+            const ratePerKg = displayRateBase * 1000;
             return { displayQty: kgQty, displayUnit: 'KG', displayRate: ratePerKg };
           }
           
-          // For other units, use the stored rate directly
-          return { displayQty: qty, displayUnit: unit, displayRate: rate };
+          // For other units, use the original rate directly
+          return { displayQty: qty, displayUnit: unit, displayRate: displayRateBase };
         };
 
         // Group items by product for a clean summary
@@ -2202,10 +2205,11 @@ export const VisitCard = ({
           const existing = grouped.get(key);
           const qty = Number(it.quantity || 0);
           const rate = Number(it.rate || 0);
+          const originalRate = Number(it.original_rate || it.rate || 0);
           const total = Number(it.total || 0);
           const unit = it.unit || 'piece';
           
-          const { displayQty, displayUnit, displayRate } = getDisplayValues(qty, rate, total, unit);
+          const { displayQty, displayUnit, displayRate } = getDisplayValues(qty, rate, originalRate, total, unit);
           
           if (existing) {
             // For aggregation, sum display quantities if same unit
