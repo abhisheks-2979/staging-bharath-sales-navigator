@@ -115,12 +115,22 @@ interface RetailerTargetItem {
   revenueTarget: number;
 }
 
+interface MonthProductTarget {
+  productId: string;
+  productName: string;
+  percentage: number;
+  quantityTarget: number;
+  revenueTarget: number;
+}
+
 interface MonthTarget {
   monthNumber: number;
   monthName: string;
   percentage: number;
   quantityTarget: number;
   revenueTarget: number;
+  useProductPercentages: boolean;
+  products: MonthProductTarget[];
 }
 
 const FY_MONTHS = [
@@ -165,6 +175,7 @@ export function DistributorFYPlan({ distributorId }: Props) {
   const [monthEqualDivide, setMonthEqualDivide] = useState(true);
   const [monthTotalQuantity, setMonthTotalQuantity] = useState(0);
   const [monthTotalRevenue, setMonthTotalRevenue] = useState(0);
+  const [expandedMonths, setExpandedMonths] = useState<Set<number>>(new Set());
 
   const [planForm, setPlanForm] = useState({
     year: new Date().getFullYear() + 1,
@@ -306,6 +317,12 @@ export function DistributorFYPlan({ distributorId }: Props) {
       .select('*')
       .eq('business_plan_id', selectedPlan.id);
 
+    // Load monthly product targets
+    const { data: monthProductData } = await supabase
+      .from('distributor_business_plan_month_products')
+      .select('*')
+      .eq('business_plan_id', selectedPlan.id);
+
     // Initialize category targets from product categories
     const newCategoryTargets: CategoryTarget[] = productCategories.map(cat => ({
       categoryId: cat.id,
@@ -373,16 +390,67 @@ export function DistributorFYPlan({ distributorId }: Props) {
 
     setRetailerCategoryTargets(newRetailerCategoryTargets);
 
-    // Initialize monthly targets - use plan's main targets if no existing data
+    // Get all products from category targets for monthly breakdown
+    const allProducts = productCategories.flatMap(cat => cat.products);
+    
+    // Calculate global product percentages from the Products tab data
+    const totalProductRevenue = productData?.reduce((sum, p) => sum + (p.revenue_target || 0), 0) || 0;
+    const productPercentages: Record<string, number> = {};
+    if (totalProductRevenue > 0) {
+      productData?.forEach(p => {
+        productPercentages[p.product_id] = ((p.revenue_target || 0) / totalProductRevenue) * 100;
+      });
+    } else {
+      // Equal divide if no product targets yet
+      allProducts.forEach(p => {
+        productPercentages[p.id] = allProducts.length > 0 ? 100 / allProducts.length : 0;
+      });
+    }
+
+    // Initialize monthly targets with product breakdown
     const hasExistingMonthData = monthData && monthData.length > 0;
+    const hasExistingMonthProductData = monthProductData && monthProductData.length > 0;
+    
     const newMonthTargets: MonthTarget[] = FY_MONTHS.map(m => {
       const existing = monthData?.find(md => md.month_number === m.number);
+      const monthQty = existing?.quantity_target || (hasExistingMonthData ? 0 : (selectedPlan.quantity_target || 0) / 12);
+      const monthRev = existing?.target_revenue || (hasExistingMonthData ? 0 : (selectedPlan.revenue_target || 0) / 12);
+      
+      // Get month-specific product targets or use global percentages
+      const monthProducts: MonthProductTarget[] = allProducts.map(p => {
+        const existingMonthProduct = monthProductData?.find(
+          mp => mp.month_number === m.number && mp.product_id === p.id
+        );
+        
+        if (existingMonthProduct) {
+          return {
+            productId: p.id,
+            productName: p.name,
+            percentage: existingMonthProduct.percentage || 0,
+            quantityTarget: existingMonthProduct.quantity_target || 0,
+            revenueTarget: existingMonthProduct.revenue_target || 0
+          };
+        }
+        
+        // Use percentage from Products tab
+        const pct = productPercentages[p.id] || 0;
+        return {
+          productId: p.id,
+          productName: p.name,
+          percentage: pct,
+          quantityTarget: (pct / 100) * monthQty,
+          revenueTarget: (pct / 100) * monthRev
+        };
+      });
+      
       return {
         monthNumber: m.number,
         monthName: m.name,
         percentage: 100 / 12,
-        quantityTarget: existing?.quantity_target || (hasExistingMonthData ? 0 : (selectedPlan.quantity_target || 0) / 12),
-        revenueTarget: existing?.target_revenue || (hasExistingMonthData ? 0 : (selectedPlan.revenue_target || 0) / 12)
+        quantityTarget: monthQty,
+        revenueTarget: monthRev,
+        useProductPercentages: !hasExistingMonthProductData,
+        products: monthProducts
       };
     });
 
@@ -723,35 +791,62 @@ export function DistributorFYPlan({ distributorId }: Props) {
     }
   };
 
-  // Month target handlers with quantity
+  // Month target handlers with quantity and product breakdown
   const handleMonthTotalTargetChange = (quantityValue: number, revenueValue: number) => {
     setMonthTotalQuantity(quantityValue);
     setMonthTotalRevenue(revenueValue);
     if (monthEqualDivide) {
-      setMonthTargets(prev => prev.map(m => ({
-        ...m,
-        quantityTarget: quantityValue / 12,
-        revenueTarget: revenueValue / 12,
-        percentage: 100 / 12
-      })));
+      setMonthTargets(prev => prev.map(m => {
+        const monthQty = quantityValue / 12;
+        const monthRev = revenueValue / 12;
+        return {
+          ...m,
+          quantityTarget: monthQty,
+          revenueTarget: monthRev,
+          percentage: 100 / 12,
+          products: m.products.map(p => ({
+            ...p,
+            quantityTarget: (p.percentage / 100) * monthQty,
+            revenueTarget: (p.percentage / 100) * monthRev
+          }))
+        };
+      }));
     } else {
-      setMonthTargets(prev => prev.map(m => ({
-        ...m,
-        quantityTarget: (m.percentage / 100) * quantityValue,
-        revenueTarget: (m.percentage / 100) * revenueValue
-      })));
+      setMonthTargets(prev => prev.map(m => {
+        const monthQty = (m.percentage / 100) * quantityValue;
+        const monthRev = (m.percentage / 100) * revenueValue;
+        return {
+          ...m,
+          quantityTarget: monthQty,
+          revenueTarget: monthRev,
+          products: m.products.map(p => ({
+            ...p,
+            quantityTarget: (p.percentage / 100) * monthQty,
+            revenueTarget: (p.percentage / 100) * monthRev
+          }))
+        };
+      }));
     }
   };
 
   const handleMonthEqualDivideChange = (checked: boolean) => {
     setMonthEqualDivide(checked);
     if (checked) {
-      setMonthTargets(prev => prev.map(m => ({
-        ...m,
-        percentage: 100 / 12,
-        quantityTarget: monthTotalQuantity / 12,
-        revenueTarget: monthTotalRevenue / 12
-      })));
+      setMonthTargets(prev => prev.map(m => {
+        const monthQty = monthTotalQuantity / 12;
+        const monthRev = monthTotalRevenue / 12;
+        return {
+          ...m,
+          percentage: 100 / 12,
+          quantityTarget: monthQty,
+          revenueTarget: monthRev,
+          products: m.products.map(p => ({
+            ...p,
+            quantityTarget: (p.percentage / 100) * monthQty,
+            revenueTarget: (p.percentage / 100) * monthRev
+          }))
+        };
+      }));
     }
   };
 
@@ -759,11 +854,18 @@ export function DistributorFYPlan({ distributorId }: Props) {
     setMonthEqualDivide(false);
     setMonthTargets(prev => prev.map(m => {
       if (m.monthNumber !== monthNumber) return m;
+      const monthQty = (percentage / 100) * monthTotalQuantity;
+      const monthRev = (percentage / 100) * monthTotalRevenue;
       return {
         ...m,
         percentage,
-        quantityTarget: (percentage / 100) * monthTotalQuantity,
-        revenueTarget: (percentage / 100) * monthTotalRevenue
+        quantityTarget: monthQty,
+        revenueTarget: monthRev,
+        products: m.products.map(p => ({
+          ...p,
+          quantityTarget: (p.percentage / 100) * monthQty,
+          revenueTarget: (p.percentage / 100) * monthRev
+        }))
       };
     }));
   };
@@ -773,7 +875,16 @@ export function DistributorFYPlan({ distributorId }: Props) {
     setMonthTargets(prev => {
       const newTargets = prev.map(m => {
         if (m.monthNumber !== monthNumber) return m;
-        return { ...m, quantityTarget, revenueTarget };
+        return {
+          ...m,
+          quantityTarget,
+          revenueTarget,
+          products: m.products.map(p => ({
+            ...p,
+            quantityTarget: (p.percentage / 100) * quantityTarget,
+            revenueTarget: (p.percentage / 100) * revenueTarget
+          }))
+        };
       });
       const newTotalQty = newTargets.reduce((sum, m) => sum + m.quantityTarget, 0);
       const newTotalRev = newTargets.reduce((sum, m) => sum + m.revenueTarget, 0);
@@ -786,17 +897,81 @@ export function DistributorFYPlan({ distributorId }: Props) {
     });
   };
 
+  const toggleMonthExpand = (monthNumber: number) => {
+    const newExpanded = new Set(expandedMonths);
+    if (newExpanded.has(monthNumber)) {
+      newExpanded.delete(monthNumber);
+    } else {
+      newExpanded.add(monthNumber);
+    }
+    setExpandedMonths(newExpanded);
+  };
+
+  const handleMonthProductPercentageChange = (monthNumber: number, productId: string, percentage: number) => {
+    setMonthTargets(prev => prev.map(m => {
+      if (m.monthNumber !== monthNumber) return m;
+      return {
+        ...m,
+        useProductPercentages: false,
+        products: m.products.map(p => {
+          if (p.productId !== productId) return p;
+          return {
+            ...p,
+            percentage,
+            quantityTarget: (percentage / 100) * m.quantityTarget,
+            revenueTarget: (percentage / 100) * m.revenueTarget
+          };
+        })
+      };
+    }));
+  };
+
+  const handleApplyProductPercentagesFromProductsTab = (monthNumber: number) => {
+    // Get percentages from the Products tab
+    const productRevenues: Record<string, number> = {};
+    categoryTargets.forEach(cat => {
+      cat.products.forEach(p => {
+        productRevenues[p.productId] = (productRevenues[p.productId] || 0) + p.revenueTarget;
+      });
+    });
+    
+    const totalRev = Object.values(productRevenues).reduce((sum, r) => sum + r, 0);
+    
+    setMonthTargets(prev => prev.map(m => {
+      if (m.monthNumber !== monthNumber) return m;
+      return {
+        ...m,
+        useProductPercentages: true,
+        products: m.products.map(p => {
+          const pct = totalRev > 0 ? ((productRevenues[p.productId] || 0) / totalRev) * 100 : (100 / m.products.length);
+          return {
+            ...p,
+            percentage: pct,
+            quantityTarget: (pct / 100) * m.quantityTarget,
+            revenueTarget: (pct / 100) * m.revenueTarget
+          };
+        })
+      };
+    }));
+  };
+
   const saveMonthTargets = async () => {
     if (!selectedPlan) return;
     
     try {
-      // Delete existing
+      // Delete existing month targets
       await supabase
         .from('distributor_business_plan_months')
         .delete()
         .eq('business_plan_id', selectedPlan.id);
 
-      // Insert new
+      // Delete existing month product targets
+      await supabase
+        .from('distributor_business_plan_month_products')
+        .delete()
+        .eq('business_plan_id', selectedPlan.id);
+
+      // Insert month targets
       const monthsToInsert = monthTargets.filter(m => m.quantityTarget > 0 || m.revenueTarget > 0).map(m => ({
         business_plan_id: selectedPlan.id,
         month_number: m.monthNumber,
@@ -809,6 +984,27 @@ export function DistributorFYPlan({ distributorId }: Props) {
         const { error } = await supabase
           .from('distributor_business_plan_months')
           .insert(monthsToInsert);
+        if (error) throw error;
+      }
+
+      // Insert month product targets
+      const monthProductsToInsert = monthTargets.flatMap(m => 
+        m.products.filter(p => p.quantityTarget > 0 || p.revenueTarget > 0 || p.percentage > 0).map(p => ({
+          business_plan_id: selectedPlan.id,
+          month_number: m.monthNumber,
+          month_name: m.monthName,
+          product_id: p.productId,
+          product_name: p.productName,
+          percentage: p.percentage,
+          quantity_target: Math.round(p.quantityTarget),
+          revenue_target: Math.round(p.revenueTarget)
+        }))
+      );
+
+      if (monthProductsToInsert.length > 0) {
+        const { error } = await supabase
+          .from('distributor_business_plan_month_products')
+          .insert(monthProductsToInsert);
         if (error) throw error;
       }
 
@@ -1430,49 +1626,131 @@ export function DistributorFYPlan({ distributorId }: Props) {
                         </Label>
                       </div>
 
-                      {/* Month-wise targets */}
+                      {/* Month-wise targets with collapsible products */}
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between py-1 border-b text-xs text-muted-foreground">
-                          <span className="w-20">Month</span>
-                          <div className="flex items-center gap-2">
-                            {!monthEqualDivide && <span className="w-16 text-center">%</span>}
-                            <span className="w-24 text-right">Quantity</span>
-                            <span className="w-28 text-right">Revenue</span>
-                          </div>
-                        </div>
                         {monthTargets.map(m => (
-                          <div key={m.monthNumber} className="flex items-center justify-between py-2 border-b last:border-0">
-                            <span className="text-sm font-medium w-20">{m.monthName}</span>
-                            <div className="flex items-center gap-2">
-                              {!monthEqualDivide && (
-                                <div className="flex items-center gap-1">
-                                  <Input
-                                    type="number"
-                                    value={m.percentage.toFixed(1)}
-                                    onChange={(e) => handleMonthPercentageChange(m.monthNumber, parseFloat(e.target.value) || 0)}
-                                    className="w-14 h-7 text-right text-xs"
-                                    min={0}
-                                    max={100}
-                                  />
-                                  <span className="text-xs text-muted-foreground">%</span>
+                          <Card key={m.monthNumber} className="overflow-hidden">
+                            <Collapsible
+                              open={expandedMonths.has(m.monthNumber)}
+                              onOpenChange={() => toggleMonthExpand(m.monthNumber)}
+                            >
+                              <CollapsibleTrigger asChild>
+                                <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50">
+                                  <div className="flex items-center gap-2">
+                                    {expandedMonths.has(m.monthNumber) ? (
+                                      <ChevronDown className="h-4 w-4" />
+                                    ) : (
+                                      <ChevronRight className="h-4 w-4" />
+                                    )}
+                                    <span className="text-sm font-medium">{m.monthName}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      ({m.products.filter(p => p.percentage > 0).length} products)
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                                    {!monthEqualDivide && (
+                                      <div className="flex items-center gap-1">
+                                        <Input
+                                          type="number"
+                                          value={m.percentage.toFixed(1)}
+                                          onChange={(e) => handleMonthPercentageChange(m.monthNumber, parseFloat(e.target.value) || 0)}
+                                          className="w-14 h-7 text-right text-xs"
+                                          min={0}
+                                          max={100}
+                                        />
+                                        <span className="text-xs text-muted-foreground">%</span>
+                                      </div>
+                                    )}
+                                    <Input
+                                      type="number"
+                                      value={Math.round(m.quantityTarget) || ''}
+                                      onChange={(e) => handleMonthTargetChange(m.monthNumber, parseFloat(e.target.value) || 0, m.revenueTarget)}
+                                      className="w-20 h-7 text-right text-sm"
+                                      placeholder="Qty"
+                                    />
+                                    <Input
+                                      type="number"
+                                      value={Math.round(m.revenueTarget) || ''}
+                                      onChange={(e) => handleMonthTargetChange(m.monthNumber, m.quantityTarget, parseFloat(e.target.value) || 0)}
+                                      className="w-24 h-7 text-right text-sm"
+                                      placeholder="₹"
+                                    />
+                                  </div>
                                 </div>
-                              )}
-                              <Input
-                                type="number"
-                                value={Math.round(m.quantityTarget) || ''}
-                                onChange={(e) => handleMonthTargetChange(m.monthNumber, parseFloat(e.target.value) || 0, m.revenueTarget)}
-                                className="w-24 h-7 text-right text-sm"
-                                placeholder="Qty"
-                              />
-                              <Input
-                                type="number"
-                                value={Math.round(m.revenueTarget) || ''}
-                                onChange={(e) => handleMonthTargetChange(m.monthNumber, m.quantityTarget, parseFloat(e.target.value) || 0)}
-                                className="w-28 h-7 text-right text-sm"
-                                placeholder="₹"
-                              />
-                            </div>
-                          </div>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <div className="px-3 pb-3 pt-0 border-t bg-muted/20">
+                                  {/* Apply from Products tab button */}
+                                  <div className="flex items-center justify-between py-2 mb-2">
+                                    <span className="text-xs text-muted-foreground">Product-wise breakdown</span>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-6 text-xs"
+                                      onClick={() => handleApplyProductPercentagesFromProductsTab(m.monthNumber)}
+                                    >
+                                      Apply % from Products Tab
+                                    </Button>
+                                  </div>
+                                  
+                                  {/* Product header */}
+                                  <div className="flex items-center justify-between py-1 text-xs text-muted-foreground border-b">
+                                    <span>Product</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-14 text-center">%</span>
+                                      <span className="w-16 text-right">Qty</span>
+                                      <span className="w-20 text-right">Revenue</span>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Product list */}
+                                  <div className="space-y-1 max-h-60 overflow-y-auto">
+                                    {m.products.map(p => (
+                                      <div key={p.productId} className="flex items-center justify-between py-1.5 border-b last:border-0">
+                                        <span className="text-xs truncate max-w-[100px]" title={p.productName}>
+                                          {p.productName}
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                          <div className="flex items-center gap-1">
+                                            <Input
+                                              type="number"
+                                              value={p.percentage.toFixed(1)}
+                                              onChange={(e) => handleMonthProductPercentageChange(m.monthNumber, p.productId, parseFloat(e.target.value) || 0)}
+                                              className="w-14 h-6 text-right text-xs"
+                                              min={0}
+                                              max={100}
+                                            />
+                                          </div>
+                                          <span className="text-xs w-16 text-right">
+                                            {Math.round(p.quantityTarget).toLocaleString()}
+                                          </span>
+                                          <span className="text-xs font-medium w-20 text-right">
+                                            ₹{Math.round(p.revenueTarget).toLocaleString()}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  
+                                  {/* Month product total */}
+                                  <div className="flex items-center justify-between pt-2 mt-2 border-t font-medium text-xs">
+                                    <span>Total</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-14 text-center">
+                                        {m.products.reduce((sum, p) => sum + p.percentage, 0).toFixed(1)}%
+                                      </span>
+                                      <span className="w-16 text-right">
+                                        {Math.round(m.products.reduce((sum, p) => sum + p.quantityTarget, 0)).toLocaleString()}
+                                      </span>
+                                      <span className="w-20 text-right">
+                                        ₹{Math.round(m.products.reduce((sum, p) => sum + p.revenueTarget, 0)).toLocaleString()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </CollapsibleContent>
+                            </Collapsible>
+                          </Card>
                         ))}
                       </div>
                     </CardContent>
