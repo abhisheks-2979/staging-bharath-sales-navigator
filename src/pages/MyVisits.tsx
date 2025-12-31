@@ -1226,7 +1226,7 @@ export const MyVisits = () => {
                   }}
                   title={!isOnline ? "Cannot sync while offline" : "Sync all data for offline use"}
                 >
-                  <Download size={12} />
+                  <RefreshCw size={12} />
                 </Button>
               </div>
             </div>
