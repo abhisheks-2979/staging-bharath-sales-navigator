@@ -243,6 +243,37 @@
     height: calc(3.5rem + var(--sat));
   }
 
+  /* Sticky header with safe area - for pages without Layout */
+  .sticky-header-safe {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  /* Page container with safe area top - for pages without Layout */
+  .page-safe-area {
+    padding-top: var(--sat);
+  }
+
+  /* Full page container with safe areas - for standalone pages */
+  .standalone-page {
+    min-height: 100vh;
+    padding-top: var(--sat);
+    padding-bottom: var(--sab);
+  }
+
+  /* Safe area top overlay - covers status bar for standalone pages */
+  .standalone-page::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--sat);
+    background-color: hsl(var(--card));
+    z-index: 9999;
+  }
+
   /* Main content area with proper padding */
   .safe-area-main {
     padding-bottom: calc(5rem + var(--sab));

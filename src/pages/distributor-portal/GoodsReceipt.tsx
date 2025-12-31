@@ -229,9 +229,9 @@ const GoodsReceipt = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background standalone-page">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-card border-b shadow-sm">
+      <header className="sticky-header-safe z-50 bg-card border-b shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

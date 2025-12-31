@@ -204,8 +204,8 @@ const DistributorClaims = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-card border-b shadow-sm">
+    <div className="min-h-screen bg-background standalone-page">
+      <header className="sticky-header-safe z-50 bg-card border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => navigate('/distributor-portal/dashboard')}>
