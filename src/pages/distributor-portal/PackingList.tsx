@@ -265,10 +265,10 @@ const PackingList = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background print:bg-white">
+    <div className="min-h-screen bg-background print:bg-white standalone-page">
       {/* Admin Impersonation Banner */}
       {isImpersonated && (
-        <div className="sticky top-0 z-[60] bg-amber-500 text-white px-4 py-2 print:hidden">
+        <div className="sticky-header-safe z-[60] bg-amber-500 text-white px-4 py-2 print:hidden">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4" />
@@ -290,7 +290,7 @@ const PackingList = () => {
       )}
 
       {/* Header */}
-      <header className={`sticky ${isImpersonated ? 'top-[40px]' : 'top-0'} z-50 bg-card border-b shadow-sm print:hidden`}>
+      <header className={`sticky ${isImpersonated ? 'top-[calc(var(--sat)+40px)]' : 'sticky-header-safe'} z-50 bg-card border-b shadow-sm print:hidden`}>
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => navigate('/distributor-portal/secondary-sales')}>

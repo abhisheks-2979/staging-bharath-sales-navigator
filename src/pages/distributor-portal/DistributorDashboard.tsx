@@ -192,10 +192,10 @@ const DistributorDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background standalone-page">
       {/* Admin Impersonation Banner */}
       {isImpersonated && (
-        <div className="sticky top-0 z-[60] bg-amber-500 text-white px-4 py-2">
+        <div className="sticky-header-safe z-[60] bg-amber-500 text-white px-4 py-2">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4" />
@@ -217,7 +217,7 @@ const DistributorDashboard = () => {
       )}
 
       {/* Header */}
-      <header className={`sticky ${isImpersonated ? 'top-[40px]' : 'top-0'} z-50 bg-card border-b shadow-sm`}>
+      <header className={`sticky ${isImpersonated ? 'top-[calc(var(--sat)+40px)]' : 'sticky-header-safe'} z-50 bg-card border-b shadow-sm`}>
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
