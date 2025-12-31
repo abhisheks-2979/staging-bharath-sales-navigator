@@ -144,25 +144,36 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({
       shadowSize: [41, 41]
     });
   };
+  // Initialize map only once
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || mapRef.current) return;
     
-    // Show map even if no positions, but need retailers
-    if (positions.length === 0 && optimizedRetailers.length === 0) return;
+    const initialCenter: [number, number] = [20.5937, 78.9629]; // Default to India center
+    
+    mapRef.current = L.map(containerRef.current, {
+      center: initialCenter,
+      zoom: 13,
+      // Disable animations to prevent _leaflet_pos errors during cleanup
+      zoomAnimation: true,
+      fadeAnimation: true,
+    });
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapRef.current);
 
-    // Initialize map if not already initialized
-    if (!mapRef.current) {
-      let initialCenter: [number, number] = [20.5937, 78.9629]; // Default to India center
-      
-      if (optimizedRetailers.length > 0) {
-        initialCenter = [optimizedRetailers[0].latitude, optimizedRetailers[0].longitude];
-      } else if (positions.length > 0) {
-        initialCenter = [positions[positions.length - 1].latitude, positions[positions.length - 1].longitude];
+    return () => {
+      if (mapRef.current) {
+        // Stop any ongoing animations before removing
+        mapRef.current.stop();
+        mapRef.current.remove();
+        mapRef.current = null;
       }
-      
-      mapRef.current = L.map(containerRef.current).setView(initialCenter, 13);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapRef.current);
-    }
+    };
+  }, []);
+
+  // Update map layers when data changes
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (positions.length === 0 && optimizedRetailers.length === 0) return;
 
     // Clear existing layers except tile layer
     mapRef.current.eachLayer((layer) => {
@@ -304,15 +315,8 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({
     
     if (allCoordinates.length > 0) {
       const bounds = L.latLngBounds(allCoordinates as L.LatLngTuple[]);
-      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+      mapRef.current.fitBounds(bounds, { padding: [50, 50], animate: false });
     }
-
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-    };
   }, [positions, optimizedRetailers, totalRouteDistance]);
 
   if (positions.length === 0 && retailers.length === 0) {
