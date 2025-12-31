@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Target, Package, Store, Trash2, ChevronDown, ChevronRight, X, Calendar, Pencil, MoreVertical } from "lucide-react";
+import { Plus, Target, Package, Store, Trash2, ChevronDown, ChevronRight, X, Calendar, Pencil, MoreVertical, CalendarDays } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -132,22 +132,47 @@ interface MonthTarget {
   revenueTarget: number;
   useProductPercentages: boolean;
   products: MonthProductTarget[];
+  workingDays: number;
 }
 
+type MonthBreakdownView = 'products' | 'daily';
+
 const FY_MONTHS = [
-  { number: 1, name: 'April' },
-  { number: 2, name: 'May' },
-  { number: 3, name: 'June' },
-  { number: 4, name: 'July' },
-  { number: 5, name: 'August' },
-  { number: 6, name: 'September' },
-  { number: 7, name: 'October' },
-  { number: 8, name: 'November' },
-  { number: 9, name: 'December' },
-  { number: 10, name: 'January' },
-  { number: 11, name: 'February' },
-  { number: 12, name: 'March' },
+  { number: 1, name: 'April', calendarMonth: 3 },   // April is month 3 (0-indexed)
+  { number: 2, name: 'May', calendarMonth: 4 },
+  { number: 3, name: 'June', calendarMonth: 5 },
+  { number: 4, name: 'July', calendarMonth: 6 },
+  { number: 5, name: 'August', calendarMonth: 7 },
+  { number: 6, name: 'September', calendarMonth: 8 },
+  { number: 7, name: 'October', calendarMonth: 9 },
+  { number: 8, name: 'November', calendarMonth: 10 },
+  { number: 9, name: 'December', calendarMonth: 11 },
+  { number: 10, name: 'January', calendarMonth: 0 },
+  { number: 11, name: 'February', calendarMonth: 1 },
+  { number: 12, name: 'March', calendarMonth: 2 },
 ];
+
+// Calculate working days for a month (6-day work week, excluding Sundays)
+const getWorkingDaysInMonth = (fyMonthNumber: number, fyYear: number): number => {
+  const monthInfo = FY_MONTHS.find(m => m.number === fyMonthNumber);
+  if (!monthInfo) return 26; // Default to 26 days
+  
+  // Determine the actual calendar year
+  // For FY 2025: April-Dec is 2024, Jan-March is 2025
+  const calendarYear = fyMonthNumber <= 9 ? fyYear - 1 : fyYear;
+  
+  // Get number of days in the month
+  const daysInMonth = new Date(calendarYear, monthInfo.calendarMonth + 1, 0).getDate();
+  
+  // Count Sundays (non-working days)
+  let sundays = 0;
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = new Date(calendarYear, monthInfo.calendarMonth, day);
+    if (date.getDay() === 0) sundays++; // Sunday = 0
+  }
+  
+  return daysInMonth - sundays;
+};
 
 export function UserFYPlanTarget() {
   const { user } = useAuth();
@@ -174,6 +199,7 @@ export function UserFYPlanTarget() {
   const [monthTotalQuantity, setMonthTotalQuantity] = useState(0);
   const [monthTotalRevenue, setMonthTotalRevenue] = useState(0);
   const [expandedMonths, setExpandedMonths] = useState<Set<number>>(new Set());
+  const [monthBreakdownView, setMonthBreakdownView] = useState<MonthBreakdownView>('products');
 
   const [planForm, setPlanForm] = useState({
     year: new Date().getFullYear() + 1,
@@ -454,7 +480,8 @@ export function UserFYPlanTarget() {
         quantityTarget: monthQty,
         revenueTarget: monthRev,
         useProductPercentages: !hasExistingMonthProductData,
-        products: monthProducts
+        products: monthProducts,
+        workingDays: getWorkingDaysInMonth(m.number, selectedPlan.year)
       };
     });
 
@@ -1575,7 +1602,7 @@ export function UserFYPlanTarget() {
 
                 {/* MONTHLY TARGETS TAB */}
                 <TabsContent value="months" className="mt-4 space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="text-sm">
                       <span className="font-medium">Qty: {Math.round(totalMonthQuantityComputed).toLocaleString()} {quantityUnit}</span>
                       <span className="mx-2 text-muted-foreground">|</span>
@@ -1587,26 +1614,26 @@ export function UserFYPlanTarget() {
                   </div>
 
                   <Card>
-                    <CardContent className="p-4 space-y-4">
-                      {/* Total target inputs */}
-                      <div className="grid grid-cols-2 gap-4">
+                    <CardContent className="p-3 sm:p-4 space-y-4">
+                      {/* Total target inputs - responsive */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="flex items-center justify-between gap-2">
-                          <Label className="text-xs font-medium">Annual Qty ({quantityUnit})</Label>
+                          <Label className="text-xs font-medium whitespace-nowrap">Annual Qty ({quantityUnit})</Label>
                           <Input
                             type="number"
                             value={monthTotalQuantity || ''}
                             onChange={(e) => handleMonthTotalTargetChange(parseFloat(e.target.value) || 0, monthTotalRevenue)}
-                            className="w-28 h-8 text-right"
+                            className="w-24 sm:w-28 h-8 text-right"
                             placeholder="Quantity"
                           />
                         </div>
                         <div className="flex items-center justify-between gap-2">
-                          <Label className="text-xs font-medium">Annual Revenue (₹)</Label>
+                          <Label className="text-xs font-medium whitespace-nowrap">Annual Revenue (₹)</Label>
                           <Input
                             type="number"
                             value={monthTotalRevenue || ''}
                             onChange={(e) => handleMonthTotalTargetChange(monthTotalQuantity, parseFloat(e.target.value) || 0)}
-                            className="w-28 h-8 text-right"
+                            className="w-24 sm:w-28 h-8 text-right"
                             placeholder="Revenue"
                           />
                         </div>
@@ -1624,158 +1651,233 @@ export function UserFYPlanTarget() {
                         </Label>
                       </div>
 
-                      {/* Month-wise targets with collapsible products */}
+                      {/* Month-wise targets with collapsible breakdown */}
                       <div className="space-y-2">
-                        {monthTargets.map(m => (
-                          <Card key={m.monthNumber} className="overflow-hidden">
-                            <Collapsible
-                              open={expandedMonths.has(m.monthNumber)}
-                              onOpenChange={() => toggleMonthExpand(m.monthNumber)}
-                            >
-                              <CollapsibleTrigger asChild>
-                                <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50">
-                                  <div className="flex items-center gap-2">
-                                    {expandedMonths.has(m.monthNumber) ? (
-                                      <ChevronDown className="h-4 w-4" />
-                                    ) : (
-                                      <ChevronRight className="h-4 w-4" />
-                                    )}
-                                    <span className="text-sm font-medium">{m.monthName}</span>
-                                    <span className="text-xs text-muted-foreground">
-                                      ({m.products.filter(p => p.percentage > 0).length} products)
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                                    {!monthEqualDivide && (
-                                      <div className="flex items-center gap-1">
-                                        <Input
-                                          type="number"
-                                          value={m.percentage.toFixed(1)}
-                                          onChange={(e) => handleMonthPercentageChange(m.monthNumber, parseFloat(e.target.value) || 0)}
-                                          className="w-14 h-7 text-right text-xs"
-                                          min={0}
-                                          max={100}
-                                        />
-                                        <span className="text-xs text-muted-foreground">%</span>
-                                      </div>
-                                    )}
-                                    <Input
-                                      type="number"
-                                      value={Math.round(m.quantityTarget) || ''}
-                                      onChange={(e) => handleMonthTargetChange(m.monthNumber, parseFloat(e.target.value) || 0, m.revenueTarget)}
-                                      className="w-20 h-7 text-right text-sm"
-                                      placeholder="Qty"
-                                    />
-                                    <Input
-                                      type="number"
-                                      value={Math.round(m.revenueTarget) || ''}
-                                      onChange={(e) => handleMonthTargetChange(m.monthNumber, m.quantityTarget, parseFloat(e.target.value) || 0)}
-                                      className="w-24 h-7 text-right text-sm"
-                                      placeholder="₹"
-                                    />
-                                  </div>
-                                </div>
-                              </CollapsibleTrigger>
-                              <CollapsibleContent>
-                                <div className="px-3 pb-3 pt-0 border-t bg-muted/20">
-                                  {/* Apply from Products tab button */}
-                                  <div className="flex items-center justify-between py-2 mb-2">
-                                    <span className="text-xs text-muted-foreground">Product-wise breakdown by category</span>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-6 text-xs"
-                                      onClick={() => handleApplyProductPercentagesFromProductsTab(m.monthNumber)}
-                                    >
-                                      Apply % from Products Tab
-                                    </Button>
-                                  </div>
-                                  
-                                  {/* Product list grouped by category */}
-                                  <div className="space-y-2 max-h-80 overflow-y-auto">
-                                    {(() => {
-                                      // Group products by category
-                                      const categoryGroups = m.products.reduce((acc, p) => {
-                                        const catId = p.categoryId || 'uncategorized';
-                                        if (!acc[catId]) {
-                                          acc[catId] = {
-                                            categoryId: catId,
-                                            categoryName: p.categoryName || 'Uncategorized',
-                                            products: []
-                                          };
-                                        }
-                                        acc[catId].products.push(p);
-                                        return acc;
-                                      }, {} as Record<string, { categoryId: string; categoryName: string; products: MonthProductTarget[] }>);
-                                      
-                                      return Object.values(categoryGroups).map(cat => {
-                                        const catQty = cat.products.reduce((sum, p) => sum + p.quantityTarget, 0);
-                                        const catRev = cat.products.reduce((sum, p) => sum + p.revenueTarget, 0);
-                                        const catPct = cat.products.reduce((sum, p) => sum + p.percentage, 0);
-                                        
-                                        return (
-                                          <Collapsible key={cat.categoryId} defaultOpen>
-                                            <CollapsibleTrigger asChild>
-                                              <div className="flex items-center justify-between py-1.5 px-2 bg-muted/50 rounded cursor-pointer hover:bg-muted/70">
-                                                <div className="flex items-center gap-1">
-                                                  <ChevronDown className="h-3 w-3" />
-                                                  <span className="text-xs font-medium">{cat.categoryName}</span>
-                                                  <span className="text-xs text-muted-foreground">({cat.products.length})</span>
-                                                </div>
-                                                <div className="flex items-center gap-2 text-xs">
-                                                  <span className="w-14 text-center">{catPct.toFixed(1)}%</span>
-                                                  <span className="w-16 text-right">{Math.round(catQty).toLocaleString()}</span>
-                                                  <span className="w-20 text-right font-medium">₹{Math.round(catRev).toLocaleString()}</span>
-                                                </div>
-                                              </div>
-                                            </CollapsibleTrigger>
-                                            <CollapsibleContent>
-                                              <div className="pl-4 border-l ml-2 mt-1 space-y-1">
-                                                {cat.products.map(p => (
-                                                  <div key={p.productId} className="flex items-center justify-between py-1 border-b last:border-0">
-                                                    <span className="text-xs truncate max-w-[90px]" title={p.productName}>
-                                                      {p.productName}
-                                                    </span>
-                                                    <div className="flex items-center gap-2">
-                                                      <Input
-                                                        type="number"
-                                                        value={p.percentage.toFixed(1)}
-                                                        onChange={(e) => handleMonthProductPercentageChange(m.monthNumber, p.productId, parseFloat(e.target.value) || 0)}
-                                                        className="w-14 h-6 text-right text-xs"
-                                                        min={0}
-                                                        max={100}
-                                                      />
-                                                      <span className="text-xs w-16 text-right">
-                                                        {Math.round(p.quantityTarget).toLocaleString()}
-                                                      </span>
-                                                      <span className="text-xs font-medium w-20 text-right">
-                                                        ₹{Math.round(p.revenueTarget).toLocaleString()}
-                                                      </span>
-                                                    </div>
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            </CollapsibleContent>
-                                          </Collapsible>
-                                        );
-                                      });
-                                    })()}
-                                  </div>
-                                  
-                                  {/* Month product total */}
-                                  <div className="flex justify-between items-center pt-2 mt-2 border-t text-xs">
-                                    <span className="font-medium">Month Total</span>
+                        {monthTargets.map(m => {
+                          const avgQtyPerDay = m.workingDays > 0 ? m.quantityTarget / m.workingDays : 0;
+                          const avgRevPerDay = m.workingDays > 0 ? m.revenueTarget / m.workingDays : 0;
+                          
+                          return (
+                            <Card key={m.monthNumber} className="overflow-hidden">
+                              <Collapsible
+                                open={expandedMonths.has(m.monthNumber)}
+                                onOpenChange={() => toggleMonthExpand(m.monthNumber)}
+                              >
+                                <CollapsibleTrigger asChild>
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 cursor-pointer hover:bg-muted/50 gap-2">
                                     <div className="flex items-center gap-2">
-                                      <span className="w-14 text-center">{m.products.reduce((s, p) => s + p.percentage, 0).toFixed(1)}%</span>
-                                      <span className="w-16 text-right">{Math.round(m.products.reduce((s, p) => s + p.quantityTarget, 0)).toLocaleString()}</span>
-                                      <span className="w-20 text-right font-medium">₹{Math.round(m.products.reduce((s, p) => s + p.revenueTarget, 0)).toLocaleString()}</span>
+                                      {expandedMonths.has(m.monthNumber) ? (
+                                        <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                                      ) : (
+                                        <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                                      )}
+                                      <span className="text-sm font-medium">{m.monthName}</span>
+                                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                        ({m.workingDays} days)
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2 ml-6 sm:ml-0" onClick={e => e.stopPropagation()}>
+                                      {!monthEqualDivide && (
+                                        <div className="flex items-center gap-1">
+                                          <Input
+                                            type="number"
+                                            value={m.percentage.toFixed(1)}
+                                            onChange={(e) => handleMonthPercentageChange(m.monthNumber, parseFloat(e.target.value) || 0)}
+                                            className="w-12 sm:w-14 h-7 text-right text-xs"
+                                            min={0}
+                                            max={100}
+                                          />
+                                          <span className="text-xs text-muted-foreground">%</span>
+                                        </div>
+                                      )}
+                                      <Input
+                                        type="number"
+                                        value={Math.round(m.quantityTarget) || ''}
+                                        onChange={(e) => handleMonthTargetChange(m.monthNumber, parseFloat(e.target.value) || 0, m.revenueTarget)}
+                                        className="w-16 sm:w-20 h-7 text-right text-xs sm:text-sm"
+                                        placeholder="Qty"
+                                      />
+                                      <Input
+                                        type="number"
+                                        value={Math.round(m.revenueTarget) || ''}
+                                        onChange={(e) => handleMonthTargetChange(m.monthNumber, m.quantityTarget, parseFloat(e.target.value) || 0)}
+                                        className="w-20 sm:w-24 h-7 text-right text-xs sm:text-sm"
+                                        placeholder="₹"
+                                      />
                                     </div>
                                   </div>
-                                </div>
-                              </CollapsibleContent>
-                            </Collapsible>
-                          </Card>
-                        ))}
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                  <div className="px-3 pb-3 pt-0 border-t bg-muted/20">
+                                    {/* View selector tabs */}
+                                    <div className="flex items-center gap-2 py-2 mb-2 border-b">
+                                      <Button
+                                        variant={monthBreakdownView === 'products' ? 'default' : 'outline'}
+                                        size="sm"
+                                        className="h-7 text-xs gap-1"
+                                        onClick={() => setMonthBreakdownView('products')}
+                                      >
+                                        <Package className="h-3 w-3" />
+                                        Products
+                                      </Button>
+                                      <Button
+                                        variant={monthBreakdownView === 'daily' ? 'default' : 'outline'}
+                                        size="sm"
+                                        className="h-7 text-xs gap-1"
+                                        onClick={() => setMonthBreakdownView('daily')}
+                                      >
+                                        <CalendarDays className="h-3 w-3" />
+                                        Daily Avg
+                                      </Button>
+                                    </div>
+
+                                    {/* Daily Average View */}
+                                    {monthBreakdownView === 'daily' && (
+                                      <div className="space-y-3">
+                                        <div className="grid grid-cols-1 gap-3">
+                                          <div className="flex items-center justify-between p-3 bg-background rounded-lg border">
+                                            <div className="flex items-center gap-2">
+                                              <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                                              <span className="text-sm font-medium"># Working Days</span>
+                                            </div>
+                                            <span className="text-lg font-bold text-primary">{m.workingDays}</span>
+                                          </div>
+                                          
+                                          <div className="flex items-center justify-between p-3 bg-background rounded-lg border">
+                                            <div>
+                                              <span className="text-sm font-medium">Avg Qty / Day</span>
+                                              <p className="text-xs text-muted-foreground">
+                                                {Math.round(m.quantityTarget).toLocaleString()} ÷ {m.workingDays} days
+                                              </p>
+                                            </div>
+                                            <span className="text-lg font-bold text-primary">
+                                              {avgQtyPerDay.toFixed(1)} {quantityUnit}
+                                            </span>
+                                          </div>
+                                          
+                                          <div className="flex items-center justify-between p-3 bg-background rounded-lg border">
+                                            <div>
+                                              <span className="text-sm font-medium">Avg Revenue / Day</span>
+                                              <p className="text-xs text-muted-foreground">
+                                                ₹{Math.round(m.revenueTarget).toLocaleString()} ÷ {m.workingDays} days
+                                              </p>
+                                            </div>
+                                            <span className="text-lg font-bold text-primary">
+                                              ₹{Math.round(avgRevPerDay).toLocaleString()}
+                                            </span>
+                                          </div>
+                                        </div>
+                                        
+                                        <p className="text-xs text-muted-foreground text-center">
+                                          Based on 6-day work week (Sundays excluded)
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {/* Products View */}
+                                    {monthBreakdownView === 'products' && (
+                                      <>
+                                        {/* Apply from Products tab button */}
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                                          <span className="text-xs text-muted-foreground">Product-wise breakdown by category</span>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-6 text-xs w-full sm:w-auto"
+                                            onClick={() => handleApplyProductPercentagesFromProductsTab(m.monthNumber)}
+                                          >
+                                            Apply % from Products Tab
+                                          </Button>
+                                        </div>
+                                        
+                                        {/* Product list grouped by category - with horizontal scroll on mobile */}
+                                        <div className="space-y-2 max-h-80 overflow-y-auto">
+                                          {(() => {
+                                            // Group products by category
+                                            const categoryGroups = m.products.reduce((acc, p) => {
+                                              const catId = p.categoryId || 'uncategorized';
+                                              if (!acc[catId]) {
+                                                acc[catId] = {
+                                                  categoryId: catId,
+                                                  categoryName: p.categoryName || 'Uncategorized',
+                                                  products: []
+                                                };
+                                              }
+                                              acc[catId].products.push(p);
+                                              return acc;
+                                            }, {} as Record<string, { categoryId: string; categoryName: string; products: MonthProductTarget[] }>);
+                                            
+                                            return Object.values(categoryGroups).map(cat => {
+                                              const catQty = cat.products.reduce((sum, p) => sum + p.quantityTarget, 0);
+                                              const catRev = cat.products.reduce((sum, p) => sum + p.revenueTarget, 0);
+                                              const catPct = cat.products.reduce((sum, p) => sum + p.percentage, 0);
+                                              
+                                              return (
+                                                <Collapsible key={cat.categoryId} defaultOpen>
+                                                  <CollapsibleTrigger asChild>
+                                                    <div className="flex items-center justify-between py-1.5 px-2 bg-muted/50 rounded cursor-pointer hover:bg-muted/70">
+                                                      <div className="flex items-center gap-1 min-w-0 flex-1">
+                                                        <ChevronDown className="h-3 w-3 flex-shrink-0" />
+                                                        <span className="text-xs font-medium truncate">{cat.categoryName}</span>
+                                                        <span className="text-xs text-muted-foreground flex-shrink-0">({cat.products.length})</span>
+                                                      </div>
+                                                      <div className="flex items-center gap-1 sm:gap-2 text-xs flex-shrink-0">
+                                                        <span className="w-10 sm:w-14 text-center">{catPct.toFixed(1)}%</span>
+                                                        <span className="w-12 sm:w-16 text-right">{Math.round(catQty).toLocaleString()}</span>
+                                                        <span className="w-14 sm:w-20 text-right font-medium">₹{Math.round(catRev).toLocaleString()}</span>
+                                                      </div>
+                                                    </div>
+                                                  </CollapsibleTrigger>
+                                                  <CollapsibleContent>
+                                                    <div className="pl-3 sm:pl-4 border-l ml-2 mt-1 space-y-1">
+                                                      {cat.products.map(p => (
+                                                        <div key={p.productId} className="flex items-center justify-between py-1 border-b last:border-0 gap-1">
+                                                          <span className="text-xs truncate flex-1 min-w-0" title={p.productName}>
+                                                            {p.productName}
+                                                          </span>
+                                                          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                                                            <Input
+                                                              type="number"
+                                                              value={p.percentage.toFixed(1)}
+                                                              onChange={(e) => handleMonthProductPercentageChange(m.monthNumber, p.productId, parseFloat(e.target.value) || 0)}
+                                                              className="w-12 sm:w-14 h-6 text-right text-xs"
+                                                              min={0}
+                                                              max={100}
+                                                            />
+                                                            <span className="text-xs w-12 sm:w-16 text-right">
+                                                              {Math.round(p.quantityTarget).toLocaleString()}
+                                                            </span>
+                                                            <span className="text-xs font-medium w-14 sm:w-20 text-right">
+                                                              ₹{Math.round(p.revenueTarget).toLocaleString()}
+                                                            </span>
+                                                          </div>
+                                                        </div>
+                                                      ))}
+                                                    </div>
+                                                  </CollapsibleContent>
+                                                </Collapsible>
+                                              );
+                                            });
+                                          })()}
+                                        </div>
+                                        
+                                        {/* Month product total */}
+                                        <div className="flex justify-between items-center pt-2 mt-2 border-t text-xs">
+                                          <span className="font-medium">Month Total</span>
+                                          <div className="flex items-center gap-1 sm:gap-2">
+                                            <span className="w-10 sm:w-14 text-center">{m.products.reduce((s, p) => s + p.percentage, 0).toFixed(1)}%</span>
+                                            <span className="w-12 sm:w-16 text-right">{Math.round(m.products.reduce((s, p) => s + p.quantityTarget, 0)).toLocaleString()}</span>
+                                            <span className="w-14 sm:w-20 text-right font-medium">₹{Math.round(m.products.reduce((s, p) => s + p.revenueTarget, 0)).toLocaleString()}</span>
+                                          </div>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                </CollapsibleContent>
+                              </Collapsible>
+                            </Card>
+                          );
+                        })}
                       </div>
                     </CardContent>
                   </Card>
@@ -1783,7 +1885,7 @@ export function UserFYPlanTarget() {
                   {/* Monthly Total Footer */}
                   <Card className="bg-muted/50">
                     <CardContent className="p-3">
-                      <div className="flex justify-between items-center">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <span className="text-sm font-medium">Total Monthly Target</span>
                         <div className="text-right">
                           <span className="text-sm font-bold">{Math.round(totalMonthQuantityComputed).toLocaleString()} {quantityUnit}</span>
