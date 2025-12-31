@@ -179,7 +179,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   const [showLoadPreviousConfirm, setShowLoadPreviousConfirm] = useState(false);
   
   // Track original loaded values from previous stock to detect edits
-  const [originalLoadedStock, setOriginalLoadedStock] = useState<{product_id: string; product_name: string; qty: number; unit: string}[]>([]);
+  // edit_source: 'load_previous' = from Load Previous Van Stock, 'manual_edit' = from Edit button
+  const [originalLoadedStock, setOriginalLoadedStock] = useState<{product_id: string; product_name: string; qty: number; unit: string; edit_source?: string}[]>([]);
   const [isRecalculating, setIsRecalculating] = useState(false);
   
   // Morning/Closing GRN states
@@ -600,12 +601,13 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
             console.log('✅ Loaded from van_stock_items:', newStockItems.length, 'items from:', stock.stock_date);
             setStockItems(newStockItems);
             
-            // Store original loaded values to track edits later
+            // Store original loaded values to track edits later (source: load_previous)
             const originalValues = newStockItems.map(item => ({
               product_id: item.product_id,
               product_name: item.product_name,
               qty: item.start_qty,
-              unit: item.unit
+              unit: item.unit,
+              edit_source: 'load_previous'
             }));
             setOriginalLoadedStock(originalValues);
             
@@ -675,12 +677,13 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           console.log('✅ Loaded from live inventory:', newStockItems.length, 'items from:', mostRecentDate);
           setStockItems(newStockItems);
           
-          // Store original loaded values to track edits later
+          // Store original loaded values to track edits later (source: load_previous)
           const originalValues = newStockItems.map(item => ({
             product_id: item.product_id,
             product_name: item.product_name,
             qty: item.start_qty,
-            unit: item.unit
+            unit: item.unit,
+            edit_source: 'load_previous'
           }));
           setOriginalLoadedStock(originalValues);
           
@@ -898,6 +901,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           edited_qty: number;
           difference: number;
           unit: string;
+          edit_source: string;
         }[] = [];
 
         for (const item of stockItems) {
@@ -925,6 +929,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                 edited_qty: Math.round(currentQty * conversionFactor),
                 difference: Math.round(difference * conversionFactor),
                 unit: isKgUnit ? 'Grams' : item.unit,
+                edit_source: original.edit_source || 'load_previous',
               });
             }
           } else {
@@ -943,6 +948,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                 edited_qty: Math.round(currentQty * conversionFactor),
                 difference: Math.round(currentQty * conversionFactor),
                 unit: isKgUnit ? 'Grams' : item.unit,
+                edit_source: originalLoadedStock[0]?.edit_source || 'load_previous',
               });
             }
           }
@@ -964,28 +970,24 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
               edited_qty: 0,
               difference: Math.round(-original.qty * conversionFactor),
               unit: isKgUnit ? 'Grams' : original.unit,
+              edit_source: original.edit_source || 'load_previous',
             });
           }
         }
 
-        // Delete previous edits for this van_stock_id and insert new ones
+        // Append new edits (do NOT delete existing ones to preserve history)
         if (edits.length > 0) {
-          // First delete existing edits for this van_stock
-          await supabase
-            .from('van_stock_opening_edits')
-            .delete()
-            .eq('van_stock_id', vanStock.id);
-
-          // Insert new edits
+          // Insert new edits as new entries (appending, not replacing)
           const { error: editError } = await supabase
             .from('van_stock_opening_edits')
-            .insert(edits);
+            .insert(edits as any); // Cast to any to bypass type checking for edit_source
           
           if (editError) {
             console.error('Error saving opening edits:', editError);
             // Don't throw - still save stock successfully
           } else {
-            console.log('✅ Saved', edits.length, 'opening GRN edits');
+            const editSource = edits[0]?.edit_source || 'unknown';
+            console.log('✅ Saved', edits.length, 'opening GRN edits (source:', editSource, ')');
           }
         }
       }
@@ -2044,7 +2046,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                           return;
                         }
                         
-                        // Store original values BEFORE editing for difference tracking
+                        // Store original values BEFORE editing for difference tracking (source: manual_edit)
                         const originalValues = savedItems.map((item: any) => {
                           const storedUnit = (item.unit || '').toLowerCase();
                           const isGrams = storedUnit === 'grams' || storedUnit === 'gram' || storedUnit === 'g';
@@ -2056,7 +2058,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                             product_id: item.product_id,
                             product_name: item.product_name,
                             qty: startQty,
-                            unit: displayUnit
+                            unit: displayUnit,
+                            edit_source: 'manual_edit'
                           };
                         });
                         setOriginalLoadedStock(originalValues);

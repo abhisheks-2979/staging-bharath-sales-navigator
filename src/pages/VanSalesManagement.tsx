@@ -85,6 +85,7 @@ interface OpeningGRNEdit {
   unit: string;
   created_at: string;
   stock_date: string;
+  edit_source: string;
 }
 
 export default function VanSalesManagement() {
@@ -203,6 +204,7 @@ export default function VanSalesManagement() {
         unit: e.unit,
         created_at: e.created_at,
         stock_date: (e.van_stock as any)?.stock_date || '',
+        edit_source: (e as any).edit_source || 'load_previous',
       }));
 
       setOpeningGRNEdits(formattedEdits);
@@ -871,15 +873,14 @@ export default function VanSalesManagement() {
                                   <p className="text-sm text-muted-foreground">No products in this van stock</p>
                                 ) : (
                                   (() => {
-                                    // Get edits for this summary
+                                    // Get ALL edits for this summary (no longer using a Map which overwrites)
                                     const editsForSummary = openingGRNEdits.filter(
                                       e => e.stock_date === summary.stock_date && e.user_id === summary.user_id
                                     );
                                     
-                                    // Create a map of edits by product_id for quick lookup
-                                    const editsByProductId = new Map(
-                                      editsForSummary.map(edit => [edit.product_id, edit])
-                                    );
+                                    // Show edits first, then products without edits
+                                    const productsWithEdits = new Set(editsForSummary.map(e => e.product_id));
+                                    const productsWithoutEdits = summary.items.filter(item => !productsWithEdits.has(item.product_id));
                                     
                                     return (
                                       <div className="border rounded-lg overflow-hidden bg-amber-50/50 dark:bg-amber-950/20">
@@ -887,44 +888,65 @@ export default function VanSalesManagement() {
                                           <thead className="bg-amber-100/50 dark:bg-amber-900/30">
                                             <tr>
                                               <th className="text-left p-3 font-medium">Product</th>
+                                              <th className="text-left p-3 font-medium">Source</th>
                                               <th className="text-right p-3 font-medium">Previous Left</th>
                                               <th className="text-right p-3 font-medium">Edited Qty</th>
                                               <th className="text-right p-3 font-medium">Difference</th>
                                             </tr>
                                           </thead>
                                           <tbody>
-                                            {summary.items.map((item) => {
-                                              const edit = editsByProductId.get(item.product_id);
-                                              
-                                              // If there's an edit, use the edit data
-                                              // Otherwise, use current stock as both previous and edited (0 difference)
-                                              const prevQty = edit ? edit.previous_qty : item.start_qty;
-                                              const editedQty = edit ? edit.edited_qty : item.start_qty;
-                                              const difference = edit ? edit.difference : 0;
-                                              const unit = edit?.unit || 'grams';
-                                              
-                                              // Convert to KG for display
+                                            {/* First show all edits */}
+                                            {editsForSummary.map((edit) => {
+                                              const unit = edit.unit || 'grams';
                                               const isGrams = unit.toLowerCase() === 'grams';
-                                              const prevDisplay = isGrams ? (prevQty / 1000).toFixed(2) : prevQty.toFixed(2);
-                                              const editDisplay = isGrams ? (editedQty / 1000).toFixed(2) : editedQty.toFixed(2);
-                                              const diffDisplay = isGrams ? (difference / 1000).toFixed(2) : difference.toFixed(2);
+                                              const prevDisplay = isGrams ? (edit.previous_qty / 1000).toFixed(2) : edit.previous_qty.toFixed(2);
+                                              const editDisplay = isGrams ? (edit.edited_qty / 1000).toFixed(2) : edit.edited_qty.toFixed(2);
+                                              const diffDisplay = isGrams ? (edit.difference / 1000).toFixed(2) : edit.difference.toFixed(2);
                                               const displayUnit = isGrams ? 'KG' : unit;
                                               
+                                              const sourceLabel = edit.edit_source === 'manual_edit' 
+                                                ? '✏️ Manual Edit' 
+                                                : '📦 Load Previous';
+                                              const sourceColor = edit.edit_source === 'manual_edit'
+                                                ? 'text-blue-600 dark:text-blue-400'
+                                                : 'text-purple-600 dark:text-purple-400';
+                                              
                                               return (
-                                                <tr key={item.id} className="border-t border-amber-200/50 dark:border-amber-800/50">
+                                                <tr key={edit.id} className="border-t border-amber-200/50 dark:border-amber-800/50">
                                                   <td className="p-3">
-                                                    <p className="font-medium">{item.product_name}</p>
-                                                    <p className="text-xs text-muted-foreground">₹{item.price_without_gst.toFixed(2)}/KG</p>
+                                                    <p className="font-medium">{edit.product_name}</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                      {new Date(edit.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                                    </p>
+                                                  </td>
+                                                  <td className={`p-3 text-xs font-medium ${sourceColor}`}>
+                                                    {sourceLabel}
                                                   </td>
                                                   <td className="p-3 text-right font-medium">{prevDisplay} {displayUnit}</td>
                                                   <td className="p-3 text-right font-medium">{editDisplay} {displayUnit}</td>
                                                   <td className={`p-3 text-right font-medium ${
-                                                    difference > 0 ? 'text-green-600' : 
-                                                    difference < 0 ? 'text-red-600' : 
+                                                    edit.difference > 0 ? 'text-green-600' : 
+                                                    edit.difference < 0 ? 'text-red-600' : 
                                                     'text-muted-foreground'
                                                   }`}>
-                                                    {difference > 0 ? '+' : ''}{diffDisplay} {displayUnit}
+                                                    {edit.difference > 0 ? '+' : ''}{diffDisplay} {displayUnit}
                                                   </td>
+                                                </tr>
+                                              );
+                                            })}
+                                            {/* Then show products without any edits */}
+                                            {productsWithoutEdits.map((item) => {
+                                              const startQty = item.start_qty / 1000; // Always grams to KG
+                                              return (
+                                                <tr key={item.id} className="border-t border-amber-200/50 dark:border-amber-800/50 opacity-60">
+                                                  <td className="p-3">
+                                                    <p className="font-medium">{item.product_name}</p>
+                                                    <p className="text-xs text-muted-foreground">₹{item.price_without_gst.toFixed(2)}/KG</p>
+                                                  </td>
+                                                  <td className="p-3 text-xs text-muted-foreground">—</td>
+                                                  <td className="p-3 text-right font-medium">{startQty.toFixed(2)} KG</td>
+                                                  <td className="p-3 text-right font-medium">{startQty.toFixed(2)} KG</td>
+                                                  <td className="p-3 text-right text-muted-foreground">0.00 KG</td>
                                                 </tr>
                                               );
                                             })}
