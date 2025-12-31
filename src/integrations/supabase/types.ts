@@ -8737,6 +8737,112 @@ export type Database = {
           },
         ]
       }
+      user_business_plan_territories: {
+        Row: {
+          business_plan_id: string
+          created_at: string
+          id: string
+          quantity_target: number | null
+          revenue_target: number | null
+          territory_id: string
+          territory_name: string
+          updated_at: string
+        }
+        Insert: {
+          business_plan_id: string
+          created_at?: string
+          id?: string
+          quantity_target?: number | null
+          revenue_target?: number | null
+          territory_id: string
+          territory_name: string
+          updated_at?: string
+        }
+        Update: {
+          business_plan_id?: string
+          created_at?: string
+          id?: string
+          quantity_target?: number | null
+          revenue_target?: number | null
+          territory_id?: string
+          territory_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_business_plan_territories_business_plan_id_fkey"
+            columns: ["business_plan_id"]
+            isOneToOne: false
+            referencedRelation: "user_business_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_business_plan_territories_territory_id_fkey"
+            columns: ["territory_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_business_plan_territory_beats: {
+        Row: {
+          beat_id: string
+          beat_name: string
+          business_plan_id: string
+          created_at: string
+          id: string
+          percentage: number | null
+          quantity_target: number | null
+          revenue_target: number | null
+          territory_id: string
+        }
+        Insert: {
+          beat_id: string
+          beat_name: string
+          business_plan_id: string
+          created_at?: string
+          id?: string
+          percentage?: number | null
+          quantity_target?: number | null
+          revenue_target?: number | null
+          territory_id: string
+        }
+        Update: {
+          beat_id?: string
+          beat_name?: string
+          business_plan_id?: string
+          created_at?: string
+          id?: string
+          percentage?: number | null
+          quantity_target?: number | null
+          revenue_target?: number | null
+          territory_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_business_plan_territory_beats_beat_id_fkey"
+            columns: ["beat_id"]
+            isOneToOne: false
+            referencedRelation: "beats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_business_plan_territory_beats_business_plan_id_fkey"
+            columns: ["business_plan_id"]
+            isOneToOne: false
+            referencedRelation: "user_business_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_business_plan_territory_beats_territory_id_fkey"
+            columns: ["territory_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_business_plans: {
         Row: {
           created_at: string

@@ -510,7 +510,6 @@ export function InstagramSocialFeed() {
       toast.error("Failed to add comment");
     }
   };
-  };
 
   const getStorageUrl = (path: string) => {
     return `https://etabpbfokzhhfuybeieu.supabase.co/storage/v1/object/public/social-posts/${path}`;
