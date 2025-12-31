@@ -473,6 +473,10 @@ export function UserFYPlanTarget() {
         };
       });
       
+      // Use saved working_days if exists, otherwise calculate automatically
+      const savedWorkingDays = existing?.working_days;
+      const calculatedWorkingDays = getWorkingDaysInMonth(m.number, selectedPlan.year);
+      
       return {
         monthNumber: m.number,
         monthName: m.name,
@@ -481,7 +485,7 @@ export function UserFYPlanTarget() {
         revenueTarget: monthRev,
         useProductPercentages: !hasExistingMonthProductData,
         products: monthProducts,
-        workingDays: getWorkingDaysInMonth(m.number, selectedPlan.year)
+        workingDays: savedWorkingDays ?? calculatedWorkingDays
       };
     });
 
@@ -1002,7 +1006,8 @@ export function UserFYPlanTarget() {
         month_number: m.monthNumber,
         month_name: m.monthName,
         quantity_target: Math.round(m.quantityTarget),
-        revenue_target: Math.round(m.revenueTarget)
+        revenue_target: Math.round(m.revenueTarget),
+        working_days: m.workingDays
       }));
 
       if (monthsToInsert.length > 0) {
@@ -1740,7 +1745,21 @@ export function UserFYPlanTarget() {
                                               <CalendarDays className="h-4 w-4 text-muted-foreground" />
                                               <span className="text-sm font-medium"># Working Days</span>
                                             </div>
-                                            <span className="text-lg font-bold text-primary">{m.workingDays}</span>
+                                            <Input
+                                              type="number"
+                                              min={1}
+                                              max={31}
+                                              value={m.workingDays}
+                                              onChange={(e) => {
+                                                const newValue = parseInt(e.target.value) || getWorkingDaysInMonth(m.monthNumber, selectedPlan?.year || new Date().getFullYear() + 1);
+                                                setMonthTargets(prev => prev.map(mt => 
+                                                  mt.monthNumber === m.monthNumber 
+                                                    ? { ...mt, workingDays: Math.min(31, Math.max(1, newValue)) }
+                                                    : mt
+                                                ));
+                                              }}
+                                              className="w-16 h-8 text-center text-lg font-bold text-primary"
+                                            />
                                           </div>
                                           
                                           <div className="flex items-center justify-between p-3 bg-background rounded-lg border">
