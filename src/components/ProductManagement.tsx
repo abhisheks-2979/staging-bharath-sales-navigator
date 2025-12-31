@@ -1048,7 +1048,7 @@ const [productForm, setProductForm] = useState({
                       <TableHead>Rate per Unit</TableHead>
                       <TableHead>Rate per KG</TableHead>
                       <TableHead>Unit</TableHead>
-                      <TableHead>Stock</TableHead>
+                      <TableHead>HSN/SAC</TableHead>
                       <TableHead>Variants</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Actions</TableHead>
@@ -1153,7 +1153,7 @@ const [productForm, setProductForm] = useState({
                           </div>
                         </TableCell>
                         <TableCell>{product.unit}</TableCell>
-                        <TableCell>{product.closing_stock}</TableCell>
+                        <TableCell className="font-mono text-sm">{(product as any).hsn_code || '-'}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Badge variant="outline">
