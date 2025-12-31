@@ -829,30 +829,38 @@ export default function VanSalesManagement() {
                                 {summary.items.length === 0 ? (
                                   <p className="text-sm text-muted-foreground">No products in this van stock</p>
                                 ) : (
-                                  <div className="space-y-2">
-                                    {summary.items.map((item) => {
-                                      // Convert grams to KG for display
-                                      const qtyInKG = item.start_qty / 1000;
-                                      return (
-                                        <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
-                                          <div className="flex-1">
-                                            <p className="font-medium">{item.product_name}</p>
-                                            <p className="text-sm text-muted-foreground">
-                                              ₹{item.price_without_gst.toFixed(2)} (excl. GST) • {item.unit}
-                                            </p>
-                                          </div>
-                                          <div className="flex items-center gap-4">
-                                            <div className="text-right">
-                                              <p className="text-lg font-bold">{qtyInKG.toFixed(2)}</p>
-                                              <p className="text-xs text-muted-foreground">KG</p>
-                                            </div>
-                                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                                              <Edit className="h-4 w-4" />
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
+                                  <div className="border rounded-lg overflow-hidden">
+                                    <table className="w-full text-sm">
+                                      <thead className="bg-muted/50">
+                                        <tr>
+                                          <th className="text-left p-3 font-medium">Product</th>
+                                          <th className="text-right p-3 font-medium">Stock in Van</th>
+                                          <th className="text-right p-3 font-medium">Ordered</th>
+                                          <th className="text-right p-3 font-medium">Returned</th>
+                                          <th className="text-right p-3 font-medium">Left in Van</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {summary.items.map((item) => {
+                                          const stockKG = (item.start_qty / 1000).toFixed(2);
+                                          const orderedKG = (item.ordered_qty / 1000).toFixed(2);
+                                          const returnedKG = (item.returned_qty / 1000).toFixed(2);
+                                          const leftKG = (item.left_qty / 1000).toFixed(2);
+                                          return (
+                                            <tr key={item.id} className="border-t">
+                                              <td className="p-3">
+                                                <p className="font-medium">{item.product_name}</p>
+                                                <p className="text-xs text-muted-foreground">₹{item.price_without_gst.toFixed(2)}/KG</p>
+                                              </td>
+                                              <td className="p-3 text-right font-medium">{stockKG} KG</td>
+                                              <td className="p-3 text-right text-amber-600 font-medium">{orderedKG} KG</td>
+                                              <td className="p-3 text-right text-purple-600 font-medium">{returnedKG} KG</td>
+                                              <td className="p-3 text-right text-green-600 font-medium">{leftKG} KG</td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
                                   </div>
                                 )}
                               </div>
