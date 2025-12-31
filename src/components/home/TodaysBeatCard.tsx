@@ -3,6 +3,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { format, addDays, subDays } from "date-fns";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useUserTargetProgress, TargetPeriod, TargetBasis } from "@/hooks/useUserTargetProgress";
+import { useAuth } from "@/hooks/useAuth";
+import { useState } from "react";
 
 interface TodaysBeatCardProps {
   beatPlan: any | null;
@@ -24,6 +28,20 @@ interface TodaysBeatCardProps {
   onDateChange: (date: Date) => void;
 }
 
+const PERIOD_OPTIONS: { value: TargetPeriod; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'this_week', label: 'This Week' },
+  { value: 'this_month', label: 'This Month' },
+  { value: 'this_quarter', label: 'This Quarter' },
+  { value: 'this_year', label: 'This Year' },
+];
+
+const BASIS_OPTIONS: { value: TargetBasis; label: string }[] = [
+  { value: 'quantity', label: 'Quantity' },
+  { value: 'revenue', label: 'Revenue' },
+];
+
 export const TodaysBeatCard = ({ 
   beatPlan, 
   beatName,
@@ -37,6 +55,15 @@ export const TodaysBeatCard = ({
   onDateChange
 }: TodaysBeatCardProps) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [targetPeriod, setTargetPeriod] = useState<TargetPeriod>('today');
+  const [targetBasis, setTargetBasis] = useState<TargetBasis>('quantity');
+
+  const { target, actual, progress, gap, unit, isLoading: targetLoading } = useUserTargetProgress(
+    user?.id,
+    targetPeriod,
+    targetBasis
+  );
 
   const handlePrevDay = () => {
     onDateChange(subDays(selectedDate, 1));
@@ -48,13 +75,6 @@ export const TodaysBeatCard = ({
 
   const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
   const isFuture = selectedDate > new Date();
-
-  // Calculate revenue progress
-  const revenueProgress = revenueTarget > 0 
-    ? Math.min(Math.round((revenueAchieved / revenueTarget) * 100), 100)
-    : 0;
-  
-  const revenueGap = Math.max(revenueTarget - revenueAchieved, 0);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -78,6 +98,25 @@ export const TodaysBeatCard = ({
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount);
+  };
+
+  const formatQuantity = (qty: number, unitLabel: string) => {
+    if (qty >= 1000) return `${(qty / 1000).toFixed(1)}K ${unitLabel}`;
+    return `${Math.round(qty)} ${unitLabel}`;
+  };
+
+  const formatValue = (value: number) => {
+    if (targetBasis === 'revenue') {
+      return formatCurrency(value);
+    }
+    return formatQuantity(value, unit);
+  };
+
+  const formatGapValue = (value: number) => {
+    if (targetBasis === 'revenue') {
+      return formatCurrencyNoDecimal(value);
+    }
+    return formatQuantity(value, unit);
   };
 
   const displayBeatName = beatName || beatPlan?.beat_name || 'Not Planned';
@@ -126,16 +165,49 @@ export const TodaysBeatCard = ({
           </div>
         </div>
 
-        {/* Revenue Target Progress */}
+        {/* Target Progress Section */}
         <div className="space-y-3 p-4 rounded-xl bg-gradient-to-br from-primary/5 to-transparent border border-primary/10">
+          {/* Period & Basis Selectors */}
+          <div className="flex gap-2">
+            <Select value={targetPeriod} onValueChange={(v) => setTargetPeriod(v as TargetPeriod)}>
+              <SelectTrigger className="h-8 text-xs flex-1">
+                <SelectValue placeholder="Period" />
+              </SelectTrigger>
+              <SelectContent>
+                {PERIOD_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={targetBasis} onValueChange={(v) => setTargetBasis(v as TargetBasis)}>
+              <SelectTrigger className="h-8 text-xs w-28">
+                <SelectValue placeholder="Basis" />
+              </SelectTrigger>
+              <SelectContent>
+                {BASIS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Progress Display */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-muted-foreground mb-0.5">Revenue Today</p>
-              <p className="text-sm font-bold text-foreground">{formatCurrency(revenueAchieved)}</p>
+              <p className="text-xs text-muted-foreground mb-0.5">
+                {targetBasis === 'revenue' ? 'Revenue' : 'Quantity'} Achieved
+              </p>
+              <p className="text-sm font-bold text-foreground">
+                {targetLoading ? '...' : formatValue(actual)}
+              </p>
             </div>
             <div className="text-right">
               <p className="text-xs text-muted-foreground mb-0.5">Progress</p>
-              <p className="text-sm font-bold text-success">{revenueProgress}%</p>
+              <p className="text-sm font-bold text-success">{targetLoading ? '...' : `${progress}%`}</p>
             </div>
           </div>
           
@@ -145,7 +217,7 @@ export const TodaysBeatCard = ({
               <div className="w-full h-2 bg-muted/50 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-gradient-to-r from-success to-success/80 rounded-full transition-all duration-500"
-                  style={{ width: `${revenueProgress}%` }}
+                  style={{ width: `${progress}%` }}
                 />
               </div>
             </div>
@@ -153,22 +225,29 @@ export const TodaysBeatCard = ({
             {/* Pin Marker - positioned above the line */}
             <div 
               className="absolute -translate-x-1/2 z-10 transition-all duration-500"
-              style={{ left: `${Math.max(revenueProgress, 5)}%`, top: '-18px' }}
+              style={{ left: `${Math.max(progress, 5)}%`, top: '-18px' }}
             >
               <div className="flex flex-col items-center">
                 <div className="bg-primary text-primary-foreground px-2.5 py-1 rounded-lg shadow-lg text-[10px] font-bold whitespace-nowrap border-2 border-background">
-                  {formatCurrency(revenueAchieved)}
+                  {targetLoading ? '...' : formatValue(actual)}
                 </div>
                 <MapPin className="h-5 w-5 text-primary drop-shadow-lg fill-primary -mt-0.5" />
               </div>
             </div>
           </div>
 
-          {/* Gap indicator - highlighted below the line, outside the relative container */}
-          {revenueGap > 0 && (
+          {/* Gap indicator - highlighted below the line */}
+          {gap > 0 && !targetLoading && (
             <div className="flex justify-end mt-2">
               <div className="text-sm font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-md border border-primary/20">
-                {formatCurrencyNoDecimal(revenueGap)} to go
+                {formatGapValue(gap)} to go
+              </div>
+            </div>
+          )}
+          {target === 0 && !targetLoading && (
+            <div className="flex justify-end mt-2">
+              <div className="text-xs text-muted-foreground italic">
+                No target set in My Profile
               </div>
             </div>
           )}
