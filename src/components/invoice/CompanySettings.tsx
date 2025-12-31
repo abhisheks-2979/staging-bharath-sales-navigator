@@ -95,15 +95,17 @@ export default function CompanySettings() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast.error("Please upload an image file");
+    // Validate file type (images and PDF)
+    const isImage = file.type.startsWith('image/');
+    const isPDF = file.type === 'application/pdf';
+    if (!isImage && !isPDF) {
+      toast.error("Please upload an image or PDF file");
       return;
     }
 
     // Validate file size (max 2MB)
     if (file.size > 2 * 1024 * 1024) {
-      toast.error("Image size should be less than 2MB");
+      toast.error("File size should be less than 2MB");
       return;
     }
 
@@ -264,19 +266,25 @@ export default function CompanySettings() {
               <div className="flex items-center gap-4">
                 {logoUrl && (
                   <div className="relative w-32 h-32 border rounded-lg overflow-hidden bg-white">
-                    <img src={logoUrl} alt="Company Logo" className="w-full h-full object-contain p-2" />
+                    {logoUrl.toLowerCase().endsWith('.pdf') ? (
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
+                        <span>PDF Logo</span>
+                      </div>
+                    ) : (
+                      <img src={logoUrl} alt="Company Logo" className="w-full h-full object-contain p-2" />
+                    )}
                   </div>
                 )}
                 <div className="flex-1">
                   <Input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,.pdf,application/pdf"
                     onChange={handleLogoUpload}
                     disabled={uploading}
                     className="mb-2"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Upload company logo (max 2MB, PNG/JPG)
+                    Upload company logo (max 2MB, PNG/JPG/PDF)
                   </p>
                 </div>
               </div>
