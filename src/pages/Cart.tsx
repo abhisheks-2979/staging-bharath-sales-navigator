@@ -42,6 +42,7 @@ interface CartItem {
   base_unit?: string;
   quantity: number;
   total: number;
+  hsn_code?: string;
   schemeConditionQuantity?: number;
   schemeDiscountPercentage?: number;
   schemes?: Array<{

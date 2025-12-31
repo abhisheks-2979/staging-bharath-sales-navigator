@@ -34,6 +34,7 @@ interface Product {
   rate: number;
   unit: string;
   base_unit?: string;
+  hsn_code?: string;
   hasScheme?: boolean;
   schemeDetails?: string;
   closingStock?: number;
@@ -62,6 +63,7 @@ interface GridProduct {
   unit: string;
   base_unit?: string;
   conversion_factor?: number;
+  hsn_code?: string;
   hasScheme?: boolean;
   schemeDetails?: string;
   schemeConditionQuantity?: number;
@@ -85,6 +87,7 @@ interface ProductVariant {
   discount_amount: number;
   discount_percentage: number;
   is_active: boolean;
+  hsn_code?: string;
   is_focused_product?: boolean;
   focused_type?: string | null;
   focused_due_date?: string | null;
@@ -1147,6 +1150,8 @@ export const OrderEntry = () => {
       unit: selectedUnit,
       // Store base_unit for correct KG 2 gram conversion in cart and invoice
       base_unit: (product as GridProduct).base_unit || displayProduct.base_unit || displayProduct.unit,
+      // Include HSN code from product for invoice
+      hsn_code: (displayProduct as any).hsn_code || (product as any).hsn_code || '',
       quantity,
       total: finalTotal,
       closingStock: closingStocks[displayProduct.id] || displayProduct.closingStock
