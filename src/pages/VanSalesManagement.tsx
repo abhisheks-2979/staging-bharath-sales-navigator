@@ -288,7 +288,7 @@ export default function VanSalesManagement() {
       const [{ data: vansData }, { data: profilesData }, { data: products }] = await Promise.all([
         supabase.from('vans').select('id, registration_number, make_model').in('id', vanIds),
         supabase.from('profiles').select('id, full_name').in('id', userIds),
-        supabase.from('products').select('id, rate')
+        supabase.from('products').select('id, name, rate')
       ]);
 
       const vansMap: Record<string, any> = {};
@@ -297,7 +297,9 @@ export default function VanSalesManagement() {
       const profilesMap: Record<string, any> = {};
       profilesData?.forEach(p => { profilesMap[p.id] = p; });
       
+      // Build product price map from products table
       const productPriceMap: Record<string, number> = {};
+      products?.forEach(p => { productPriceMap[p.id] = p.rate || 0; });
 
       // Get stock items for each van_stock
       const summaries: VanStockSummary[] = [];
@@ -317,7 +319,17 @@ export default function VanSalesManagement() {
           .eq('plan_date', stock.stock_date)
           .maybeSingle();
 
-        const stockItems: VanStockItem[] = (items || []).map((item: any) => {
+        // Deduplicate items by product_name (keep latest/aggregated)
+        const deduplicatedItemsMap = new Map<string, any>();
+        (items || []).forEach((item: any) => {
+          const existing = deduplicatedItemsMap.get(item.product_name);
+          if (!existing) {
+            deduplicatedItemsMap.set(item.product_name, item);
+          }
+          // Keep the first occurrence (they should have same qty anyway)
+        });
+
+        const stockItems: VanStockItem[] = Array.from(deduplicatedItemsMap.values()).map((item: any) => {
           const priceWithGST = productPriceMap[item.product_id] || 0;
           const priceWithoutGST = priceWithGST / 1.05; // Remove 5% GST
           return {
@@ -332,6 +344,9 @@ export default function VanSalesManagement() {
             price_without_gst: priceWithoutGST
           };
         });
+        
+        // Sort items by product_name alphabetically
+        stockItems.sort((a, b) => a.product_name.localeCompare(b.product_name));
 
         const totalStock = stockItems.reduce((sum, item) => sum + item.start_qty, 0);
         const totalOrdered = stockItems.reduce((sum, item) => sum + item.ordered_qty, 0);
