@@ -96,6 +96,7 @@ export const TodaySummary = () => {
   const [orders, setOrders] = useState<Array<{ retailer: string; amount: number; kgSold: number; kgFormatted: string; creditAmount: number; cashInHand: number; paymentMethod: string }>>([]);
   const [visitsByStatus, setVisitsByStatus] = useState<Record<string, Array<{ retailer: string; note?: string; totalValue?: number; beatName?: string; address?: string; planDate?: string }>>>({});
   const [productGroupedOrders, setProductGroupedOrders] = useState<Array<{ product: string; kgSold: number; kgFormatted: string; value: number; orders: number }>>([]);
+  const [showAllProducts, setShowAllProducts] = useState(false);
   
   // Joint Sales Data
   const [jointSalesData, setJointSalesData] = useState<{
@@ -1019,8 +1020,7 @@ export const TodaySummary = () => {
           kgFormatted: data.kgSold > 0 ? formatKg(data.kgSold) : 'N/A',
           revenue: data.revenue 
         }))
-        .sort((a, b) => b.revenue - a.revenue)
-        .slice(0, 5);
+        .sort((a, b) => b.revenue - a.revenue);
 
       setProductSales(productSalesData);
 
@@ -2254,7 +2254,7 @@ export const TodaySummary = () => {
           <CardHeader>
             <CardTitle className="text-lg">Product-wise Sales</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -2277,7 +2277,7 @@ export const TodaySummary = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  productSales.map((p) => (
+                  (showAllProducts ? productSales : productSales.slice(0, 5)).map((p) => (
                    <TableRow key={p.name}>
                      <TableCell className="font-medium">{p.name}</TableCell>
                      <TableCell className="text-right">{p.kgFormatted}</TableCell>
@@ -2287,6 +2287,16 @@ export const TodaySummary = () => {
                )}
                </TableBody>
             </Table>
+            {productSales.length > 5 && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-full text-primary"
+                onClick={() => setShowAllProducts(!showAllProducts)}
+              >
+                {showAllProducts ? `View Less` : `View More (${productSales.length - 5} more)`}
+              </Button>
+            )}
           </CardContent>
         </Card>
 
