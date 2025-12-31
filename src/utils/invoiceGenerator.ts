@@ -530,56 +530,73 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   const roundedTotal = Math.round(total);
   const totalInWords = numberToWords(roundedTotal) + " Rupees Only";
 
-  // Totals section (right-aligned) - matching preview exactly
+  // Totals section - contained in a box
   yPos = (doc as any).lastAutoTable.finalY + 10;
-  const rightCol = pageWidth - 15;
-  const labelCol = pageWidth - 55;
-
+  
+  // Calculate box dimensions
+  const totalsBoxWidth = 80;
+  const totalsBoxX = pageWidth - 15 - totalsBoxWidth;
+  const labelOffset = 5; // Padding from left edge of box
+  const valueOffset = totalsBoxWidth - 5; // Padding from right edge of box
+  
+  // Calculate box height based on content (discount row optional)
+  const hasDiscountRow = totalDiscount > 0;
+  const rowHeight = 7;
+  const totalRowHeight = 10;
+  const numRows = hasDiscountRow ? 4 : 3; // SUB-TOTAL, (YOU SAVED), SGST, CGST
+  const totalsBoxHeight = (numRows * rowHeight) + totalRowHeight + 6; // +6 for padding
+  
+  // Draw border box for totals
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.5);
+  doc.rect(totalsBoxX, yPos - 2, totalsBoxWidth, totalsBoxHeight);
+  
+  let innerY = yPos + 4;
+  
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(0, 0, 0);
   
-  doc.text("SUB-TOTAL", labelCol, yPos);
-  doc.text(`Rs.${formatExact(subtotal)}`, rightCol, yPos, { align: "right" });
+  // SUB-TOTAL
+  doc.text("SUB-TOTAL", totalsBoxX + labelOffset, innerY);
+  doc.text(`Rs.${formatExact(subtotal)}`, totalsBoxX + valueOffset, innerY, { align: "right" });
   
   // Show "You Saved" if there are discounts
   if (totalDiscount > 0) {
-    yPos += 5;
+    innerY += rowHeight;
     doc.setTextColor(22, 163, 74); // Green text for savings
     doc.setFont("helvetica", "bold");
-    doc.text("YOU SAVED", labelCol, yPos);
-    doc.text(`Rs.${formatExact(totalDiscount)}`, rightCol, yPos, { align: "right" });
+    doc.text("YOU SAVED", totalsBoxX + labelOffset, innerY);
+    doc.text(`Rs.${formatExact(totalDiscount)}`, totalsBoxX + valueOffset, innerY, { align: "right" });
     doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "normal");
   }
   
-  yPos += 5;
-  doc.text("SGST (2.5%)", labelCol, yPos);
-  doc.text(`Rs.${formatExact(sgst)}`, rightCol, yPos, { align: "right" });
+  // SGST
+  innerY += rowHeight;
+  doc.text("SGST (2.5%)", totalsBoxX + labelOffset, innerY);
+  doc.text(`Rs.${formatExact(sgst)}`, totalsBoxX + valueOffset, innerY, { align: "right" });
   
-  yPos += 5;
-  doc.text("CGST (2.5%)", labelCol, yPos);
-  doc.text(`Rs.${formatExact(cgst)}`, rightCol, yPos, { align: "right" });
+  // CGST
+  innerY += rowHeight;
+  doc.text("CGST (2.5%)", totalsBoxX + labelOffset, innerY);
+  doc.text(`Rs.${formatExact(cgst)}`, totalsBoxX + valueOffset, innerY, { align: "right" });
 
-  // Total amount box (green background - centered text)
-  yPos += 6;
-  const totalBoxWidth = 65;
+  // Total amount box (green background - inside the border box)
+  innerY += rowHeight + 2;
   const totalBoxHeight = 10;
-  const totalBoxX = pageWidth - 15 - totalBoxWidth;
-  const totalBoxY = yPos - 3;
   doc.setFillColor(22, 163, 74); // Green background
-  doc.rect(totalBoxX, totalBoxY, totalBoxWidth, totalBoxHeight, "F");
+  doc.rect(totalsBoxX, innerY - 3, totalsBoxWidth, totalBoxHeight, "F");
   
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  // Center the text horizontally and vertically in the box
+  doc.setFontSize(10);
   const totalText = `Total amount: Rs.${formatRounded(total)}`;
   const textWidth = doc.getTextWidth(totalText);
-  const centerX = totalBoxX + totalBoxWidth / 2 - textWidth / 2;
-  const centerY = totalBoxY + totalBoxHeight / 2 + 3; // +3 to account for text baseline
-  doc.text(totalText, centerX, centerY);
+  const centerX = totalsBoxX + totalsBoxWidth / 2 - textWidth / 2;
+  doc.text(totalText, centerX, innerY + 4);
   
+  yPos = yPos + totalsBoxHeight + 2;
   doc.setTextColor(0, 0, 0);
   
   // Total in Words
