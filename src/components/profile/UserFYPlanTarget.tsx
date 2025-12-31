@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -12,16 +13,39 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Target, TrendingUp, Package, Store, Calendar, Trash2, Loader2 } from "lucide-react";
+import { Plus, Target, Package, Store, Trash2, ChevronDown, ChevronRight, X, Calendar, Pencil, MoreVertical } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+
+const QUANTITY_UNITS = ['Units', 'Kg', 'Liters', 'Pcs', 'Boxes', 'Cartons', 'Tonnes', 'Quintals'];
 
 interface BusinessPlan {
   id: string;
@@ -32,105 +56,144 @@ interface BusinessPlan {
   notes: string | null;
 }
 
-interface ProductTarget {
-  id: string;
-  product_id: string;
-  product_name: string;
-  quantity_target: number;
-  revenue_target: number;
-}
-
-interface RetailerTarget {
-  id: string;
-  retailer_id: string;
-  retailer_name: string;
-  last_year_revenue: number;
-  target_revenue: number;
-  quantity_target: number;
-  growth_percent: number;
-}
-
-interface MonthTarget {
-  id: string;
-  month_number: number;
-  month_name: string;
-  revenue_target: number;
-  quantity_target: number;
-}
-
 interface Product {
   id: string;
   name: string;
+  category_id: string | null;
+  category_name: string | null;
+  rate: number;
+}
+
+interface ProductCategory {
+  id: string;
+  name: string;
+  products: Product[];
 }
 
 interface Retailer {
   id: string;
   name: string;
+  category: string | null;
 }
 
-const MONTHS = [
-  { number: 1, name: "January" },
-  { number: 2, name: "February" },
-  { number: 3, name: "March" },
-  { number: 4, name: "April" },
-  { number: 5, name: "May" },
-  { number: 6, name: "June" },
-  { number: 7, name: "July" },
-  { number: 8, name: "August" },
-  { number: 9, name: "September" },
-  { number: 10, name: "October" },
-  { number: 11, name: "November" },
-  { number: 12, name: "December" },
+interface RetailerCategory {
+  category: string;
+  retailers: Retailer[];
+}
+
+interface CategoryTarget {
+  categoryId: string;
+  categoryName: string;
+  quantityTarget: number;
+  revenueTarget: number;
+  equalDivide: boolean;
+  products: ProductTarget[];
+}
+
+interface ProductTarget {
+  productId: string;
+  productName: string;
+  percentage: number;
+  quantityTarget: number;
+  revenueTarget: number;
+}
+
+interface RetailerCategoryTarget {
+  category: string;
+  quantityTarget: number;
+  revenueTarget: number;
+  equalDivide: boolean;
+  retailers: RetailerTargetItem[];
+}
+
+interface RetailerTargetItem {
+  retailerId: string;
+  retailerName: string;
+  percentage: number;
+  quantityTarget: number;
+  revenueTarget: number;
+}
+
+interface MonthProductTarget {
+  productId: string;
+  productName: string;
+  categoryId: string;
+  categoryName: string;
+  percentage: number;
+  quantityTarget: number;
+  revenueTarget: number;
+}
+
+interface MonthTarget {
+  monthNumber: number;
+  monthName: string;
+  percentage: number;
+  quantityTarget: number;
+  revenueTarget: number;
+  useProductPercentages: boolean;
+  products: MonthProductTarget[];
+}
+
+const FY_MONTHS = [
+  { number: 1, name: 'April' },
+  { number: 2, name: 'May' },
+  { number: 3, name: 'June' },
+  { number: 4, name: 'July' },
+  { number: 5, name: 'August' },
+  { number: 6, name: 'September' },
+  { number: 7, name: 'October' },
+  { number: 8, name: 'November' },
+  { number: 9, name: 'December' },
+  { number: 10, name: 'January' },
+  { number: 11, name: 'February' },
+  { number: 12, name: 'March' },
 ];
 
 export function UserFYPlanTarget() {
   const { user } = useAuth();
   const [plans, setPlans] = useState<BusinessPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<BusinessPlan | null>(null);
-  const [productTargets, setProductTargets] = useState<ProductTarget[]>([]);
-  const [retailerTargets, setRetailerTargets] = useState<RetailerTarget[]>([]);
-  const [monthTargets, setMonthTargets] = useState<MonthTarget[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [retailers, setRetailers] = useState<Retailer[]>([]);
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
+  const [retailerCategories, setRetailerCategories] = useState<RetailerCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [productDialogOpen, setProductDialogOpen] = useState(false);
-  const [retailerDialogOpen, setRetailerDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  
+  // Product targets state
+  const [categoryTargets, setCategoryTargets] = useState<CategoryTarget[]>([]);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  
+  // Retailer targets state
+  const [retailerCategoryTargets, setRetailerCategoryTargets] = useState<RetailerCategoryTarget[]>([]);
+  const [expandedRetailerCategories, setExpandedRetailerCategories] = useState<Set<string>>(new Set());
+
+  // Monthly targets state
+  const [monthTargets, setMonthTargets] = useState<MonthTarget[]>([]);
+  const [monthEqualDivide, setMonthEqualDivide] = useState(true);
+  const [monthTotalQuantity, setMonthTotalQuantity] = useState(0);
+  const [monthTotalRevenue, setMonthTotalRevenue] = useState(0);
+  const [expandedMonths, setExpandedMonths] = useState<Set<number>>(new Set());
 
   const [planForm, setPlanForm] = useState({
-    year: new Date().getFullYear(),
-    revenue_target: "",
+    year: new Date().getFullYear() + 1,
     quantity_target: "",
-    quantity_unit: "units",
+    quantity_unit: "Units",
+    revenue_target: "",
     notes: "",
-  });
-
-  const [productForm, setProductForm] = useState({
-    product_id: "",
-    quantity_target: "",
-    revenue_target: "",
-  });
-
-  const [retailerForm, setRetailerForm] = useState({
-    retailer_id: "",
-    last_year_revenue: "",
-    target_revenue: "",
-    quantity_target: "",
   });
 
   useEffect(() => {
     if (user) {
       loadPlans();
-      loadProducts();
-      loadRetailers();
+      loadProductsWithCategories();
+      loadRetailersWithCategories();
     }
   }, [user]);
 
   useEffect(() => {
     if (selectedPlan) {
-      loadProductTargets();
-      loadRetailerTargets();
-      loadMonthTargets();
+      loadExistingTargets();
     }
   }, [selectedPlan]);
 
@@ -144,77 +207,291 @@ export function UserFYPlanTarget() {
         .order('year', { ascending: false });
 
       if (error) throw error;
-      setPlans(data || []);
-      if (data && data.length > 0) {
-        setSelectedPlan(data[0]);
+      const plansData = (data || []).map((p: any) => ({
+        ...p,
+        quantity_target: p.quantity_target || 0,
+        quantity_unit: p.quantity_unit || 'Units'
+      }));
+      setPlans(plansData);
+      if (plansData.length > 0) {
+        setSelectedPlan(plansData[0]);
       }
     } catch (error: any) {
-      toast.error("Failed to load business plans: " + error.message);
+      toast.error("Failed to load FY plans: " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadProducts = async () => {
-    const { data } = await supabase
+  const loadProductsWithCategories = async () => {
+    const { data: products } = await supabase
       .from('products')
-      .select('id, name')
+      .select(`
+        id, 
+        name, 
+        rate,
+        category_id,
+        product_categories(id, name)
+      `)
       .eq('is_active', true)
       .order('name');
-    setProducts(data || []);
+
+    if (products) {
+      const categoryMap = new Map<string, ProductCategory>();
+      
+      products.forEach((p: any) => {
+        const catId = p.category_id || 'uncategorized';
+        const catName = p.product_categories?.name || 'Uncategorized';
+        
+        if (!categoryMap.has(catId)) {
+          categoryMap.set(catId, {
+            id: catId,
+            name: catName,
+            products: []
+          });
+        }
+        
+        categoryMap.get(catId)!.products.push({
+          id: p.id,
+          name: p.name,
+          category_id: p.category_id,
+          category_name: catName,
+          rate: p.rate || 0
+        });
+      });
+      
+      setProductCategories(Array.from(categoryMap.values()).sort((a, b) => a.name.localeCompare(b.name)));
+    }
   };
 
-  const loadRetailers = async () => {
+  const loadRetailersWithCategories = async () => {
     if (!user) return;
-    const { data } = await supabase
+    const { data: retailers } = await supabase
       .from('retailers')
-      .select('id, name')
+      .select('id, name, category')
       .eq('user_id', user.id)
       .order('name');
-    setRetailers(data || []);
+
+    if (retailers) {
+      const categoryMap = new Map<string, RetailerCategory>();
+      
+      retailers.forEach((r: any) => {
+        const cat = r.category || 'Uncategorized';
+        
+        if (!categoryMap.has(cat)) {
+          categoryMap.set(cat, {
+            category: cat,
+            retailers: []
+          });
+        }
+        
+        categoryMap.get(cat)!.retailers.push({
+          id: r.id,
+          name: r.name,
+          category: r.category
+        });
+      });
+      
+      setRetailerCategories(Array.from(categoryMap.values()).sort((a, b) => a.category.localeCompare(b.category)));
+    }
   };
 
-  const loadProductTargets = async () => {
+  const loadExistingTargets = async () => {
     if (!selectedPlan) return;
-    const { data } = await supabase
+    
+    // Load product targets
+    const { data: productData } = await supabase
       .from('user_business_plan_products')
       .select('*')
       .eq('business_plan_id', selectedPlan.id);
-    setProductTargets(data || []);
-  };
 
-  const loadRetailerTargets = async () => {
-    if (!selectedPlan) return;
-    const { data } = await supabase
+    // Load retailer targets
+    const { data: retailerData } = await supabase
       .from('user_business_plan_retailers')
       .select('*')
       .eq('business_plan_id', selectedPlan.id);
-    setRetailerTargets(data || []);
-  };
 
-  const loadMonthTargets = async () => {
-    if (!selectedPlan) return;
-    const { data } = await supabase
+    // Load monthly targets
+    const { data: monthData } = await supabase
       .from('user_business_plan_months')
       .select('*')
-      .eq('business_plan_id', selectedPlan.id)
-      .order('month_number');
-    setMonthTargets(data || []);
+      .eq('business_plan_id', selectedPlan.id);
+
+    // Load monthly product targets
+    const { data: monthProductData } = await supabase
+      .from('user_business_plan_month_products')
+      .select('*')
+      .eq('business_plan_id', selectedPlan.id);
+
+    // Initialize category targets from product categories
+    const newCategoryTargets: CategoryTarget[] = productCategories.map(cat => ({
+      categoryId: cat.id,
+      categoryName: cat.name,
+      quantityTarget: 0,
+      revenueTarget: 0,
+      equalDivide: true,
+      products: cat.products.map(p => {
+        const existing = productData?.find(pd => pd.product_id === p.id);
+        return {
+          productId: p.id,
+          productName: p.name,
+          percentage: 100 / cat.products.length,
+          quantityTarget: existing?.quantity_target || 0,
+          revenueTarget: existing?.revenue_target || 0
+        };
+      })
+    }));
+
+    // Calculate category totals from existing data
+    newCategoryTargets.forEach(cat => {
+      const categoryQtyTotal = cat.products.reduce((sum, p) => sum + p.quantityTarget, 0);
+      const categoryRevTotal = cat.products.reduce((sum, p) => sum + p.revenueTarget, 0);
+      cat.quantityTarget = categoryQtyTotal;
+      cat.revenueTarget = categoryRevTotal;
+      if (categoryRevTotal > 0) {
+        cat.products.forEach(p => {
+          p.percentage = categoryRevTotal > 0 ? (p.revenueTarget / categoryRevTotal) * 100 : 100 / cat.products.length;
+        });
+      }
+    });
+
+    setCategoryTargets(newCategoryTargets);
+
+    // Initialize retailer category targets
+    const newRetailerCategoryTargets: RetailerCategoryTarget[] = retailerCategories.map(cat => ({
+      category: cat.category,
+      quantityTarget: 0,
+      revenueTarget: 0,
+      equalDivide: true,
+      retailers: cat.retailers.map(r => {
+        const existing = retailerData?.find(rd => rd.retailer_id === r.id);
+        return {
+          retailerId: r.id,
+          retailerName: r.name,
+          percentage: 100 / cat.retailers.length,
+          quantityTarget: existing?.quantity_target || 0,
+          revenueTarget: existing?.target_revenue || 0
+        };
+      })
+    }));
+
+    // Calculate category totals from existing retailer data
+    newRetailerCategoryTargets.forEach(cat => {
+      const categoryQtyTotal = cat.retailers.reduce((sum, r) => sum + r.quantityTarget, 0);
+      const categoryRevTotal = cat.retailers.reduce((sum, r) => sum + r.revenueTarget, 0);
+      cat.quantityTarget = categoryQtyTotal;
+      cat.revenueTarget = categoryRevTotal;
+      if (categoryRevTotal > 0) {
+        cat.retailers.forEach(r => {
+          r.percentage = categoryRevTotal > 0 ? (r.revenueTarget / categoryRevTotal) * 100 : 100 / cat.retailers.length;
+        });
+      }
+    });
+
+    setRetailerCategoryTargets(newRetailerCategoryTargets);
+
+    // Get all products from category targets for monthly breakdown
+    const allProducts = productCategories.flatMap(cat => cat.products);
+    
+    // Calculate global product percentages from the Products tab data
+    const totalProductRevenue = productData?.reduce((sum, p) => sum + (p.revenue_target || 0), 0) || 0;
+    const productPercentages: Record<string, number> = {};
+    if (totalProductRevenue > 0) {
+      productData?.forEach(p => {
+        productPercentages[p.product_id] = ((p.revenue_target || 0) / totalProductRevenue) * 100;
+      });
+    } else {
+      // Equal divide if no product targets yet
+      allProducts.forEach(p => {
+        productPercentages[p.id] = allProducts.length > 0 ? 100 / allProducts.length : 0;
+      });
+    }
+
+    // Initialize monthly targets with product breakdown
+    const hasExistingMonthData = monthData && monthData.length > 0;
+    const hasExistingMonthProductData = monthProductData && monthProductData.length > 0;
+    
+    const newMonthTargets: MonthTarget[] = FY_MONTHS.map(m => {
+      const existing = monthData?.find(md => md.month_number === m.number);
+      const monthQty = existing?.quantity_target || (hasExistingMonthData ? 0 : (selectedPlan.quantity_target || 0) / 12);
+      const monthRev = existing?.revenue_target || (hasExistingMonthData ? 0 : (selectedPlan.revenue_target || 0) / 12);
+      
+      // Get month-specific product targets or use global percentages
+      const monthProducts: MonthProductTarget[] = allProducts.map(p => {
+        const existingMonthProduct = monthProductData?.find(
+          mp => mp.month_number === m.number && mp.product_id === p.id
+        );
+        
+        if (existingMonthProduct) {
+          return {
+            productId: p.id,
+            productName: p.name,
+            categoryId: p.category_id || 'uncategorized',
+            categoryName: p.category_name || 'Uncategorized',
+            percentage: existingMonthProduct.percentage || 0,
+            quantityTarget: existingMonthProduct.quantity_target || 0,
+            revenueTarget: existingMonthProduct.revenue_target || 0
+          };
+        }
+        
+        // Use percentage from Products tab
+        const pct = productPercentages[p.id] || 0;
+        return {
+          productId: p.id,
+          productName: p.name,
+          categoryId: p.category_id || 'uncategorized',
+          categoryName: p.category_name || 'Uncategorized',
+          percentage: pct,
+          quantityTarget: (pct / 100) * monthQty,
+          revenueTarget: (pct / 100) * monthRev
+        };
+      });
+      
+      return {
+        monthNumber: m.number,
+        monthName: m.name,
+        percentage: 100 / 12,
+        quantityTarget: monthQty,
+        revenueTarget: monthRev,
+        useProductPercentages: !hasExistingMonthProductData,
+        products: monthProducts
+      };
+    });
+
+    const totalMonthlyQty = newMonthTargets.reduce((sum, m) => sum + m.quantityTarget, 0);
+    const totalMonthlyRev = newMonthTargets.reduce((sum, m) => sum + m.revenueTarget, 0);
+    
+    if (totalMonthlyRev > 0 && hasExistingMonthData) {
+      newMonthTargets.forEach(m => {
+        m.percentage = (m.revenueTarget / totalMonthlyRev) * 100;
+      });
+      setMonthEqualDivide(false);
+    } else {
+      setMonthEqualDivide(true);
+    }
+    setMonthTotalQuantity(totalMonthlyQty);
+    setMonthTotalRevenue(totalMonthlyRev);
+    setMonthTargets(newMonthTargets);
   };
+
+  useEffect(() => {
+    if (productCategories.length > 0 && selectedPlan) {
+      loadExistingTargets();
+    }
+  }, [productCategories, retailerCategories, selectedPlan]);
 
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    
     try {
       const { data, error } = await supabase
         .from('user_business_plans')
         .insert({
           user_id: user.id,
           year: planForm.year,
-          revenue_target: parseFloat(planForm.revenue_target) || 0,
           quantity_target: parseFloat(planForm.quantity_target) || 0,
           quantity_unit: planForm.quantity_unit,
+          revenue_target: parseFloat(planForm.revenue_target) || 0,
           notes: planForm.notes || null,
         })
         .select()
@@ -224,574 +501,1304 @@ export function UserFYPlanTarget() {
       toast.success("FY Plan created");
       setDialogOpen(false);
       setPlanForm({
-        year: new Date().getFullYear(),
-        revenue_target: "",
+        year: new Date().getFullYear() + 1,
         quantity_target: "",
-        quantity_unit: "units",
+        quantity_unit: "Units",
+        revenue_target: "",
         notes: "",
       });
       loadPlans();
-      setSelectedPlan(data);
+      setSelectedPlan({
+        ...data,
+        quantity_target: data.quantity_target || 0,
+        quantity_unit: data.quantity_unit || 'Units'
+      });
     } catch (error: any) {
       toast.error("Failed to create plan: " + error.message);
     }
   };
 
-  const handleAddProductTarget = async (e: React.FormEvent) => {
+  const handleEditPlan = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPlan || !productForm.product_id) return;
-
-    const product = products.find(p => p.id === productForm.product_id);
-    if (!product) return;
-
-    try {
-      const { error } = await supabase
-        .from('user_business_plan_products')
-        .insert({
-          business_plan_id: selectedPlan.id,
-          product_id: productForm.product_id,
-          product_name: product.name,
-          quantity_target: parseInt(productForm.quantity_target) || 0,
-          revenue_target: parseFloat(productForm.revenue_target) || 0,
-        });
-
-      if (error) throw error;
-      toast.success("Product target added");
-      setProductDialogOpen(false);
-      setProductForm({ product_id: "", quantity_target: "", revenue_target: "" });
-      loadProductTargets();
-    } catch (error: any) {
-      toast.error("Failed to add product: " + error.message);
-    }
-  };
-
-  const handleAddRetailerTarget = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedPlan || !retailerForm.retailer_id) return;
-
-    const retailer = retailers.find(r => r.id === retailerForm.retailer_id);
-    if (!retailer) return;
-
-    const lastYear = parseFloat(retailerForm.last_year_revenue) || 0;
-    const target = parseFloat(retailerForm.target_revenue) || 0;
-    const growth = lastYear > 0 ? ((target - lastYear) / lastYear) * 100 : 0;
-
-    try {
-      const { error } = await supabase
-        .from('user_business_plan_retailers')
-        .insert({
-          business_plan_id: selectedPlan.id,
-          retailer_id: retailerForm.retailer_id,
-          retailer_name: retailer.name,
-          last_year_revenue: lastYear,
-          target_revenue: target,
-          quantity_target: parseFloat(retailerForm.quantity_target) || 0,
-          growth_percent: growth,
-        });
-
-      if (error) throw error;
-      toast.success("Retailer target added");
-      setRetailerDialogOpen(false);
-      setRetailerForm({ retailer_id: "", last_year_revenue: "", target_revenue: "", quantity_target: "" });
-      loadRetailerTargets();
-    } catch (error: any) {
-      toast.error("Failed to add retailer: " + error.message);
-    }
-  };
-
-  const handleUpdateMonthTarget = async (monthNumber: number, monthName: string, revenueTarget: number, quantityTarget: number) => {
     if (!selectedPlan) return;
-
-    const existingMonth = monthTargets.find(m => m.month_number === monthNumber);
-
     try {
-      if (existingMonth) {
-        const { error } = await supabase
-          .from('user_business_plan_months')
-          .update({
-            revenue_target: revenueTarget,
-            quantity_target: quantityTarget,
-          })
-          .eq('id', existingMonth.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('user_business_plan_months')
-          .insert({
-            business_plan_id: selectedPlan.id,
-            month_number: monthNumber,
-            month_name: monthName,
-            revenue_target: revenueTarget,
-            quantity_target: quantityTarget,
-          });
-        if (error) throw error;
-      }
-      loadMonthTargets();
+      const { error } = await supabase
+        .from('user_business_plans')
+        .update({
+          year: planForm.year,
+          quantity_target: parseFloat(planForm.quantity_target) || 0,
+          quantity_unit: planForm.quantity_unit,
+          revenue_target: parseFloat(planForm.revenue_target) || 0,
+          notes: planForm.notes || null,
+        })
+        .eq('id', selectedPlan.id);
+
+      if (error) throw error;
+      toast.success("FY Plan updated");
+      setEditDialogOpen(false);
+      loadPlans();
     } catch (error: any) {
-      toast.error("Failed to update month target: " + error.message);
+      toast.error("Failed to update plan: " + error.message);
     }
   };
 
-  const handleDeleteProductTarget = async (id: string) => {
-    const { error } = await supabase
-      .from('user_business_plan_products')
-      .delete()
-      .eq('id', id);
-    if (error) toast.error("Failed to delete");
-    else loadProductTargets();
+  const handleDeletePlan = async () => {
+    if (!selectedPlan) return;
+    try {
+      // Delete related data first
+      await supabase.from('user_business_plan_products').delete().eq('business_plan_id', selectedPlan.id);
+      await supabase.from('user_business_plan_retailers').delete().eq('business_plan_id', selectedPlan.id);
+      await supabase.from('user_business_plan_months').delete().eq('business_plan_id', selectedPlan.id);
+      await supabase.from('user_business_plan_month_products').delete().eq('business_plan_id', selectedPlan.id);
+      
+      const { error } = await supabase
+        .from('user_business_plans')
+        .delete()
+        .eq('id', selectedPlan.id);
+
+      if (error) throw error;
+      toast.success("FY Plan deleted");
+      setDeleteDialogOpen(false);
+      setSelectedPlan(null);
+      loadPlans();
+    } catch (error: any) {
+      toast.error("Failed to delete plan: " + error.message);
+    }
   };
 
-  const handleDeleteRetailerTarget = async (id: string) => {
-    const { error } = await supabase
-      .from('user_business_plan_retailers')
-      .delete()
-      .eq('id', id);
-    if (error) toast.error("Failed to delete");
-    else loadRetailerTargets();
+  const openEditDialog = () => {
+    if (selectedPlan) {
+      setPlanForm({
+        year: selectedPlan.year,
+        quantity_target: selectedPlan.quantity_target.toString(),
+        quantity_unit: selectedPlan.quantity_unit,
+        revenue_target: selectedPlan.revenue_target.toString(),
+        notes: selectedPlan.notes || "",
+      });
+      setEditDialogOpen(true);
+    }
   };
 
-  const handleDistributeMonthly = async () => {
+  const toggleCategoryExpand = (categoryId: string) => {
+    const newExpanded = new Set(expandedCategories);
+    if (newExpanded.has(categoryId)) {
+      newExpanded.delete(categoryId);
+    } else {
+      newExpanded.add(categoryId);
+    }
+    setExpandedCategories(newExpanded);
+  };
+
+  const toggleRetailerCategoryExpand = (category: string) => {
+    const newExpanded = new Set(expandedRetailerCategories);
+    if (newExpanded.has(category)) {
+      newExpanded.delete(category);
+    } else {
+      newExpanded.add(category);
+    }
+    setExpandedRetailerCategories(newExpanded);
+  };
+
+  // Product handlers with quantity
+  const handleCategoryTargetChange = (categoryId: string, quantityValue: number, revenueValue: number) => {
+    setCategoryTargets(prev => prev.map(cat => {
+      if (cat.categoryId !== categoryId) return cat;
+      
+      const newProducts = cat.products.map(p => ({
+        ...p,
+        quantityTarget: cat.equalDivide ? quantityValue / cat.products.length : (p.percentage / 100) * quantityValue,
+        revenueTarget: cat.equalDivide ? revenueValue / cat.products.length : (p.percentage / 100) * revenueValue
+      }));
+      
+      return { ...cat, quantityTarget: quantityValue, revenueTarget: revenueValue, products: newProducts };
+    }));
+  };
+
+  const handleEqualDivideChange = (categoryId: string, checked: boolean) => {
+    setCategoryTargets(prev => prev.map(cat => {
+      if (cat.categoryId !== categoryId) return cat;
+      
+      const newProducts = cat.products.map(p => ({
+        ...p,
+        percentage: checked ? 100 / cat.products.length : p.percentage,
+        quantityTarget: checked ? cat.quantityTarget / cat.products.length : (p.percentage / 100) * cat.quantityTarget,
+        revenueTarget: checked ? cat.revenueTarget / cat.products.length : (p.percentage / 100) * cat.revenueTarget
+      }));
+      
+      return { ...cat, equalDivide: checked, products: newProducts };
+    }));
+  };
+
+  const handleProductPercentageChange = (categoryId: string, productId: string, percentage: number) => {
+    setCategoryTargets(prev => prev.map(cat => {
+      if (cat.categoryId !== categoryId) return cat;
+      
+      const newProducts = cat.products.map(p => {
+        if (p.productId !== productId) return p;
+        return {
+          ...p,
+          percentage,
+          quantityTarget: (percentage / 100) * cat.quantityTarget,
+          revenueTarget: (percentage / 100) * cat.revenueTarget
+        };
+      });
+      
+      return { ...cat, equalDivide: false, products: newProducts };
+    }));
+  };
+
+  const removeCategory = (categoryId: string) => {
+    setCategoryTargets(prev => prev.filter(cat => cat.categoryId !== categoryId));
+  };
+
+  const removeProduct = (categoryId: string, productId: string) => {
+    setCategoryTargets(prev => prev.map(cat => {
+      if (cat.categoryId !== categoryId) return cat;
+      const newProducts = cat.products.filter(p => p.productId !== productId);
+      return { ...cat, products: newProducts };
+    }));
+  };
+
+  // Retailer handlers with quantity
+  const handleRetailerCategoryTargetChange = (category: string, quantityValue: number, revenueValue: number) => {
+    setRetailerCategoryTargets(prev => prev.map(cat => {
+      if (cat.category !== category) return cat;
+      
+      const newRetailers = cat.retailers.map(r => ({
+        ...r,
+        quantityTarget: cat.equalDivide ? quantityValue / cat.retailers.length : (r.percentage / 100) * quantityValue,
+        revenueTarget: cat.equalDivide ? revenueValue / cat.retailers.length : (r.percentage / 100) * revenueValue
+      }));
+      
+      return { ...cat, quantityTarget: quantityValue, revenueTarget: revenueValue, retailers: newRetailers };
+    }));
+  };
+
+  const handleRetailerEqualDivideChange = (category: string, checked: boolean) => {
+    setRetailerCategoryTargets(prev => prev.map(cat => {
+      if (cat.category !== category) return cat;
+      
+      const newRetailers = cat.retailers.map(r => ({
+        ...r,
+        percentage: checked ? 100 / cat.retailers.length : r.percentage,
+        quantityTarget: checked ? cat.quantityTarget / cat.retailers.length : (r.percentage / 100) * cat.quantityTarget,
+        revenueTarget: checked ? cat.revenueTarget / cat.retailers.length : (r.percentage / 100) * cat.revenueTarget
+      }));
+      
+      return { ...cat, equalDivide: checked, retailers: newRetailers };
+    }));
+  };
+
+  const handleRetailerPercentageChange = (category: string, retailerId: string, percentage: number) => {
+    setRetailerCategoryTargets(prev => prev.map(cat => {
+      if (cat.category !== category) return cat;
+      
+      const newRetailers = cat.retailers.map(r => {
+        if (r.retailerId !== retailerId) return r;
+        return {
+          ...r,
+          percentage,
+          quantityTarget: (percentage / 100) * cat.quantityTarget,
+          revenueTarget: (percentage / 100) * cat.revenueTarget
+        };
+      });
+      
+      return { ...cat, equalDivide: false, retailers: newRetailers };
+    }));
+  };
+
+  const removeRetailerCategory = (category: string) => {
+    setRetailerCategoryTargets(prev => prev.filter(cat => cat.category !== category));
+  };
+
+  const removeRetailer = (category: string, retailerId: string) => {
+    setRetailerCategoryTargets(prev => prev.map(cat => {
+      if (cat.category !== category) return cat;
+      const newRetailers = cat.retailers.filter(r => r.retailerId !== retailerId);
+      return { ...cat, retailers: newRetailers };
+    }));
+  };
+
+  const saveProductTargets = async () => {
     if (!selectedPlan) return;
     
-    const monthlyRevenue = (selectedPlan.revenue_target || 0) / 12;
-    const monthlyQuantity = (selectedPlan.quantity_target || 0) / 12;
+    try {
+      // Delete existing
+      await supabase
+        .from('user_business_plan_products')
+        .delete()
+        .eq('business_plan_id', selectedPlan.id);
 
-    for (const month of MONTHS) {
-      await handleUpdateMonthTarget(month.number, month.name, monthlyRevenue, monthlyQuantity);
+      // Insert new
+      const productsToInsert = categoryTargets.flatMap(cat => 
+        cat.products.filter(p => p.quantityTarget > 0 || p.revenueTarget > 0).map(p => ({
+          business_plan_id: selectedPlan.id,
+          product_id: p.productId,
+          product_name: p.productName,
+          quantity_target: Math.round(p.quantityTarget),
+          revenue_target: Math.round(p.revenueTarget)
+        }))
+      );
+
+      if (productsToInsert.length > 0) {
+        const { error } = await supabase
+          .from('user_business_plan_products')
+          .insert(productsToInsert);
+        if (error) throw error;
+      }
+
+      toast.success("Product targets saved");
+    } catch (error: any) {
+      toast.error("Failed to save: " + error.message);
     }
-    toast.success("Monthly targets distributed evenly");
   };
 
-  const totalProductRevenue = productTargets.reduce((sum, p) => sum + (p.revenue_target || 0), 0);
-  const totalProductQuantity = productTargets.reduce((sum, p) => sum + (p.quantity_target || 0), 0);
-  const totalRetailerRevenue = retailerTargets.reduce((sum, r) => sum + (r.target_revenue || 0), 0);
-  const totalRetailerQuantity = retailerTargets.reduce((sum, r) => sum + (r.quantity_target || 0), 0);
-  const totalMonthlyRevenue = monthTargets.reduce((sum, m) => sum + (m.revenue_target || 0), 0);
-  const totalMonthlyQuantity = monthTargets.reduce((sum, m) => sum + (m.quantity_target || 0), 0);
+  const saveRetailerTargets = async () => {
+    if (!selectedPlan) return;
+    
+    try {
+      // Delete existing
+      await supabase
+        .from('user_business_plan_retailers')
+        .delete()
+        .eq('business_plan_id', selectedPlan.id);
 
-  const getMonthTarget = (monthNumber: number) => {
-    return monthTargets.find(m => m.month_number === monthNumber) || { revenue_target: 0, quantity_target: 0 };
+      // Insert new
+      const retailersToInsert = retailerCategoryTargets.flatMap(cat => 
+        cat.retailers.filter(r => r.quantityTarget > 0 || r.revenueTarget > 0).map(r => ({
+          business_plan_id: selectedPlan.id,
+          retailer_id: r.retailerId,
+          retailer_name: r.retailerName,
+          last_year_revenue: 0,
+          quantity_target: Math.round(r.quantityTarget),
+          target_revenue: Math.round(r.revenueTarget),
+          growth_percent: 0
+        }))
+      );
+
+      if (retailersToInsert.length > 0) {
+        const { error } = await supabase
+          .from('user_business_plan_retailers')
+          .insert(retailersToInsert);
+        if (error) throw error;
+      }
+
+      toast.success("Retailer targets saved");
+    } catch (error: any) {
+      toast.error("Failed to save: " + error.message);
+    }
   };
+
+  // Month target handlers with quantity and product breakdown
+  const handleMonthTotalTargetChange = (quantityValue: number, revenueValue: number) => {
+    setMonthTotalQuantity(quantityValue);
+    setMonthTotalRevenue(revenueValue);
+    if (monthEqualDivide) {
+      setMonthTargets(prev => prev.map(m => {
+        const monthQty = quantityValue / 12;
+        const monthRev = revenueValue / 12;
+        return {
+          ...m,
+          quantityTarget: monthQty,
+          revenueTarget: monthRev,
+          percentage: 100 / 12,
+          products: m.products.map(p => ({
+            ...p,
+            quantityTarget: (p.percentage / 100) * monthQty,
+            revenueTarget: (p.percentage / 100) * monthRev
+          }))
+        };
+      }));
+    } else {
+      setMonthTargets(prev => prev.map(m => {
+        const monthQty = (m.percentage / 100) * quantityValue;
+        const monthRev = (m.percentage / 100) * revenueValue;
+        return {
+          ...m,
+          quantityTarget: monthQty,
+          revenueTarget: monthRev,
+          products: m.products.map(p => ({
+            ...p,
+            quantityTarget: (p.percentage / 100) * monthQty,
+            revenueTarget: (p.percentage / 100) * monthRev
+          }))
+        };
+      }));
+    }
+  };
+
+  const handleMonthEqualDivideChange = (checked: boolean) => {
+    setMonthEqualDivide(checked);
+    if (checked) {
+      setMonthTargets(prev => prev.map(m => {
+        const monthQty = monthTotalQuantity / 12;
+        const monthRev = monthTotalRevenue / 12;
+        return {
+          ...m,
+          percentage: 100 / 12,
+          quantityTarget: monthQty,
+          revenueTarget: monthRev,
+          products: m.products.map(p => ({
+            ...p,
+            quantityTarget: (p.percentage / 100) * monthQty,
+            revenueTarget: (p.percentage / 100) * monthRev
+          }))
+        };
+      }));
+    }
+  };
+
+  const handleMonthPercentageChange = (monthNumber: number, percentage: number) => {
+    setMonthEqualDivide(false);
+    setMonthTargets(prev => prev.map(m => {
+      if (m.monthNumber !== monthNumber) return m;
+      const monthQty = (percentage / 100) * monthTotalQuantity;
+      const monthRev = (percentage / 100) * monthTotalRevenue;
+      return {
+        ...m,
+        percentage,
+        quantityTarget: monthQty,
+        revenueTarget: monthRev,
+        products: m.products.map(p => ({
+          ...p,
+          quantityTarget: (p.percentage / 100) * monthQty,
+          revenueTarget: (p.percentage / 100) * monthRev
+        }))
+      };
+    }));
+  };
+
+  const handleMonthTargetChange = (monthNumber: number, quantityTarget: number, revenueTarget: number) => {
+    setMonthEqualDivide(false);
+    setMonthTargets(prev => {
+      const newTargets = prev.map(m => {
+        if (m.monthNumber !== monthNumber) return m;
+        return {
+          ...m,
+          quantityTarget,
+          revenueTarget,
+          products: m.products.map(p => ({
+            ...p,
+            quantityTarget: (p.percentage / 100) * quantityTarget,
+            revenueTarget: (p.percentage / 100) * revenueTarget
+          }))
+        };
+      });
+      const newTotalQty = newTargets.reduce((sum, m) => sum + m.quantityTarget, 0);
+      const newTotalRev = newTargets.reduce((sum, m) => sum + m.revenueTarget, 0);
+      setMonthTotalQuantity(newTotalQty);
+      setMonthTotalRevenue(newTotalRev);
+      return newTargets.map(m => ({
+        ...m,
+        percentage: newTotalRev > 0 ? (m.revenueTarget / newTotalRev) * 100 : 100 / 12
+      }));
+    });
+  };
+
+  const toggleMonthExpand = (monthNumber: number) => {
+    const newExpanded = new Set(expandedMonths);
+    if (newExpanded.has(monthNumber)) {
+      newExpanded.delete(monthNumber);
+    } else {
+      newExpanded.add(monthNumber);
+    }
+    setExpandedMonths(newExpanded);
+  };
+
+  const handleMonthProductPercentageChange = (monthNumber: number, productId: string, percentage: number) => {
+    setMonthTargets(prev => prev.map(m => {
+      if (m.monthNumber !== monthNumber) return m;
+      return {
+        ...m,
+        useProductPercentages: false,
+        products: m.products.map(p => {
+          if (p.productId !== productId) return p;
+          return {
+            ...p,
+            percentage,
+            quantityTarget: (percentage / 100) * m.quantityTarget,
+            revenueTarget: (percentage / 100) * m.revenueTarget
+          };
+        })
+      };
+    }));
+  };
+
+  const handleApplyProductPercentagesFromProductsTab = (monthNumber: number) => {
+    // Get percentages from the Products tab
+    const productRevenues: Record<string, number> = {};
+    categoryTargets.forEach(cat => {
+      cat.products.forEach(p => {
+        productRevenues[p.productId] = (productRevenues[p.productId] || 0) + p.revenueTarget;
+      });
+    });
+    
+    const totalRev = Object.values(productRevenues).reduce((sum, r) => sum + r, 0);
+    
+    setMonthTargets(prev => prev.map(m => {
+      if (m.monthNumber !== monthNumber) return m;
+      return {
+        ...m,
+        useProductPercentages: true,
+        products: m.products.map(p => {
+          const pct = totalRev > 0 ? ((productRevenues[p.productId] || 0) / totalRev) * 100 : (100 / m.products.length);
+          return {
+            ...p,
+            percentage: pct,
+            quantityTarget: (pct / 100) * m.quantityTarget,
+            revenueTarget: (pct / 100) * m.revenueTarget
+          };
+        })
+      };
+    }));
+  };
+
+  const saveMonthTargets = async () => {
+    if (!selectedPlan) return;
+    
+    try {
+      // Delete existing month targets
+      await supabase
+        .from('user_business_plan_months')
+        .delete()
+        .eq('business_plan_id', selectedPlan.id);
+
+      // Delete existing month product targets
+      await supabase
+        .from('user_business_plan_month_products')
+        .delete()
+        .eq('business_plan_id', selectedPlan.id);
+
+      // Insert month targets
+      const monthsToInsert = monthTargets.filter(m => m.quantityTarget > 0 || m.revenueTarget > 0).map(m => ({
+        business_plan_id: selectedPlan.id,
+        month_number: m.monthNumber,
+        month_name: m.monthName,
+        quantity_target: Math.round(m.quantityTarget),
+        revenue_target: Math.round(m.revenueTarget)
+      }));
+
+      if (monthsToInsert.length > 0) {
+        const { error } = await supabase
+          .from('user_business_plan_months')
+          .insert(monthsToInsert);
+        if (error) throw error;
+      }
+
+      // Insert month product targets
+      const monthProductsToInsert = monthTargets.flatMap(m => 
+        m.products.filter(p => p.quantityTarget > 0 || p.revenueTarget > 0 || p.percentage > 0).map(p => ({
+          business_plan_id: selectedPlan.id,
+          month_number: m.monthNumber,
+          month_name: m.monthName,
+          product_id: p.productId,
+          product_name: p.productName,
+          percentage: p.percentage,
+          quantity_target: Math.round(p.quantityTarget),
+          revenue_target: Math.round(p.revenueTarget)
+        }))
+      );
+
+      if (monthProductsToInsert.length > 0) {
+        const { error } = await supabase
+          .from('user_business_plan_month_products')
+          .insert(monthProductsToInsert);
+        if (error) throw error;
+      }
+
+      toast.success("Monthly targets saved");
+    } catch (error: any) {
+      toast.error("Failed to save: " + error.message);
+    }
+  };
+
+  // Computed totals
+  const totalProductQuantity = useMemo(() => 
+    categoryTargets.reduce((sum, cat) => 
+      sum + cat.products.reduce((pSum, p) => pSum + p.quantityTarget, 0), 0), 
+    [categoryTargets]
+  );
+
+  const totalProductRevenue = useMemo(() => 
+    categoryTargets.reduce((sum, cat) => 
+      sum + cat.products.reduce((pSum, p) => pSum + p.revenueTarget, 0), 0), 
+    [categoryTargets]
+  );
+
+  const totalRetailerQuantity = useMemo(() => 
+    retailerCategoryTargets.reduce((sum, cat) => 
+      sum + cat.retailers.reduce((rSum, r) => rSum + r.quantityTarget, 0), 0), 
+    [retailerCategoryTargets]
+  );
+
+  const totalRetailerRevenue = useMemo(() => 
+    retailerCategoryTargets.reduce((sum, cat) => 
+      sum + cat.retailers.reduce((rSum, r) => rSum + r.revenueTarget, 0), 0), 
+    [retailerCategoryTargets]
+  );
+
+  const totalMonthQuantityComputed = useMemo(() => 
+    monthTargets.reduce((sum, m) => sum + m.quantityTarget, 0), 
+    [monthTargets]
+  );
+
+  const totalMonthRevenueComputed = useMemo(() => 
+    monthTargets.reduce((sum, m) => sum + m.revenueTarget, 0), 
+    [monthTargets]
+  );
+
+  const quantityUnit = selectedPlan?.quantity_unit || 'Units';
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
-            My FY Target Plan
-          </CardTitle>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-1">
-                <Plus className="h-4 w-4" />
-                New Plan
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create FY Plan</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleCreatePlan} className="space-y-4">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold flex items-center gap-2">
+          <Target className="h-4 w-4" />
+          My FY Target
+        </h3>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" variant="outline" className="gap-1">
+              <Plus className="h-3 w-3" />
+              New Plan
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create FY Plan</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleCreatePlan} className="space-y-4">
+              <div>
+                <Label>Financial Year</Label>
+                <Input
+                  type="number"
+                  value={planForm.year}
+                  onChange={(e) => setPlanForm(prev => ({ ...prev, year: parseInt(e.target.value) }))}
+                  min={2020}
+                  max={2050}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Financial Year</Label>
+                  <Label>Quantity Target</Label>
+                  <Input
+                    type="number"
+                    value={planForm.quantity_target}
+                    onChange={(e) => setPlanForm(prev => ({ ...prev, quantity_target: e.target.value }))}
+                    placeholder="Annual quantity"
+                  />
+                </div>
+                <div>
+                  <Label>Unit of Measure</Label>
                   <Select
-                    value={planForm.year.toString()}
-                    onValueChange={(v) => setPlanForm(prev => ({ ...prev, year: parseInt(v) }))}
+                    value={planForm.quantity_unit}
+                    onValueChange={(value) => setPlanForm(prev => ({ ...prev, quantity_unit: value }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {[...Array(5)].map((_, i) => {
-                        const year = new Date().getFullYear() + i;
-                        return (
-                          <SelectItem key={year} value={year.toString()}>
-                            FY {year}
-                          </SelectItem>
-                        );
-                      })}
+                      {QUANTITY_UNITS.map(unit => (
+                        <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label>Annual Revenue Target (₹)</Label>
-                  <Input
-                    type="number"
-                    value={planForm.revenue_target}
-                    onChange={(e) => setPlanForm(prev => ({ ...prev, revenue_target: e.target.value }))}
-                    placeholder="e.g., 1000000"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label>Quantity Target</Label>
-                    <Input
-                      type="number"
-                      value={planForm.quantity_target}
-                      onChange={(e) => setPlanForm(prev => ({ ...prev, quantity_target: e.target.value }))}
-                      placeholder="e.g., 5000"
-                    />
-                  </div>
-                  <div>
-                    <Label>Unit</Label>
-                    <Select
-                      value={planForm.quantity_unit}
-                      onValueChange={(v) => setPlanForm(prev => ({ ...prev, quantity_unit: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="units">Units</SelectItem>
-                        <SelectItem value="kg">Kg</SelectItem>
-                        <SelectItem value="liters">Liters</SelectItem>
-                        <SelectItem value="boxes">Boxes</SelectItem>
-                        <SelectItem value="cases">Cases</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div>
-                  <Label>Notes</Label>
-                  <Input
-                    value={planForm.notes}
-                    onChange={(e) => setPlanForm(prev => ({ ...prev, notes: e.target.value }))}
-                    placeholder="Optional notes"
-                  />
-                </div>
-                <Button type="submit" className="w-full">Create Plan</Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : plans.length === 0 ? (
-          <div className="text-center py-8">
-            <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">No FY plans yet. Create your first plan to set targets.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {/* Year Selector */}
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {plans.map(plan => (
-                <Button
-                  key={plan.id}
-                  variant={selectedPlan?.id === plan.id ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedPlan(plan)}
-                >
-                  FY {plan.year}
-                </Button>
-              ))}
-            </div>
+              </div>
+              <div>
+                <Label>Revenue Target (₹)</Label>
+                <Input
+                  type="number"
+                  value={planForm.revenue_target}
+                  onChange={(e) => setPlanForm(prev => ({ ...prev, revenue_target: e.target.value }))}
+                  placeholder="Annual revenue target"
+                />
+              </div>
+              <div>
+                <Label>Notes</Label>
+                <Input
+                  value={planForm.notes}
+                  onChange={(e) => setPlanForm(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Optional notes"
+                />
+              </div>
+              <Button type="submit" className="w-full">Create Plan</Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
 
-            {selectedPlan && (
-              <>
-                {/* Plan Overview */}
-                <Card className="bg-muted/50">
-                  <CardContent className="p-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Revenue Target</p>
-                        <p className="text-lg font-bold">₹{(selectedPlan.revenue_target || 0).toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Quantity Target</p>
-                        <p className="text-lg font-bold">{(selectedPlan.quantity_target || 0).toLocaleString()} {selectedPlan.quantity_unit}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Year</p>
-                        <p className="text-sm font-medium">FY {selectedPlan.year}</p>
-                      </div>
-                      {selectedPlan.notes && (
-                        <div className="col-span-2 md:col-span-1">
-                          <p className="text-xs text-muted-foreground">Notes</p>
-                          <p className="text-sm">{selectedPlan.notes}</p>
-                        </div>
-                      )}
+      {loading ? (
+        <div className="h-32 bg-muted animate-pulse rounded" />
+      ) : plans.length === 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <Target className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+            <p className="text-sm text-muted-foreground">No FY plans yet</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Year Selector */}
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {plans.map(plan => (
+              <Button
+                key={plan.id}
+                variant={selectedPlan?.id === plan.id ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedPlan(plan)}
+              >
+                FY {plan.year}
+              </Button>
+            ))}
+          </div>
+
+          {selectedPlan && (
+            <>
+              {/* Plan Overview */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-medium">FY {selectedPlan.year} Overview</span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={openEditDialog}>
+                          <Pencil className="h-3.5 w-3.5 mr-2" />
+                          Edit Plan
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="text-destructive"
+                          onClick={() => setDeleteDialogOpen(true)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-2" />
+                          Delete Plan
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Quantity Target</p>
+                      <p className="text-lg font-bold">{selectedPlan.quantity_target.toLocaleString()} {quantityUnit}</p>
                     </div>
-                  </CardContent>
-                </Card>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Revenue Target</p>
+                      <p className="text-lg font-bold">₹{selectedPlan.revenue_target.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-                {/* Tabs for Products, Retailers, Monthly */}
-                <Tabs defaultValue="products" className="mt-4">
-                  <TabsList className="grid grid-cols-3 w-full">
-                    <TabsTrigger value="products" className="text-xs gap-1">
-                      <Package className="h-3 w-3" />
-                      Products
-                    </TabsTrigger>
-                    <TabsTrigger value="retailers" className="text-xs gap-1">
-                      <Store className="h-3 w-3" />
-                      Retailers
-                    </TabsTrigger>
-                    <TabsTrigger value="monthly" className="text-xs gap-1">
-                      <Calendar className="h-3 w-3" />
-                      Monthly
-                    </TabsTrigger>
-                  </TabsList>
-
-                  {/* Products Tab */}
-                  <TabsContent value="products" className="mt-4">
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-sm">Product Targets</CardTitle>
-                          <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
-                            <DialogTrigger asChild>
-                              <Button size="sm" variant="outline" className="gap-1 h-7">
-                                <Plus className="h-3 w-3" />
-                                Add
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Add Product Target</DialogTitle>
-                              </DialogHeader>
-                              <form onSubmit={handleAddProductTarget} className="space-y-4">
-                                <div>
-                                  <Label>Product</Label>
-                                  <Select
-                                    value={productForm.product_id}
-                                    onValueChange={(v) => setProductForm(prev => ({ ...prev, product_id: v }))}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Select product" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {products.map(p => (
-                                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                <div>
-                                  <Label>Quantity Target</Label>
-                                  <Input
-                                    type="number"
-                                    value={productForm.quantity_target}
-                                    onChange={(e) => setProductForm(prev => ({ ...prev, quantity_target: e.target.value }))}
-                                  />
-                                </div>
-                                <div>
-                                  <Label>Revenue Target (₹)</Label>
-                                  <Input
-                                    type="number"
-                                    value={productForm.revenue_target}
-                                    onChange={(e) => setProductForm(prev => ({ ...prev, revenue_target: e.target.value }))}
-                                  />
-                                </div>
-                                <Button type="submit" className="w-full">Add Product</Button>
-                              </form>
-                            </DialogContent>
-                          </Dialog>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        {productTargets.length === 0 ? (
-                          <p className="text-sm text-muted-foreground text-center py-4">No product targets added yet</p>
-                        ) : (
-                          <div className="space-y-2">
-                            {productTargets.map(pt => (
-                              <div key={pt.id} className="flex items-center justify-between border rounded p-2">
-                                <div>
-                                  <p className="text-sm font-medium">{pt.product_name}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    Qty: {pt.quantity_target.toLocaleString()} | ₹{pt.revenue_target.toLocaleString()}
-                                  </p>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 text-destructive"
-                                  onClick={() => handleDeleteProductTarget(pt.id)}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
+              {/* Edit Plan Dialog */}
+              <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit FY Plan</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleEditPlan} className="space-y-4">
+                    <div>
+                      <Label>Financial Year</Label>
+                      <Input
+                        type="number"
+                        value={planForm.year}
+                        onChange={(e) => setPlanForm(prev => ({ ...prev, year: parseInt(e.target.value) }))}
+                        min={2020}
+                        max={2050}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Quantity Target</Label>
+                        <Input
+                          type="number"
+                          value={planForm.quantity_target}
+                          onChange={(e) => setPlanForm(prev => ({ ...prev, quantity_target: e.target.value }))}
+                          placeholder="Annual quantity"
+                        />
+                      </div>
+                      <div>
+                        <Label>Unit of Measure</Label>
+                        <Select
+                          value={planForm.quantity_unit}
+                          onValueChange={(value) => setPlanForm(prev => ({ ...prev, quantity_unit: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {QUANTITY_UNITS.map(unit => (
+                              <SelectItem key={unit} value={unit}>{unit}</SelectItem>
                             ))}
-                            <div className="border-t pt-2 mt-2 flex justify-between text-sm font-medium">
-                              <span>Total: {totalProductQuantity.toLocaleString()} qty</span>
-                              <span>₹{totalProductRevenue.toLocaleString()}</span>
-                            </div>
-                          </div>
-                        )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Revenue Target (₹)</Label>
+                      <Input
+                        type="number"
+                        value={planForm.revenue_target}
+                        onChange={(e) => setPlanForm(prev => ({ ...prev, revenue_target: e.target.value }))}
+                        placeholder="Annual revenue target"
+                      />
+                    </div>
+                    <div>
+                      <Label>Notes</Label>
+                      <Input
+                        value={planForm.notes}
+                        onChange={(e) => setPlanForm(prev => ({ ...prev, notes: e.target.value }))}
+                        placeholder="Optional notes"
+                      />
+                    </div>
+                    <Button type="submit" className="w-full">Update Plan</Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+
+              {/* Delete Confirmation Dialog */}
+              <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete FY Plan</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete FY {selectedPlan.year} plan? This will also delete all product, retailer, and monthly targets associated with this plan. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeletePlan} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              {/* Tabs for Product, Retailer and Month Targets */}
+              <Tabs defaultValue="products">
+                <TabsList className="grid grid-cols-3 w-full">
+                  <TabsTrigger value="products" className="text-xs gap-1">
+                    <Package className="h-3 w-3" />
+                    Products
+                  </TabsTrigger>
+                  <TabsTrigger value="retailers" className="text-xs gap-1">
+                    <Store className="h-3 w-3" />
+                    Retailers
+                  </TabsTrigger>
+                  <TabsTrigger value="months" className="text-xs gap-1">
+                    <Calendar className="h-3 w-3" />
+                    Monthly
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* PRODUCT TARGETS TAB */}
+                <TabsContent value="products" className="mt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm">
+                      <span className="font-medium">Qty: {Math.round(totalProductQuantity).toLocaleString()} {quantityUnit}</span>
+                      <span className="mx-2 text-muted-foreground">|</span>
+                      <span className="font-medium">₹{Math.round(totalProductRevenue).toLocaleString()}</span>
+                    </div>
+                    <Button size="sm" onClick={saveProductTargets}>
+                      Save Targets
+                    </Button>
+                  </div>
+
+                  {categoryTargets.length === 0 ? (
+                    <Card>
+                      <CardContent className="py-8 text-center">
+                        <p className="text-sm text-muted-foreground">No product categories available</p>
                       </CardContent>
                     </Card>
-                  </TabsContent>
-
-                  {/* Retailers Tab */}
-                  <TabsContent value="retailers" className="mt-4">
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-sm">Retailer Growth Targets</CardTitle>
-                          <Dialog open={retailerDialogOpen} onOpenChange={setRetailerDialogOpen}>
-                            <DialogTrigger asChild>
-                              <Button size="sm" variant="outline" className="gap-1 h-7">
-                                <Plus className="h-3 w-3" />
-                                Add
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Add Retailer Target</DialogTitle>
-                              </DialogHeader>
-                              <form onSubmit={handleAddRetailerTarget} className="space-y-4">
-                                <div>
-                                  <Label>Retailer</Label>
-                                  <Select
-                                    value={retailerForm.retailer_id}
-                                    onValueChange={(v) => setRetailerForm(prev => ({ ...prev, retailer_id: v }))}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Select retailer" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {retailers.map(r => (
-                                        <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                <div>
-                                  <Label>Last Year Revenue (₹)</Label>
-                                  <Input
-                                    type="number"
-                                    value={retailerForm.last_year_revenue}
-                                    onChange={(e) => setRetailerForm(prev => ({ ...prev, last_year_revenue: e.target.value }))}
-                                  />
-                                </div>
-                                <div>
-                                  <Label>Target Revenue (₹)</Label>
-                                  <Input
-                                    type="number"
-                                    value={retailerForm.target_revenue}
-                                    onChange={(e) => setRetailerForm(prev => ({ ...prev, target_revenue: e.target.value }))}
-                                  />
-                                </div>
-                                <div>
-                                  <Label>Quantity Target</Label>
-                                  <Input
-                                    type="number"
-                                    value={retailerForm.quantity_target}
-                                    onChange={(e) => setRetailerForm(prev => ({ ...prev, quantity_target: e.target.value }))}
-                                  />
-                                </div>
-                                <Button type="submit" className="w-full">Add Retailer</Button>
-                              </form>
-                            </DialogContent>
-                          </Dialog>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        {retailerTargets.length === 0 ? (
-                          <p className="text-sm text-muted-foreground text-center py-4">No retailer targets added yet</p>
-                        ) : (
-                          <div className="space-y-2">
-                            {retailerTargets.map(rt => (
-                              <div key={rt.id} className="flex items-center justify-between border rounded p-2">
-                                <div>
-                                  <p className="text-sm font-medium">{rt.retailer_name}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    Last: ₹{rt.last_year_revenue.toLocaleString()} → Target: ₹{rt.target_revenue.toLocaleString()} | Qty: {rt.quantity_target.toLocaleString()}
-                                  </p>
-                                  <span className={`text-xs ${rt.growth_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    <TrendingUp className="h-3 w-3 inline mr-1" />
-                                    {rt.growth_percent.toFixed(1)}% growth
-                                  </span>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 text-destructive"
-                                  onClick={() => handleDeleteRetailerTarget(rt.id)}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ))}
-                            <div className="border-t pt-2 mt-2 flex justify-between text-sm font-medium">
-                              <span>Total: {totalRetailerQuantity.toLocaleString()} qty</span>
-                              <span>₹{totalRetailerRevenue.toLocaleString()}</span>
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-
-                  {/* Monthly Tab */}
-                  <TabsContent value="monthly" className="mt-4">
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-sm">Monthly Breakdown</CardTitle>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="gap-1 h-7"
-                            onClick={handleDistributeMonthly}
+                  ) : (
+                    <div className="space-y-2">
+                      {categoryTargets.map(cat => (
+                        <Card key={cat.categoryId}>
+                          <Collapsible
+                            open={expandedCategories.has(cat.categoryId)}
+                            onOpenChange={() => toggleCategoryExpand(cat.categoryId)}
                           >
-                            Distribute Evenly
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          {MONTHS.map(month => {
-                            const target = getMonthTarget(month.number);
-                            return (
-                              <div key={month.number} className="grid grid-cols-5 gap-2 items-center">
-                                <span className="text-sm font-medium col-span-1">{month.name.substring(0, 3)}</span>
-                                <div className="col-span-2">
-                                  <Input
-                                    type="number"
-                                    placeholder="Revenue ₹"
-                                    className="h-8 text-xs"
-                                    value={target.revenue_target || ""}
-                                    onChange={(e) => {
-                                      const newRevenue = parseFloat(e.target.value) || 0;
-                                      handleUpdateMonthTarget(month.number, month.name, newRevenue, target.quantity_target);
-                                    }}
-                                  />
+                            <CollapsibleTrigger asChild>
+                              <CardHeader className="p-3 cursor-pointer hover:bg-muted/50">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    {expandedCategories.has(cat.categoryId) ? (
+                                      <ChevronDown className="h-4 w-4" />
+                                    ) : (
+                                      <ChevronRight className="h-4 w-4" />
+                                    )}
+                                    <span className="font-medium text-sm">{cat.categoryName}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      ({cat.products.length})
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                                    <Input
+                                      type="number"
+                                      value={cat.quantityTarget || ''}
+                                      onChange={(e) => handleCategoryTargetChange(cat.categoryId, parseFloat(e.target.value) || 0, cat.revenueTarget)}
+                                      className="w-20 h-8 text-right text-sm"
+                                      placeholder="Qty"
+                                    />
+                                    <Input
+                                      type="number"
+                                      value={cat.revenueTarget || ''}
+                                      onChange={(e) => handleCategoryTargetChange(cat.categoryId, cat.quantityTarget, parseFloat(e.target.value) || 0)}
+                                      className="w-24 h-8 text-right text-sm"
+                                      placeholder="₹"
+                                    />
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-destructive"
+                                      onClick={() => removeCategory(cat.categoryId)}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </div>
                                 </div>
-                                <div className="col-span-2">
-                                  <Input
-                                    type="number"
-                                    placeholder="Quantity"
-                                    className="h-8 text-xs"
-                                    value={target.quantity_target || ""}
-                                    onChange={(e) => {
-                                      const newQty = parseFloat(e.target.value) || 0;
-                                      handleUpdateMonthTarget(month.number, month.name, target.revenue_target, newQty);
-                                    }}
+                              </CardHeader>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                              <CardContent className="px-3 pb-3 pt-0">
+                                <div className="flex items-center gap-2 mb-3 p-2 bg-muted/50 rounded">
+                                  <Checkbox
+                                    id={`equal-${cat.categoryId}`}
+                                    checked={cat.equalDivide}
+                                    onCheckedChange={(checked) => handleEqualDivideChange(cat.categoryId, checked as boolean)}
                                   />
+                                  <Label htmlFor={`equal-${cat.categoryId}`} className="text-xs cursor-pointer">
+                                    Equally divide across products
+                                  </Label>
                                 </div>
-                              </div>
-                            );
-                          })}
-                          <div className="border-t pt-2 mt-2 grid grid-cols-5 gap-2 items-center text-sm font-medium">
-                            <span>Total</span>
-                            <span className="col-span-2">₹{totalMonthlyRevenue.toLocaleString()}</span>
-                            <span className="col-span-2">{totalMonthlyQuantity.toLocaleString()} qty</span>
-                          </div>
+                                <div className="space-y-2">
+                                  {cat.products.map(p => (
+                                    <div key={p.productId} className="flex items-center justify-between py-2 border-b last:border-0">
+                                      <span className="text-sm truncate max-w-[120px]">{p.productName}</span>
+                                      <div className="flex items-center gap-2">
+                                        {!cat.equalDivide && (
+                                          <div className="flex items-center gap-1">
+                                            <Input
+                                              type="number"
+                                              value={p.percentage.toFixed(1)}
+                                              onChange={(e) => handleProductPercentageChange(cat.categoryId, p.productId, parseFloat(e.target.value) || 0)}
+                                              className="w-14 h-7 text-right text-xs"
+                                              min={0}
+                                              max={100}
+                                            />
+                                            <span className="text-xs text-muted-foreground">%</span>
+                                          </div>
+                                        )}
+                                        <span className="text-xs w-16 text-right">
+                                          {Math.round(p.quantityTarget).toLocaleString()}
+                                        </span>
+                                        <span className="text-sm font-medium w-20 text-right">
+                                          ₹{Math.round(p.revenueTarget).toLocaleString()}
+                                        </span>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6 text-destructive"
+                                          onClick={() => removeProduct(cat.categoryId, p.productId)}
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </CardContent>
+                            </CollapsibleContent>
+                          </Collapsible>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Product Total Footer */}
+                  <Card className="bg-muted/50">
+                    <CardContent className="p-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Total Products Target</span>
+                        <div className="text-right">
+                          <span className="text-sm font-bold">{Math.round(totalProductQuantity).toLocaleString()} {quantityUnit}</span>
+                          <span className="mx-2 text-muted-foreground">|</span>
+                          <span className="text-sm font-bold">₹{Math.round(totalProductRevenue).toLocaleString()}</span>
                         </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* RETAILER TARGETS TAB */}
+                <TabsContent value="retailers" className="mt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm">
+                      <span className="font-medium">Qty: {Math.round(totalRetailerQuantity).toLocaleString()} {quantityUnit}</span>
+                      <span className="mx-2 text-muted-foreground">|</span>
+                      <span className="font-medium">₹{Math.round(totalRetailerRevenue).toLocaleString()}</span>
+                    </div>
+                    <Button size="sm" onClick={saveRetailerTargets}>
+                      Save Targets
+                    </Button>
+                  </div>
+
+                  {retailerCategoryTargets.length === 0 ? (
+                    <Card>
+                      <CardContent className="py-8 text-center">
+                        <p className="text-sm text-muted-foreground">No retailers mapped to you</p>
                       </CardContent>
                     </Card>
-                  </TabsContent>
-                </Tabs>
-              </>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                  ) : (
+                    <div className="space-y-2">
+                      {retailerCategoryTargets.map(cat => (
+                        <Card key={cat.category}>
+                          <Collapsible
+                            open={expandedRetailerCategories.has(cat.category)}
+                            onOpenChange={() => toggleRetailerCategoryExpand(cat.category)}
+                          >
+                            <CollapsibleTrigger asChild>
+                              <CardHeader className="p-3 cursor-pointer hover:bg-muted/50">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    {expandedRetailerCategories.has(cat.category) ? (
+                                      <ChevronDown className="h-4 w-4" />
+                                    ) : (
+                                      <ChevronRight className="h-4 w-4" />
+                                    )}
+                                    <span className="font-medium text-sm">{cat.category}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      ({cat.retailers.length})
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                                    <Input
+                                      type="number"
+                                      value={cat.quantityTarget || ''}
+                                      onChange={(e) => handleRetailerCategoryTargetChange(cat.category, parseFloat(e.target.value) || 0, cat.revenueTarget)}
+                                      className="w-20 h-8 text-right text-sm"
+                                      placeholder="Qty"
+                                    />
+                                    <Input
+                                      type="number"
+                                      value={cat.revenueTarget || ''}
+                                      onChange={(e) => handleRetailerCategoryTargetChange(cat.category, cat.quantityTarget, parseFloat(e.target.value) || 0)}
+                                      className="w-24 h-8 text-right text-sm"
+                                      placeholder="₹"
+                                    />
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-destructive"
+                                      onClick={() => removeRetailerCategory(cat.category)}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </CardHeader>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                              <CardContent className="px-3 pb-3 pt-0">
+                                <div className="flex items-center gap-2 mb-3 p-2 bg-muted/50 rounded">
+                                  <Checkbox
+                                    id={`retailer-equal-${cat.category}`}
+                                    checked={cat.equalDivide}
+                                    onCheckedChange={(checked) => handleRetailerEqualDivideChange(cat.category, checked as boolean)}
+                                  />
+                                  <Label htmlFor={`retailer-equal-${cat.category}`} className="text-xs cursor-pointer">
+                                    Equally divide across retailers
+                                  </Label>
+                                </div>
+                                <div className="space-y-2">
+                                  {cat.retailers.map(r => (
+                                    <div key={r.retailerId} className="flex items-center justify-between py-2 border-b last:border-0">
+                                      <span className="text-sm truncate max-w-[120px]">{r.retailerName}</span>
+                                      <div className="flex items-center gap-2">
+                                        {!cat.equalDivide && (
+                                          <div className="flex items-center gap-1">
+                                            <Input
+                                              type="number"
+                                              value={r.percentage.toFixed(1)}
+                                              onChange={(e) => handleRetailerPercentageChange(cat.category, r.retailerId, parseFloat(e.target.value) || 0)}
+                                              className="w-14 h-7 text-right text-xs"
+                                              min={0}
+                                              max={100}
+                                            />
+                                            <span className="text-xs text-muted-foreground">%</span>
+                                          </div>
+                                        )}
+                                        <span className="text-xs w-16 text-right">
+                                          {Math.round(r.quantityTarget).toLocaleString()}
+                                        </span>
+                                        <span className="text-sm font-medium w-20 text-right">
+                                          ₹{Math.round(r.revenueTarget).toLocaleString()}
+                                        </span>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6 text-destructive"
+                                          onClick={() => removeRetailer(cat.category, r.retailerId)}
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </CardContent>
+                            </CollapsibleContent>
+                          </Collapsible>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Retailers Total Footer */}
+                  <Card className="bg-muted/50">
+                    <CardContent className="p-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Total Retailers Target</span>
+                        <div className="text-right">
+                          <span className="text-sm font-bold">{Math.round(totalRetailerQuantity).toLocaleString()} {quantityUnit}</span>
+                          <span className="mx-2 text-muted-foreground">|</span>
+                          <span className="text-sm font-bold">₹{Math.round(totalRetailerRevenue).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* MONTHLY TARGETS TAB */}
+                <TabsContent value="months" className="mt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm">
+                      <span className="font-medium">Qty: {Math.round(totalMonthQuantityComputed).toLocaleString()} {quantityUnit}</span>
+                      <span className="mx-2 text-muted-foreground">|</span>
+                      <span className="font-medium">₹{Math.round(totalMonthRevenueComputed).toLocaleString()}</span>
+                    </div>
+                    <Button size="sm" onClick={saveMonthTargets}>
+                      Save Targets
+                    </Button>
+                  </div>
+
+                  <Card>
+                    <CardContent className="p-4 space-y-4">
+                      {/* Total target inputs */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex items-center justify-between gap-2">
+                          <Label className="text-xs font-medium">Annual Qty ({quantityUnit})</Label>
+                          <Input
+                            type="number"
+                            value={monthTotalQuantity || ''}
+                            onChange={(e) => handleMonthTotalTargetChange(parseFloat(e.target.value) || 0, monthTotalRevenue)}
+                            className="w-28 h-8 text-right"
+                            placeholder="Quantity"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <Label className="text-xs font-medium">Annual Revenue (₹)</Label>
+                          <Input
+                            type="number"
+                            value={monthTotalRevenue || ''}
+                            onChange={(e) => handleMonthTotalTargetChange(monthTotalQuantity, parseFloat(e.target.value) || 0)}
+                            className="w-28 h-8 text-right"
+                            placeholder="Revenue"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Equal divide checkbox */}
+                      <div className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+                        <Checkbox
+                          id="month-equal-divide"
+                          checked={monthEqualDivide}
+                          onCheckedChange={(checked) => handleMonthEqualDivideChange(checked as boolean)}
+                        />
+                        <Label htmlFor="month-equal-divide" className="text-xs cursor-pointer">
+                          Equally divide across all months
+                        </Label>
+                      </div>
+
+                      {/* Month-wise targets with collapsible products */}
+                      <div className="space-y-2">
+                        {monthTargets.map(m => (
+                          <Card key={m.monthNumber} className="overflow-hidden">
+                            <Collapsible
+                              open={expandedMonths.has(m.monthNumber)}
+                              onOpenChange={() => toggleMonthExpand(m.monthNumber)}
+                            >
+                              <CollapsibleTrigger asChild>
+                                <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50">
+                                  <div className="flex items-center gap-2">
+                                    {expandedMonths.has(m.monthNumber) ? (
+                                      <ChevronDown className="h-4 w-4" />
+                                    ) : (
+                                      <ChevronRight className="h-4 w-4" />
+                                    )}
+                                    <span className="text-sm font-medium">{m.monthName}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      ({m.products.filter(p => p.percentage > 0).length} products)
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                                    {!monthEqualDivide && (
+                                      <div className="flex items-center gap-1">
+                                        <Input
+                                          type="number"
+                                          value={m.percentage.toFixed(1)}
+                                          onChange={(e) => handleMonthPercentageChange(m.monthNumber, parseFloat(e.target.value) || 0)}
+                                          className="w-14 h-7 text-right text-xs"
+                                          min={0}
+                                          max={100}
+                                        />
+                                        <span className="text-xs text-muted-foreground">%</span>
+                                      </div>
+                                    )}
+                                    <Input
+                                      type="number"
+                                      value={Math.round(m.quantityTarget) || ''}
+                                      onChange={(e) => handleMonthTargetChange(m.monthNumber, parseFloat(e.target.value) || 0, m.revenueTarget)}
+                                      className="w-20 h-7 text-right text-sm"
+                                      placeholder="Qty"
+                                    />
+                                    <Input
+                                      type="number"
+                                      value={Math.round(m.revenueTarget) || ''}
+                                      onChange={(e) => handleMonthTargetChange(m.monthNumber, m.quantityTarget, parseFloat(e.target.value) || 0)}
+                                      className="w-24 h-7 text-right text-sm"
+                                      placeholder="₹"
+                                    />
+                                  </div>
+                                </div>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <div className="px-3 pb-3 pt-0 border-t bg-muted/20">
+                                  {/* Apply from Products tab button */}
+                                  <div className="flex items-center justify-between py-2 mb-2">
+                                    <span className="text-xs text-muted-foreground">Product-wise breakdown by category</span>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-6 text-xs"
+                                      onClick={() => handleApplyProductPercentagesFromProductsTab(m.monthNumber)}
+                                    >
+                                      Apply % from Products Tab
+                                    </Button>
+                                  </div>
+                                  
+                                  {/* Product list grouped by category */}
+                                  <div className="space-y-2 max-h-80 overflow-y-auto">
+                                    {(() => {
+                                      // Group products by category
+                                      const categoryGroups = m.products.reduce((acc, p) => {
+                                        const catId = p.categoryId || 'uncategorized';
+                                        if (!acc[catId]) {
+                                          acc[catId] = {
+                                            categoryId: catId,
+                                            categoryName: p.categoryName || 'Uncategorized',
+                                            products: []
+                                          };
+                                        }
+                                        acc[catId].products.push(p);
+                                        return acc;
+                                      }, {} as Record<string, { categoryId: string; categoryName: string; products: MonthProductTarget[] }>);
+                                      
+                                      return Object.values(categoryGroups).map(cat => {
+                                        const catQty = cat.products.reduce((sum, p) => sum + p.quantityTarget, 0);
+                                        const catRev = cat.products.reduce((sum, p) => sum + p.revenueTarget, 0);
+                                        const catPct = cat.products.reduce((sum, p) => sum + p.percentage, 0);
+                                        
+                                        return (
+                                          <Collapsible key={cat.categoryId} defaultOpen>
+                                            <CollapsibleTrigger asChild>
+                                              <div className="flex items-center justify-between py-1.5 px-2 bg-muted/50 rounded cursor-pointer hover:bg-muted/70">
+                                                <div className="flex items-center gap-1">
+                                                  <ChevronDown className="h-3 w-3" />
+                                                  <span className="text-xs font-medium">{cat.categoryName}</span>
+                                                  <span className="text-xs text-muted-foreground">({cat.products.length})</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-xs">
+                                                  <span className="w-14 text-center">{catPct.toFixed(1)}%</span>
+                                                  <span className="w-16 text-right">{Math.round(catQty).toLocaleString()}</span>
+                                                  <span className="w-20 text-right font-medium">₹{Math.round(catRev).toLocaleString()}</span>
+                                                </div>
+                                              </div>
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent>
+                                              <div className="pl-4 border-l ml-2 mt-1 space-y-1">
+                                                {cat.products.map(p => (
+                                                  <div key={p.productId} className="flex items-center justify-between py-1 border-b last:border-0">
+                                                    <span className="text-xs truncate max-w-[90px]" title={p.productName}>
+                                                      {p.productName}
+                                                    </span>
+                                                    <div className="flex items-center gap-2">
+                                                      <Input
+                                                        type="number"
+                                                        value={p.percentage.toFixed(1)}
+                                                        onChange={(e) => handleMonthProductPercentageChange(m.monthNumber, p.productId, parseFloat(e.target.value) || 0)}
+                                                        className="w-14 h-6 text-right text-xs"
+                                                        min={0}
+                                                        max={100}
+                                                      />
+                                                      <span className="text-xs w-16 text-right">
+                                                        {Math.round(p.quantityTarget).toLocaleString()}
+                                                      </span>
+                                                      <span className="text-xs font-medium w-20 text-right">
+                                                        ₹{Math.round(p.revenueTarget).toLocaleString()}
+                                                      </span>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </CollapsibleContent>
+                                          </Collapsible>
+                                        );
+                                      });
+                                    })()}
+                                  </div>
+                                  
+                                  {/* Month product total */}
+                                  <div className="flex justify-between items-center pt-2 mt-2 border-t text-xs">
+                                    <span className="font-medium">Month Total</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-14 text-center">{m.products.reduce((s, p) => s + p.percentage, 0).toFixed(1)}%</span>
+                                      <span className="w-16 text-right">{Math.round(m.products.reduce((s, p) => s + p.quantityTarget, 0)).toLocaleString()}</span>
+                                      <span className="w-20 text-right font-medium">₹{Math.round(m.products.reduce((s, p) => s + p.revenueTarget, 0)).toLocaleString()}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </CollapsibleContent>
+                            </Collapsible>
+                          </Card>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Monthly Total Footer */}
+                  <Card className="bg-muted/50">
+                    <CardContent className="p-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Total Monthly Target</span>
+                        <div className="text-right">
+                          <span className="text-sm font-bold">{Math.round(totalMonthQuantityComputed).toLocaleString()} {quantityUnit}</span>
+                          <span className="mx-2 text-muted-foreground">|</span>
+                          <span className="text-sm font-bold">₹{Math.round(totalMonthRevenueComputed).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </>
+          )}
+        </>
+      )}
+    </div>
   );
 }
