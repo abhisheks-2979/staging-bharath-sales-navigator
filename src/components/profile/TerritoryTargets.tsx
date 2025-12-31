@@ -31,6 +31,7 @@ interface TerritoryTarget {
   territoryId: string;
   territoryName: string;
   region: string | null;
+  percentage: number;
   quantityTarget: number;
   revenueTarget: number;
   equalDivide: boolean;
@@ -143,6 +144,7 @@ export function TerritoryTargets({ selectedPlanId, userId, quantityUnit }: Terri
           territoryId: terr.id,
           territoryName: terr.name,
           region: terr.region,
+          percentage: territories.length > 0 ? 100 / territories.length : 0,
           quantityTarget: existingTerritory?.quantity_target || 0,
           revenueTarget: existingTerritory?.revenue_target || 0,
           equalDivide: true,
@@ -159,7 +161,27 @@ export function TerritoryTargets({ selectedPlanId, userId, quantityUnit }: Terri
         };
       });
 
-      // Calculate if equal divide is being used
+      // Calculate totals first
+      const totalQty = newTerritoryTargets.reduce((sum, t) => sum + t.quantityTarget, 0);
+      const totalRev = newTerritoryTargets.reduce((sum, t) => sum + t.revenueTarget, 0);
+      setTerritoryTotalQuantity(totalQty);
+      setTerritoryTotalRevenue(totalRev);
+
+      // Calculate territory percentages based on revenue
+      if (totalRev > 0) {
+        newTerritoryTargets.forEach(terr => {
+          terr.percentage = (terr.revenueTarget / totalRev) * 100;
+        });
+      }
+
+      // Calculate if equal divide is being used for territories
+      if (totalRev > 0 && newTerritoryTargets.length > 0) {
+        const expectedPct = 100 / newTerritoryTargets.length;
+        const isEqual = newTerritoryTargets.every(t => Math.abs(t.percentage - expectedPct) < 0.5);
+        setTerritoryEqualDivide(isEqual);
+      }
+
+      // Calculate beat percentages and equal divide
       newTerritoryTargets.forEach(terr => {
         if (terr.revenueTarget > 0 && terr.beats.length > 0) {
           const beatRevTotal = terr.beats.reduce((sum, b) => sum + b.revenueTarget, 0);
@@ -175,22 +197,6 @@ export function TerritoryTargets({ selectedPlanId, userId, quantityUnit }: Terri
       });
 
       setTerritoryTargets(newTerritoryTargets);
-
-      // Calculate totals
-      const totalQty = newTerritoryTargets.reduce((sum, t) => sum + t.quantityTarget, 0);
-      const totalRev = newTerritoryTargets.reduce((sum, t) => sum + t.revenueTarget, 0);
-      setTerritoryTotalQuantity(totalQty);
-      setTerritoryTotalRevenue(totalRev);
-      
-      // Check if territories are roughly equal
-      if (totalRev > 0 && newTerritoryTargets.length > 0) {
-        const expectedPct = 100 / newTerritoryTargets.length;
-        const isEqual = newTerritoryTargets.every(t => {
-          const actualPct = (t.revenueTarget / totalRev) * 100;
-          return Math.abs(actualPct - expectedPct) < 0.5;
-        });
-        setTerritoryEqualDivide(isEqual);
-      }
     } catch (error: any) {
       toast.error("Failed to load territory targets: " + error.message);
     }
@@ -210,12 +216,17 @@ export function TerritoryTargets({ selectedPlanId, userId, quantityUnit }: Terri
     setTerritoryTotalQuantity(quantityValue);
     setTerritoryTotalRevenue(revenueValue);
     
-    if (territoryEqualDivide && territoryTargets.length > 0) {
+    if (territoryTargets.length > 0) {
       setTerritoryTargets(prev => prev.map(terr => {
-        const terrQty = quantityValue / prev.length;
-        const terrRev = revenueValue / prev.length;
+        const terrQty = territoryEqualDivide 
+          ? quantityValue / prev.length 
+          : (terr.percentage / 100) * quantityValue;
+        const terrRev = territoryEqualDivide 
+          ? revenueValue / prev.length 
+          : (terr.percentage / 100) * revenueValue;
         return {
           ...terr,
+          percentage: territoryEqualDivide ? 100 / prev.length : terr.percentage,
           quantityTarget: terrQty,
           revenueTarget: terrRev,
           beats: terr.beats.map(b => ({
@@ -230,21 +241,54 @@ export function TerritoryTargets({ selectedPlanId, userId, quantityUnit }: Terri
 
   const handleTerritoryEqualDivideChange = (checked: boolean) => {
     setTerritoryEqualDivide(checked);
-    if (checked && territoryTargets.length > 0) {
+    if (territoryTargets.length > 0) {
+      const equalPct = 100 / territoryTargets.length;
       const terrQty = territoryTotalQuantity / territoryTargets.length;
       const terrRev = territoryTotalRevenue / territoryTargets.length;
       
-      setTerritoryTargets(prev => prev.map(terr => ({
-        ...terr,
-        quantityTarget: terrQty,
-        revenueTarget: terrRev,
-        beats: terr.beats.map(b => ({
-          ...b,
-          quantityTarget: terr.equalDivide && terr.beats.length > 0 ? terrQty / terr.beats.length : (b.percentage / 100) * terrQty,
-          revenueTarget: terr.equalDivide && terr.beats.length > 0 ? terrRev / terr.beats.length : (b.percentage / 100) * terrRev
-        }))
-      })));
+      setTerritoryTargets(prev => prev.map(terr => {
+        const newQty = checked ? terrQty : terr.quantityTarget;
+        const newRev = checked ? terrRev : terr.revenueTarget;
+        return {
+          ...terr,
+          percentage: checked ? equalPct : terr.percentage,
+          quantityTarget: newQty,
+          revenueTarget: newRev,
+          beats: terr.beats.map(b => ({
+            ...b,
+            quantityTarget: terr.equalDivide && terr.beats.length > 0 ? newQty / terr.beats.length : (b.percentage / 100) * newQty,
+            revenueTarget: terr.equalDivide && terr.beats.length > 0 ? newRev / terr.beats.length : (b.percentage / 100) * newRev
+          }))
+        };
+      }));
     }
+  };
+
+  const handleTerritoryPercentageChange = (territoryId: string, percentage: number) => {
+    setTerritoryEqualDivide(false);
+    
+    setTerritoryTargets(prev => {
+      const newTargets = prev.map(terr => {
+        if (terr.territoryId !== territoryId) return terr;
+        
+        const newQty = (percentage / 100) * territoryTotalQuantity;
+        const newRev = (percentage / 100) * territoryTotalRevenue;
+        
+        return {
+          ...terr,
+          percentage,
+          quantityTarget: newQty,
+          revenueTarget: newRev,
+          beats: terr.beats.map(b => ({
+            ...b,
+            quantityTarget: terr.equalDivide && terr.beats.length > 0 ? newQty / terr.beats.length : (b.percentage / 100) * newQty,
+            revenueTarget: terr.equalDivide && terr.beats.length > 0 ? newRev / terr.beats.length : (b.percentage / 100) * newRev
+          }))
+        };
+      });
+      
+      return newTargets;
+    });
   };
 
   const handleTerritoryTargetChange = (territoryId: string, quantityValue: number, revenueValue: number) => {
@@ -267,6 +311,14 @@ export function TerritoryTargets({ selectedPlanId, userId, quantityUnit }: Terri
       const newTotalRev = newTargets.reduce((sum, t) => sum + t.revenueTarget, 0);
       setTerritoryTotalQuantity(newTotalQty);
       setTerritoryTotalRevenue(newTotalRev);
+      
+      // Update percentages based on new totals
+      if (newTotalRev > 0) {
+        return newTargets.map(t => ({
+          ...t,
+          percentage: (t.revenueTarget / newTotalRev) * 100
+        }));
+      }
       
       return newTargets;
     });
@@ -495,6 +547,19 @@ export function TerritoryTargets({ selectedPlanId, userId, quantityUnit }: Terri
                           </span>
                         </div>
                         <div className="flex items-center gap-2 ml-6 sm:ml-0" onClick={e => e.stopPropagation()}>
+                          {!territoryEqualDivide && (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                type="number"
+                                value={terr.percentage.toFixed(1)}
+                                onChange={(e) => handleTerritoryPercentageChange(terr.territoryId, parseFloat(e.target.value) || 0)}
+                                className="w-12 sm:w-14 h-8 text-right text-xs"
+                                min={0}
+                                max={100}
+                              />
+                              <span className="text-xs text-muted-foreground">%</span>
+                            </div>
+                          )}
                           <Input
                             type="number"
                             value={terr.quantityTarget || ''}
