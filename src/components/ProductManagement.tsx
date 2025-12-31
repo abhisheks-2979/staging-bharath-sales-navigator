@@ -195,8 +195,14 @@ const [productForm, setProductForm] = useState({
     product_id: '',
     variant_name: '',
     sku: '',
+    product_number: '',
+    description: '',
+    base_unit: 'kg',
+    unit: 'piece',
+    conversion_factor: 1,
     price: 0,
     stock_quantity: 0,
+    hsn_code: '',
     discount_percentage: 0,
     discount_amount: 0,
     is_active: true,
@@ -454,8 +460,14 @@ const [productForm, setProductForm] = useState({
         product_id: '',
         variant_name: '',
         sku: '',
+        product_number: '',
+        description: '',
+        base_unit: 'kg',
+        unit: 'piece',
+        conversion_factor: 1,
         price: 0,
         stock_quantity: 0,
+        hsn_code: '',
         discount_percentage: 0,
         discount_amount: 0,
         is_active: true,
@@ -1487,8 +1499,14 @@ const [productForm, setProductForm] = useState({
                       product_id: selectedProductForVariants,
                       variant_name: '',
                       sku: '',
+                      product_number: '',
+                      description: '',
+                      base_unit: 'kg',
+                      unit: 'piece',
+                      conversion_factor: 1,
                       price: 0,
                       stock_quantity: 0,
+                      hsn_code: '',
                       discount_percentage: 0,
                       discount_amount: 0,
                       is_active: true,
@@ -1525,24 +1543,94 @@ const [productForm, setProductForm] = useState({
                       <Label htmlFor="variantActive">Active</Label>
                     </div>
 
-                    {/* Variant Name and SKU in 2 columns like product form */}
+                    {/* SKU and Product Number in 2 columns like product form */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="variantName">Variant Name *</Label>
-                        <Input
-                          id="variantName"
-                          value={variantForm.variant_name}
-                          onChange={(e) => setVariantForm({ ...variantForm, variant_name: e.target.value })}
-                          placeholder="e.g., 1kg, 5kg bag"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="variantSku">SKU</Label>
+                        <Label htmlFor="variantSku">SKU *</Label>
                         <Input
                           id="variantSku"
                           value={variantForm.sku}
                           onChange={(e) => setVariantForm({ ...variantForm, sku: e.target.value })}
-                          placeholder="Unique SKU"
+                          placeholder="Enter SKU"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="variantProductNumber">Product Number</Label>
+                        <Input
+                          id="variantProductNumber"
+                          value={variantForm.product_number || ''}
+                          onChange={(e) => setVariantForm({ ...variantForm, product_number: e.target.value })}
+                          placeholder="Enter product number"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Variant Name (full width like product name) */}
+                    <div>
+                      <Label htmlFor="variantName">Variant Name *</Label>
+                      <Input
+                        id="variantName"
+                        value={variantForm.variant_name}
+                        onChange={(e) => setVariantForm({ ...variantForm, variant_name: e.target.value })}
+                        placeholder="Enter variant name"
+                      />
+                    </div>
+
+                    {/* Description (full width like product description) */}
+                    <div>
+                      <Label htmlFor="variantDescription">Description</Label>
+                      <Textarea
+                        id="variantDescription"
+                        value={variantForm.description || ''}
+                        onChange={(e) => setVariantForm({ ...variantForm, description: e.target.value })}
+                        placeholder="Enter variant description"
+                        rows={3}
+                      />
+                    </div>
+
+                    {/* Units in 3 columns like product form */}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor="variantBaseUnit">Base Unit</Label>
+                        <Select 
+                          value={variantForm.base_unit || 'kg'} 
+                          onValueChange={(value) => setVariantForm({ ...variantForm, base_unit: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="kg">Kilogram (kg)</SelectItem>
+                            <SelectItem value="ltr">Liter (ltr)</SelectItem>
+                            <SelectItem value="pcs">Pieces (pcs)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="variantUnit">Unit *</Label>
+                        <Select 
+                          value={variantForm.unit || 'piece'} 
+                          onValueChange={(value) => setVariantForm({ ...variantForm, unit: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="kg">Kilogram (kg)</SelectItem>
+                            <SelectItem value="ltr">Liter (ltr)</SelectItem>
+                            <SelectItem value="pcs">Pieces (pcs)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="variantConversionFactor">Conversion Factor</Label>
+                        <Input
+                          id="variantConversionFactor"
+                          type="number"
+                          step="0.01"
+                          value={variantForm.conversion_factor || 1}
+                          onChange={(e) => setVariantForm({ ...variantForm, conversion_factor: parseFloat(e.target.value) || 1 })}
+                          placeholder="1"
                         />
                       </div>
                     </div>
@@ -1550,10 +1638,11 @@ const [productForm, setProductForm] = useState({
                     {/* Price and Stock in 2 columns */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="variantPrice">Price (₹) *</Label>
+                        <Label htmlFor="variantPrice">Rate (₹) *</Label>
                         <Input
                           id="variantPrice"
                           type="number"
+                          step="0.01"
                           value={variantForm.price}
                           onChange={(e) => {
                             const price = parseFloat(e.target.value) || 0;
@@ -1568,7 +1657,7 @@ const [productForm, setProductForm] = useState({
                         />
                       </div>
                       <div>
-                        <Label htmlFor="variantStock">Stock Quantity</Label>
+                        <Label htmlFor="variantStock">Closing Stock</Label>
                         <Input
                           id="variantStock"
                           type="number"
@@ -1578,6 +1667,30 @@ const [productForm, setProductForm] = useState({
                         />
                       </div>
                     </div>
+
+                    {/* HSN Code (full width) */}
+                    <div>
+                      <Label htmlFor="variantHsnCode">HSN/SAC Code</Label>
+                      <Input
+                        id="variantHsnCode"
+                        value={variantForm.hsn_code || ''}
+                        onChange={(e) => setVariantForm({ ...variantForm, hsn_code: e.target.value })}
+                        placeholder="Enter HSN/SAC code"
+                      />
+                    </div>
+
+                    {/* Barcode (full width) */}
+                    <div>
+                      <Label htmlFor="variantBarcode">Barcode</Label>
+                      <Input
+                        id="variantBarcode"
+                        value={variantForm.barcode || ''}
+                        onChange={(e) => setVariantForm({ ...variantForm, barcode: e.target.value })}
+                        placeholder="Enter barcode"
+                      />
+                    </div>
+
+                    {/* Discount in 2 columns */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="discountPerc">Discount %</Label>
@@ -1691,6 +1804,12 @@ const [productForm, setProductForm] = useState({
                             onClick={() => {
                               setVariantForm({
                                 ...variant,
+                                product_number: (variant as any).product_number || '',
+                                description: (variant as any).description || '',
+                                base_unit: (variant as any).base_unit || 'kg',
+                                unit: (variant as any).unit || 'piece',
+                                conversion_factor: (variant as any).conversion_factor || 1,
+                                hsn_code: (variant as any).hsn_code || '',
                                 is_focused_product: variant.is_focused_product || false,
                                 focused_type: (variant as any).focused_type || undefined,
                                 focused_due_date: variant.focused_due_date || '',
