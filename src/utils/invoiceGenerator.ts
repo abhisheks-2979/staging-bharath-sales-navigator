@@ -208,7 +208,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setFillColor(31, 41, 55);
   doc.rect(0, 0, pageWidth, 52, "F");
 
-  // Logo image - compact size to match preview
+  // Logo image - maintain aspect ratio with max height
   let companyNameX = 15;
   if (company.logo_url) {
     try {
@@ -221,9 +221,30 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
         reader.readAsDataURL(blob);
       });
       const imgFormat = company.logo_url.toLowerCase().includes('.png') ? 'PNG' : 'JPEG';
-      // Logo size approximately 120x80 px (42x28 points)
-      doc.addImage(base64, imgFormat, 15, 10, 42, 28);
-      companyNameX = 60;
+      
+      // Get image dimensions to maintain aspect ratio
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = reject;
+        img.src = base64;
+      });
+      
+      // Calculate proportional dimensions with max height of 22 points
+      const maxHeight = 22;
+      const maxWidth = 40;
+      const aspectRatio = img.width / img.height;
+      let logoWidth = maxHeight * aspectRatio;
+      let logoHeight = maxHeight;
+      
+      // If width exceeds max, scale down based on width instead
+      if (logoWidth > maxWidth) {
+        logoWidth = maxWidth;
+        logoHeight = maxWidth / aspectRatio;
+      }
+      
+      doc.addImage(base64, imgFormat, 15, 12, logoWidth, logoHeight);
+      companyNameX = 18 + logoWidth;
     } catch (e) {
       console.warn("Failed to load logo image for invoice PDF:", e);
       companyNameX = 15;
