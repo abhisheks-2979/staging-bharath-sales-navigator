@@ -1587,32 +1587,32 @@ export function UserFYPlanTarget() {
                   ) : (
                     <>
                       {/* Total section with equal divide */}
-                      <Card>
+                      <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-accent/5">
                         <CardContent className="p-3 sm:p-4 space-y-3">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div className="flex items-center justify-between gap-2">
-                              <Label className="text-xs font-medium whitespace-nowrap">Total Qty ({quantityUnit})</Label>
+                            <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-primary/10 border border-primary/20">
+                              <Label className="text-xs font-semibold whitespace-nowrap text-primary">Total Qty ({quantityUnit})</Label>
                               <Input
                                 type="number"
                                 value={productTotalQuantity || ''}
                                 onChange={(e) => handleProductTotalTargetChange(parseFloat(e.target.value) || 0, productTotalRevenue)}
-                                className="w-24 sm:w-28 h-8 text-right"
+                                className="w-24 sm:w-28 h-8 text-right font-semibold bg-background border-primary/30 focus:border-primary"
                                 placeholder="Quantity"
                               />
                             </div>
-                            <div className="flex items-center justify-between gap-2">
-                              <Label className="text-xs font-medium whitespace-nowrap">Total Revenue (₹)</Label>
+                            <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-green-500/10 border border-green-500/20">
+                              <Label className="text-xs font-semibold whitespace-nowrap text-green-600 dark:text-green-400">Total Revenue (₹)</Label>
                               <Input
                                 type="number"
                                 value={productTotalRevenue || ''}
                                 onChange={(e) => handleProductTotalTargetChange(productTotalQuantity, parseFloat(e.target.value) || 0)}
-                                className="w-24 sm:w-28 h-8 text-right"
+                                className="w-24 sm:w-28 h-8 text-right font-semibold bg-background border-green-500/30 focus:border-green-500"
                                 placeholder="Revenue"
                               />
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+                          <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg border border-muted">
                             <Checkbox
                               id="product-equal-divide-all"
                               checked={productEqualDivide}
@@ -1762,32 +1762,32 @@ export function UserFYPlanTarget() {
                   ) : (
                     <>
                       {/* Total section with equal divide */}
-                      <Card>
+                      <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-accent/5">
                         <CardContent className="p-3 sm:p-4 space-y-3">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div className="flex items-center justify-between gap-2">
-                              <Label className="text-xs font-medium whitespace-nowrap">Total Qty ({quantityUnit})</Label>
+                            <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-primary/10 border border-primary/20">
+                              <Label className="text-xs font-semibold whitespace-nowrap text-primary">Total Qty ({quantityUnit})</Label>
                               <Input
                                 type="number"
                                 value={retailerTotalQuantity || ''}
                                 onChange={(e) => handleRetailerTotalTargetChange(parseFloat(e.target.value) || 0, retailerTotalRevenue)}
-                                className="w-24 sm:w-28 h-8 text-right"
+                                className="w-24 sm:w-28 h-8 text-right font-semibold bg-background border-primary/30 focus:border-primary"
                                 placeholder="Quantity"
                               />
                             </div>
-                            <div className="flex items-center justify-between gap-2">
-                              <Label className="text-xs font-medium whitespace-nowrap">Total Revenue (₹)</Label>
+                            <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-green-500/10 border border-green-500/20">
+                              <Label className="text-xs font-semibold whitespace-nowrap text-green-600 dark:text-green-400">Total Revenue (₹)</Label>
                               <Input
                                 type="number"
                                 value={retailerTotalRevenue || ''}
                                 onChange={(e) => handleRetailerTotalTargetChange(retailerTotalQuantity, parseFloat(e.target.value) || 0)}
-                                className="w-24 sm:w-28 h-8 text-right"
+                                className="w-24 sm:w-28 h-8 text-right font-semibold bg-background border-green-500/30 focus:border-green-500"
                                 placeholder="Revenue"
                               />
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+                          <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg border border-muted">
                             <Checkbox
                               id="retailer-equal-divide-all"
                               checked={retailerEqualDivide}
@@ -1928,34 +1928,34 @@ export function UserFYPlanTarget() {
                     </Button>
                   </div>
 
-                  <Card>
+                  <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-accent/5">
                     <CardContent className="p-3 sm:p-4 space-y-4">
                       {/* Total target inputs - responsive */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <Label className="text-xs font-medium whitespace-nowrap">Total Qty ({quantityUnit})</Label>
+                        <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-primary/10 border border-primary/20">
+                          <Label className="text-xs font-semibold whitespace-nowrap text-primary">Total Qty ({quantityUnit})</Label>
                           <Input
                             type="number"
                             value={monthTotalQuantity || ''}
                             onChange={(e) => handleMonthTotalTargetChange(parseFloat(e.target.value) || 0, monthTotalRevenue)}
-                            className="w-24 sm:w-28 h-8 text-right"
+                            className="w-24 sm:w-28 h-8 text-right font-semibold bg-background border-primary/30 focus:border-primary"
                             placeholder="Quantity"
                           />
                         </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <Label className="text-xs font-medium whitespace-nowrap">Total Revenue (₹)</Label>
+                        <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-green-500/10 border border-green-500/20">
+                          <Label className="text-xs font-semibold whitespace-nowrap text-green-600 dark:text-green-400">Total Revenue (₹)</Label>
                           <Input
                             type="number"
                             value={monthTotalRevenue || ''}
                             onChange={(e) => handleMonthTotalTargetChange(monthTotalQuantity, parseFloat(e.target.value) || 0)}
-                            className="w-24 sm:w-28 h-8 text-right"
+                            className="w-24 sm:w-28 h-8 text-right font-semibold bg-background border-green-500/30 focus:border-green-500"
                             placeholder="Revenue"
                           />
                         </div>
                       </div>
 
                       {/* Equal divide checkbox */}
-                      <div className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+                      <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg border border-muted">
                         <Checkbox
                           id="month-equal-divide"
                           checked={monthEqualDivide}
