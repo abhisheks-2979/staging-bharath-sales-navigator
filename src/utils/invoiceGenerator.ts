@@ -530,30 +530,30 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   const roundedTotal = Math.round(total);
   const totalInWords = numberToWords(roundedTotal) + " Rupees Only";
 
-  // Totals section - contained in a box
-  yPos = (doc as any).lastAutoTable.finalY + 10;
+  // Totals section - compact box
+  yPos = (doc as any).lastAutoTable.finalY + 6;
   
-  // Calculate box dimensions
-  const totalsBoxWidth = 80;
+  // Calculate box dimensions - compact sizing
+  const totalsBoxWidth = 65;
   const totalsBoxX = pageWidth - 15 - totalsBoxWidth;
-  const labelOffset = 5; // Padding from left edge of box
-  const valueOffset = totalsBoxWidth - 5; // Padding from right edge of box
+  const labelOffset = 3;
+  const valueOffset = totalsBoxWidth - 3;
   
-  // Calculate box height based on content (discount row optional)
+  // Compact row heights
   const hasDiscountRow = totalDiscount > 0;
-  const rowHeight = 7;
-  const totalRowHeight = 10;
-  const numRows = hasDiscountRow ? 4 : 3; // SUB-TOTAL, (YOU SAVED), SGST, CGST
-  const totalsBoxHeight = (numRows * rowHeight) + totalRowHeight + 6; // +6 for padding
+  const rowHeight = 5;
+  const totalRowHeight = 7;
+  const numRows = hasDiscountRow ? 4 : 3;
+  const totalsBoxHeight = (numRows * rowHeight) + totalRowHeight + 4;
   
-  // Draw border box for totals
+  // Draw border box
   doc.setDrawColor(200, 200, 200);
-  doc.setLineWidth(0.5);
-  doc.rect(totalsBoxX, yPos - 2, totalsBoxWidth, totalsBoxHeight);
+  doc.setLineWidth(0.3);
+  doc.rect(totalsBoxX, yPos - 1, totalsBoxWidth, totalsBoxHeight);
   
-  let innerY = yPos + 4;
+  let innerY = yPos + 3;
   
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(0, 0, 0);
   
@@ -561,10 +561,9 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.text("SUB-TOTAL", totalsBoxX + labelOffset, innerY);
   doc.text(`Rs.${formatExact(subtotal)}`, totalsBoxX + valueOffset, innerY, { align: "right" });
   
-  // Show "You Saved" if there are discounts
   if (totalDiscount > 0) {
     innerY += rowHeight;
-    doc.setTextColor(22, 163, 74); // Green text for savings
+    doc.setTextColor(22, 163, 74);
     doc.setFont("helvetica", "bold");
     doc.text("YOU SAVED", totalsBoxX + labelOffset, innerY);
     doc.text(`Rs.${formatExact(totalDiscount)}`, totalsBoxX + valueOffset, innerY, { align: "right" });
@@ -572,29 +571,25 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
     doc.setFont("helvetica", "normal");
   }
   
-  // SGST
   innerY += rowHeight;
   doc.text("SGST (2.5%)", totalsBoxX + labelOffset, innerY);
   doc.text(`Rs.${formatExact(sgst)}`, totalsBoxX + valueOffset, innerY, { align: "right" });
   
-  // CGST
   innerY += rowHeight;
   doc.text("CGST (2.5%)", totalsBoxX + labelOffset, innerY);
   doc.text(`Rs.${formatExact(cgst)}`, totalsBoxX + valueOffset, innerY, { align: "right" });
 
-  // Total amount box (green background - inside the border box)
-  innerY += rowHeight + 2;
-  const totalBoxHeight = 10;
-  doc.setFillColor(22, 163, 74); // Green background
-  doc.rect(totalsBoxX, innerY - 3, totalsBoxWidth, totalBoxHeight, "F");
+  // Total amount bar (green)
+  innerY += rowHeight + 1;
+  doc.setFillColor(22, 163, 74);
+  doc.rect(totalsBoxX, innerY - 2, totalsBoxWidth, totalRowHeight, "F");
   
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  const totalText = `Total amount: Rs.${formatRounded(total)}`;
+  doc.setFontSize(9);
+  const totalText = `Total: Rs.${formatRounded(total)}`;
   const textWidth = doc.getTextWidth(totalText);
-  const centerX = totalsBoxX + totalsBoxWidth / 2 - textWidth / 2;
-  doc.text(totalText, centerX, innerY + 4);
+  doc.text(totalText, totalsBoxX + totalsBoxWidth / 2 - textWidth / 2, innerY + 3);
   
   yPos = yPos + totalsBoxHeight + 2;
   doc.setTextColor(0, 0, 0);
