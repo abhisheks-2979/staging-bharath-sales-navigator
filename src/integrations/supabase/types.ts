@@ -8540,6 +8540,179 @@ export type Database = {
           },
         ]
       }
+      user_business_plan_months: {
+        Row: {
+          business_plan_id: string
+          created_at: string
+          id: string
+          month_name: string
+          month_number: number
+          quantity_target: number | null
+          revenue_target: number | null
+          updated_at: string
+        }
+        Insert: {
+          business_plan_id: string
+          created_at?: string
+          id?: string
+          month_name: string
+          month_number: number
+          quantity_target?: number | null
+          revenue_target?: number | null
+          updated_at?: string
+        }
+        Update: {
+          business_plan_id?: string
+          created_at?: string
+          id?: string
+          month_name?: string
+          month_number?: number
+          quantity_target?: number | null
+          revenue_target?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_business_plan_months_business_plan_id_fkey"
+            columns: ["business_plan_id"]
+            isOneToOne: false
+            referencedRelation: "user_business_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_business_plan_products: {
+        Row: {
+          business_plan_id: string
+          created_at: string
+          id: string
+          product_id: string
+          product_name: string
+          quantity_target: number | null
+          revenue_target: number | null
+        }
+        Insert: {
+          business_plan_id: string
+          created_at?: string
+          id?: string
+          product_id: string
+          product_name: string
+          quantity_target?: number | null
+          revenue_target?: number | null
+        }
+        Update: {
+          business_plan_id?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+          product_name?: string
+          quantity_target?: number | null
+          revenue_target?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_business_plan_products_business_plan_id_fkey"
+            columns: ["business_plan_id"]
+            isOneToOne: false
+            referencedRelation: "user_business_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_business_plan_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_business_plan_retailers: {
+        Row: {
+          business_plan_id: string
+          created_at: string
+          growth_percent: number | null
+          id: string
+          last_year_revenue: number | null
+          quantity_target: number | null
+          retailer_id: string
+          retailer_name: string
+          target_revenue: number | null
+        }
+        Insert: {
+          business_plan_id: string
+          created_at?: string
+          growth_percent?: number | null
+          id?: string
+          last_year_revenue?: number | null
+          quantity_target?: number | null
+          retailer_id: string
+          retailer_name: string
+          target_revenue?: number | null
+        }
+        Update: {
+          business_plan_id?: string
+          created_at?: string
+          growth_percent?: number | null
+          id?: string
+          last_year_revenue?: number | null
+          quantity_target?: number | null
+          retailer_id?: string
+          retailer_name?: string
+          target_revenue?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_business_plan_retailers_business_plan_id_fkey"
+            columns: ["business_plan_id"]
+            isOneToOne: false
+            referencedRelation: "user_business_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_business_plan_retailers_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_business_plans: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          quantity_target: number | null
+          quantity_unit: string | null
+          revenue_target: number | null
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          quantity_target?: number | null
+          quantity_unit?: string | null
+          revenue_target?: number | null
+          updated_at?: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          quantity_target?: number | null
+          quantity_unit?: string | null
+          revenue_target?: number | null
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
       user_invitations: {
         Row: {
           completed_at: string | null

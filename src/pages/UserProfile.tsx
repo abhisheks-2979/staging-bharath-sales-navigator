@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, User, Trophy, Award, TrendingUp, Users, Bell } from 'lucide-react';
+import { Loader2, User, Trophy, Award, TrendingUp, Users, Bell, Target } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { CompactProfilePhoto } from '@/components/profile/CompactProfilePhoto';
 import { BadgesDisplay } from '@/components/BadgesDisplay';
@@ -18,6 +18,7 @@ import { PerformanceDashboard } from '@/components/profile/PerformanceDashboard'
 import { InstagramSocialFeed } from '@/components/profile/InstagramSocialFeed';
 import { PushContentConfigurator } from '@/components/profile/PushContentConfigurator';
 import { ProfileAttachments } from '@/components/profile/ProfileAttachments';
+import { UserFYPlanTarget } from '@/components/profile/UserFYPlanTarget';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { Layout } from '@/components/Layout';
 
@@ -206,6 +207,10 @@ const UserProfile = () => {
             <TabsTrigger value="push-content" className="flex-1 min-w-[80px] text-xs sm:text-sm py-2">
               <Bell className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Push</span>
+            </TabsTrigger>
+            <TabsTrigger value="target" className="flex-1 min-w-[80px] text-xs sm:text-sm py-2">
+              <Target className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Target</span>
             </TabsTrigger>
           </TabsList>
 
@@ -445,6 +450,11 @@ const UserProfile = () => {
           {/* Push Content Tab */}
           <TabsContent value="push-content">
             <PushContentConfigurator />
+          </TabsContent>
+
+          {/* Target Tab */}
+          <TabsContent value="target">
+            <UserFYPlanTarget />
           </TabsContent>
         </Tabs>
         
