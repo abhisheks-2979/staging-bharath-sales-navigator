@@ -494,7 +494,7 @@ export default function VanSalesManagement() {
         </div>
 
         <Tabs defaultValue="van-database" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
             <TabsTrigger value="van-database" className="flex items-center gap-2">
               <Truck className="h-4 w-4" />
               Van Database
@@ -502,10 +502,6 @@ export default function VanSalesManagement() {
             <TabsTrigger value="van-inventory" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
               Van Inventory & Stock
-            </TabsTrigger>
-            <TabsTrigger value="opening-grn" className="flex items-center gap-2">
-              <Edit className="h-4 w-4" />
-              Opening GRN Edits
             </TabsTrigger>
           </TabsList>
 
@@ -856,93 +852,61 @@ export default function VanSalesManagement() {
                                   </div>
                                 )}
                               </div>
+
+                              {/* Opening GRN Edits for this user/date */}
+                              {(() => {
+                                const editsForSummary = openingGRNEdits.filter(
+                                  e => e.stock_date === summary.stock_date && e.user_id === summary.user_id
+                                );
+                                if (editsForSummary.length === 0) return null;
+                                
+                                return (
+                                  <div className="border-t pt-4 mt-4">
+                                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                                      <Edit className="h-4 w-4 text-amber-600" /> Opening GRN Edits
+                                    </h4>
+                                    <div className="border rounded-lg overflow-hidden bg-amber-50/50 dark:bg-amber-950/20">
+                                      <table className="w-full text-sm">
+                                        <thead className="bg-amber-100/50 dark:bg-amber-900/30">
+                                          <tr>
+                                            <th className="text-left p-2 font-medium">Product</th>
+                                            <th className="text-right p-2 font-medium">Previous Left</th>
+                                            <th className="text-right p-2 font-medium">Edited Qty</th>
+                                            <th className="text-right p-2 font-medium">Difference</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {editsForSummary.map((edit) => {
+                                            const isGrams = edit.unit?.toLowerCase() === 'grams';
+                                            const prevDisplay = isGrams ? (edit.previous_qty / 1000).toFixed(2) : edit.previous_qty;
+                                            const editDisplay = isGrams ? (edit.edited_qty / 1000).toFixed(2) : edit.edited_qty;
+                                            const diffDisplay = isGrams ? (edit.difference / 1000).toFixed(2) : edit.difference;
+                                            const displayUnit = isGrams ? 'KG' : edit.unit;
+                                            
+                                            return (
+                                              <tr key={edit.id} className="border-t border-amber-200/50 dark:border-amber-800/50">
+                                                <td className="p-2 font-medium">{edit.product_name}</td>
+                                                <td className="p-2 text-right">{prevDisplay} {displayUnit}</td>
+                                                <td className="p-2 text-right">{editDisplay} {displayUnit}</td>
+                                                <td className={`p-2 text-right font-semibold ${edit.difference > 0 ? 'text-green-600' : edit.difference < 0 ? 'text-red-600' : ''}`}>
+                                                  {edit.difference > 0 ? '+' : ''}{diffDisplay} {displayUnit}
+                                                </td>
+                                              </tr>
+                                            );
+                                          })}
+                                        </tbody>
+                                      </table>
+                                      <div className="p-2 text-xs text-muted-foreground bg-amber-100/30 dark:bg-amber-900/20 border-t border-amber-200/50">
+                                        👉 Only modified quantities are tracked as today's activity
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </CardContent>
                           </Card>
                         </CollapsibleContent>
                       </Collapsible>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="opening-grn">
-            <Card>
-              <CardHeader>
-                <CardTitle>Opening GRN Edits</CardTitle>
-                <CardDescription>
-                  Track modifications made when loading previous van stock
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {openingGRNEdits.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Edit className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                    <p className="text-muted-foreground">No opening GRN edits found</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Edits will appear here when users modify quantities after loading previous van stock
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* Group by user and date */}
-                    {Object.entries(
-                      openingGRNEdits.reduce((acc, edit) => {
-                        const key = `${edit.user_name}_${edit.stock_date}`;
-                        if (!acc[key]) acc[key] = { user_name: edit.user_name, stock_date: edit.stock_date, items: [] };
-                        acc[key].items.push(edit);
-                        return acc;
-                      }, {} as Record<string, { user_name: string; stock_date: string; items: OpeningGRNEdit[] }>)
-                    ).map(([key, group]) => (
-                      <Card key={key} className="border-l-4 border-l-amber-500">
-                        <CardHeader className="py-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <User className="h-4 w-4 text-primary" />
-                              <span className="font-semibold">{group.user_name}</span>
-                              <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
-                                {new Date(group.stock_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                              </span>
-                            </div>
-                            <span className="text-sm text-muted-foreground">{group.items.length} edits</span>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="pt-0">
-                          <div className="border rounded-lg overflow-hidden">
-                            <table className="w-full text-sm">
-                              <thead className="bg-muted/50">
-                                <tr>
-                                  <th className="text-left p-2 font-medium">Product</th>
-                                  <th className="text-right p-2 font-medium">Previous Left</th>
-                                  <th className="text-right p-2 font-medium">Edited Qty</th>
-                                  <th className="text-right p-2 font-medium">Difference</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {group.items.map((edit) => {
-                                  const isGrams = edit.unit?.toLowerCase() === 'grams';
-                                  const prevDisplay = isGrams ? (edit.previous_qty / 1000).toFixed(2) : edit.previous_qty;
-                                  const editDisplay = isGrams ? (edit.edited_qty / 1000).toFixed(2) : edit.edited_qty;
-                                  const diffDisplay = isGrams ? (edit.difference / 1000).toFixed(2) : edit.difference;
-                                  const displayUnit = isGrams ? 'KG' : edit.unit;
-                                  
-                                  return (
-                                    <tr key={edit.id} className="border-t">
-                                      <td className="p-2 font-medium">{edit.product_name}</td>
-                                      <td className="p-2 text-right">{prevDisplay} {displayUnit}</td>
-                                      <td className="p-2 text-right">{editDisplay} {displayUnit}</td>
-                                      <td className={`p-2 text-right font-semibold ${edit.difference > 0 ? 'text-green-600' : edit.difference < 0 ? 'text-red-600' : ''}`}>
-                                        {edit.difference > 0 ? '+' : ''}{diffDisplay} {displayUnit}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        </CardContent>
-                      </Card>
                     ))}
                   </div>
                 )}
