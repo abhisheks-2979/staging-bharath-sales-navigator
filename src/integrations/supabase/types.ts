@@ -3120,16 +3120,19 @@ export type Database = {
           daily_da_allowance: number | null
           date_of_exit: string | null
           date_of_joining: string | null
+          district_territory_id: string | null
           education: string | null
           education_background: Json | null
           emergency_contact_number: string | null
           expertise_areas: string[] | null
           hq: string | null
+          hq_territory_id: string | null
           manager_id: string | null
           monthly_salary: number | null
           pan_document_url: string | null
           photo_url: string | null
           secondary_manager_id: string | null
+          state_territory_id: string | null
           updated_at: string
           user_id: string
         }
@@ -3143,16 +3146,19 @@ export type Database = {
           daily_da_allowance?: number | null
           date_of_exit?: string | null
           date_of_joining?: string | null
+          district_territory_id?: string | null
           education?: string | null
           education_background?: Json | null
           emergency_contact_number?: string | null
           expertise_areas?: string[] | null
           hq?: string | null
+          hq_territory_id?: string | null
           manager_id?: string | null
           monthly_salary?: number | null
           pan_document_url?: string | null
           photo_url?: string | null
           secondary_manager_id?: string | null
+          state_territory_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -3166,20 +3172,45 @@ export type Database = {
           daily_da_allowance?: number | null
           date_of_exit?: string | null
           date_of_joining?: string | null
+          district_territory_id?: string | null
           education?: string | null
           education_background?: Json | null
           emergency_contact_number?: string | null
           expertise_areas?: string[] | null
           hq?: string | null
+          hq_territory_id?: string | null
           manager_id?: string | null
           monthly_salary?: number | null
           pan_document_url?: string | null
           photo_url?: string | null
           secondary_manager_id?: string | null
+          state_territory_id?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "employees_district_territory_id_fkey"
+            columns: ["district_territory_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_hq_territory_id_fkey"
+            columns: ["hq_territory_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_state_territory_id_fkey"
+            columns: ["state_territory_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       expense_master_config: {
         Row: {
@@ -8208,6 +8239,60 @@ export type Database = {
           weightage?: number | null
         }
         Relationships: []
+      }
+      target_setup_master: {
+        Row: {
+          annual_quantity_target: number
+          annual_revenue_target: number
+          band: number
+          created_at: string
+          created_by: string | null
+          id: string
+          state_territory_id: string | null
+          territory_id: string | null
+          unit_of_measure: string
+          updated_at: string
+        }
+        Insert: {
+          annual_quantity_target?: number
+          annual_revenue_target?: number
+          band: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          state_territory_id?: string | null
+          territory_id?: string | null
+          unit_of_measure?: string
+          updated_at?: string
+        }
+        Update: {
+          annual_quantity_target?: number
+          annual_revenue_target?: number
+          band?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          state_territory_id?: string | null
+          territory_id?: string | null
+          unit_of_measure?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "target_setup_master_state_territory_id_fkey"
+            columns: ["state_territory_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "target_setup_master_territory_id_fkey"
+            columns: ["territory_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       territories: {
         Row: {
