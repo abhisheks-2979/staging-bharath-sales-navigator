@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DollarSign, ShoppingCart, Building, Navigation, TrendingUp, Users, ArrowUp, ArrowDown, AlertTriangle, Target, Calendar, Activity, Award, AlertCircle, ChevronRight, Pencil, Trash2, MapPin, FileText, Clock, User, HeartHandshake, Eye, X, Plus, Store } from 'lucide-react';
+import { DollarSign, ShoppingCart, Building, Navigation, TrendingUp, Users, ArrowUp, ArrowDown, AlertTriangle, Target, Calendar, Activity, Award, AlertCircle, ChevronRight, Pencil, Trash2, MapPin, FileText, Clock, User, HeartHandshake, Eye, X, Plus, Store, Route } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, subMonths, subQuarters, startOfYear, endOfYear, subYears } from 'date-fns';
 import TerritorySupportRequestForm from './TerritorySupportRequestForm';
@@ -69,6 +69,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
   const [loading, setLoading] = useState(false);
   const [distributors, setDistributors] = useState<any[]>([]);
   const [retailers, setRetailers] = useState<any[]>([]);
+  const [beats, setBeats] = useState<any[]>([]);
   const [salesSummary, setSalesSummary] = useState({ totalSales: 0, totalOrders: 0, totalRetailers: 0, totalVisits: 0 });
   const [assignmentHistory, setAssignmentHistory] = useState<any[]>([]);
   const [salesTrendData, setSalesTrendData] = useState<any[]>([]);
@@ -322,6 +323,14 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
         .eq('support_category', 'territory_support')
         .order('created_at', { ascending: false });
       setSupportRequests(supportData || []);
+      
+      // Load beats linked to this territory
+      const { data: beatsData } = await supabase
+        .from('beats')
+        .select('id, beat_id, beat_name, category, is_active, average_km, average_time_minutes')
+        .eq('territory_id', territory.id)
+        .order('beat_name');
+      setBeats(beatsData || []);
 
       // Fetch full retailer data for the territory
       const { data: retailersData } = await supabase
@@ -1075,6 +1084,10 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                   <Store className="h-3 w-3 mr-1 hidden sm:inline" />
                   Retailers & Distributors
                 </TabsTrigger>
+                <TabsTrigger value="beats" className="text-xs sm:text-sm px-2 py-2">
+                  <Route className="h-3 w-3 mr-1 hidden sm:inline" />
+                  Beats ({beats.length})
+                </TabsTrigger>
                 <TabsTrigger value="performance" className="text-xs sm:text-sm px-2 py-2">
                   <TrendingUp className="h-3 w-3 mr-1 hidden sm:inline" />
                   Territory Performance
@@ -1082,10 +1095,6 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                 <TabsTrigger value="support" className="text-xs sm:text-sm px-2 py-2">
                   <HeartHandshake className="h-3 w-3 mr-1 hidden sm:inline" />
                   Support Requests
-                </TabsTrigger>
-                <TabsTrigger value="history" className="text-xs sm:text-sm px-2 py-2">
-                  <Clock className="h-3 w-3 mr-1 hidden sm:inline" />
-                  History
                 </TabsTrigger>
               </TabsList>
 
@@ -1217,6 +1226,65 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                 </Card>
               </TabsContent>
 
+              {/* Beats Tab */}
+              <TabsContent value="beats" className="mt-4">
+                <Card className="shadow-lg">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Route className="h-4 w-4 text-primary" />
+                      Beats Linked to Territory ({beats.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 sm:p-4">
+                    {beats.length > 0 ? (
+                      <div className="overflow-x-auto -mx-3 sm:mx-0">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs sm:text-sm">Beat Name</TableHead>
+                              <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Category</TableHead>
+                              <TableHead className="text-xs sm:text-sm hidden md:table-cell">Avg KM</TableHead>
+                              <TableHead className="text-xs sm:text-sm hidden md:table-cell">Avg Time</TableHead>
+                              <TableHead className="text-xs sm:text-sm">Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {beats.map((beat) => (
+                              <TableRow 
+                                key={beat.id} 
+                                className="cursor-pointer hover:bg-muted/50"
+                                onClick={() => {
+                                  onOpenChange(false);
+                                  navigate(`/beat/${beat.id}`);
+                                }}
+                              >
+                                <TableCell className="text-xs sm:text-sm font-medium text-primary">{beat.beat_name}</TableCell>
+                                <TableCell className="text-xs sm:text-sm hidden sm:table-cell">
+                                  <Badge variant="outline" className="text-xs">{beat.category || 'General'}</Badge>
+                                </TableCell>
+                                <TableCell className="text-xs sm:text-sm text-muted-foreground hidden md:table-cell">
+                                  {beat.average_km ? `${beat.average_km} km` : '-'}
+                                </TableCell>
+                                <TableCell className="text-xs sm:text-sm text-muted-foreground hidden md:table-cell">
+                                  {beat.average_time_minutes ? `${beat.average_time_minutes} min` : '-'}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={beat.is_active !== false ? "default" : "secondary"} className="text-xs">
+                                    {beat.is_active !== false ? 'Active' : 'Inactive'}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">No beats linked to this territory</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
               {/* Territory Performance Tab */}
               <TabsContent value="performance" className="mt-4 space-y-4">
                 {/* Calendar */}
@@ -1286,31 +1354,6 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                     ) : (
                       <p className="text-sm text-muted-foreground text-center py-4">No support requests</p>
                     )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              
-              {/* History Tab */}
-              <TabsContent value="history" className="mt-4">
-                <Card className="shadow-lg">
-                  <CardHeader className="pb-3"><CardTitle className="text-sm">Assignment History</CardTitle></CardHeader>
-                  <CardContent className="p-3">
-                    {assignmentHistory.length > 0 ? (
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader><TableRow><TableHead className="text-xs">Team Member</TableHead><TableHead className="text-xs hidden sm:table-cell">From</TableHead><TableHead className="text-xs">Duration</TableHead></TableRow></TableHeader>
-                          <TableBody>
-                            {assignmentHistory.filter(a => a?.id).map(a => (
-                              <TableRow key={a.id}>
-                                <TableCell className="text-xs font-medium">{a.profiles?.full_name || 'Unknown'}</TableCell>
-                                <TableCell className="text-xs hidden sm:table-cell">{format(new Date(a.assigned_from), 'MMM dd, yyyy')}</TableCell>
-                                <TableCell className="text-xs text-muted-foreground">{a.assigned_to ? `${Math.ceil((new Date(a.assigned_to).getTime() - new Date(a.assigned_from).getTime()) / (1000 * 60 * 60 * 24))} days` : 'Ongoing'}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    ) : <p className="text-sm text-muted-foreground text-center py-4">No history</p>}
                   </CardContent>
                 </Card>
               </TabsContent>

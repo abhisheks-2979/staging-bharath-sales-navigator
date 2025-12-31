@@ -8,13 +8,14 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SearchInput } from '@/components/SearchInput';
-import { Save, X, Users, MapPin, Clock, Truck, Repeat, CalendarDays } from 'lucide-react';
+import { Save, X, Users, MapPin, Clock, Truck, Repeat, CalendarDays, Navigation } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { format, addDays } from 'date-fns';
 
@@ -24,6 +25,12 @@ interface Beat {
   travel_allowance?: number;
   average_km?: number;
   average_time_minutes?: number;
+  territory_id?: string;
+}
+
+interface Territory {
+  id: string;
+  name: string;
 }
 
 interface Retailer {
@@ -67,6 +74,10 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
   const [monthlyWeek, setMonthlyWeek] = useState<string>("first");
   const [monthlyDayOfWeek, setMonthlyDayOfWeek] = useState<number>(1); // Monday by default
   const [monthlyDateOfMonth, setMonthlyDateOfMonth] = useState<string>("1");
+  
+  // Territory
+  const [territories, setTerritories] = useState<Territory[]>([]);
+  const [selectedTerritoryId, setSelectedTerritoryId] = useState<string | null>(null);
 
   const weekDays = [
     { label: "Mon", value: 1 },
@@ -85,8 +96,39 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
       setAverageKm(beat.average_km?.toString() || '');
       setAverageTimeMinutes(beat.average_time_minutes?.toString() || '');
       loadRetailers();
+      loadTerritories();
+      loadBeatTerritory();
     }
   }, [beat, isOpen]);
+  
+  const loadTerritories = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('territories')
+        .select('id, name')
+        .order('name');
+      if (error) throw error;
+      setTerritories(data || []);
+    } catch (error) {
+      console.error('Error loading territories:', error);
+    }
+  };
+  
+  const loadBeatTerritory = async () => {
+    if (!beat) return;
+    try {
+      const { data, error } = await supabase
+        .from('beats')
+        .select('territory_id')
+        .eq('beat_id', beat.id)
+        .single();
+      if (error && error.code !== 'PGRST116') throw error;
+      setSelectedTerritoryId(data?.territory_id || null);
+    } catch (error) {
+      console.error('Error loading beat territory:', error);
+    }
+  };
 
   const loadRetailers = async () => {
     if (!user || !beat) return;
@@ -208,6 +250,7 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
           travel_allowance: parseFloat(travelAllowance) || 0,
           average_km: parseFloat(averageKm) || 0,
           average_time_minutes: parseInt(averageTimeMinutes) || 0,
+          territory_id: selectedTerritoryId || null,
           updated_at: new Date().toISOString()
         })
         .eq('beat_id', beat.id);
@@ -336,6 +379,7 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
     setMonthlyWeek("first");
     setMonthlyDayOfWeek(1);
     setMonthlyDateOfMonth("1");
+    setSelectedTerritoryId(null);
     onClose();
   };
 
@@ -420,6 +464,29 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
                         onChange={(e) => setAverageTimeMinutes(e.target.value)}
                       />
                     </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="territory" className="flex items-center gap-2">
+                      <Navigation className="h-4 w-4" />
+                      Territory
+                    </Label>
+                    <Select 
+                      value={selectedTerritoryId || "none"} 
+                      onValueChange={(value) => setSelectedTerritoryId(value === "none" ? null : value)}
+                    >
+                      <SelectTrigger id="territory">
+                        <SelectValue placeholder="Select territory" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No Territory</SelectItem>
+                        {territories.map((territory) => (
+                          <SelectItem key={territory.id} value={territory.id}>
+                            {territory.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </CardContent>
               </Card>
