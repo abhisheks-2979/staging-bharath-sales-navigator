@@ -88,10 +88,10 @@ export function InstagramSocialFeed() {
   }, [user]);
 
   useEffect(() => {
-    if (followingIds.length >= 0) {
+    if (user) {
       fetchPosts();
     }
-  }, [followingIds]);
+  }, [user]);
 
   const fetchFollowingList = async () => {
     if (!user) return;
@@ -140,9 +140,7 @@ export function InstagramSocialFeed() {
   const fetchPosts = async () => {
     if (!user) return;
 
-    // Get posts from self and followed users
-    const viewableUserIds = [user.id, ...followingIds];
-    
+    // Get all posts - visible to all team members
     const { data, error } = await supabase
       .from("social_posts")
       .select(`
@@ -152,8 +150,8 @@ export function InstagramSocialFeed() {
         social_comments(count),
         social_post_attachments(id, file_url, file_type, file_name)
       `)
-      .in("user_id", viewableUserIds)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(50);
 
     if (!error && data) {
       const formattedPosts: Post[] = await Promise.all(
@@ -626,7 +624,7 @@ export function InstagramSocialFeed() {
         {posts.length === 0 ? (
           <Card className="border border-border">
             <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">No posts yet. Share something or follow more people!</p>
+              <p className="text-muted-foreground">No posts yet. Be the first to share something with the team!</p>
             </CardContent>
           </Card>
         ) : (
@@ -806,39 +804,39 @@ export function InstagramSocialFeed() {
                         </div>
                       </div>
                     ))}
-
-                    {/* Add Comment */}
-                    <div className="flex gap-2 pt-2">
-                      <Avatar className="h-7 w-7 flex-shrink-0">
-                        <AvatarImage src={userProfile?.profile_picture_url || ""} />
-                        <AvatarFallback className="text-xs bg-muted">
-                          {userProfile?.full_name?.[0] || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 flex gap-2">
-                        <Input
-                          placeholder="Add a comment..."
-                          value={newComment[post.id] || ""}
-                          onChange={(e) =>
-                            setNewComment((prev) => ({ ...prev, [post.id]: e.target.value }))
-                          }
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleAddComment(post.id);
-                          }}
-                          className="h-8 text-sm"
-                        />
-                        <Button
-                          size="sm"
-                          className="h-8"
-                          onClick={() => handleAddComment(post.id)}
-                          disabled={!newComment[post.id]?.trim()}
-                        >
-                          <Send className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
                   </div>
                 )}
+
+                {/* Add Comment - Always visible */}
+                <div className="flex gap-2 pt-3 mt-3 border-t">
+                  <Avatar className="h-7 w-7 flex-shrink-0">
+                    <AvatarImage src={userProfile?.profile_picture_url || ""} />
+                    <AvatarFallback className="text-xs bg-muted">
+                      {userProfile?.full_name?.[0] || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 flex gap-2">
+                    <Input
+                      placeholder="Add a comment..."
+                      value={newComment[post.id] || ""}
+                      onChange={(e) =>
+                        setNewComment((prev) => ({ ...prev, [post.id]: e.target.value }))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleAddComment(post.id);
+                      }}
+                      className="h-8 text-sm"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-8"
+                      onClick={() => handleAddComment(post.id)}
+                      disabled={!newComment[post.id]?.trim()}
+                    >
+                      <Send className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
               </div>
             </Card>
           ))
