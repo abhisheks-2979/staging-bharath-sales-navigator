@@ -741,7 +741,7 @@ export default function VanSalesManagement() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {vanStockSummaries.map((summary) => (
+                    {filteredVanStockSummaries.map((summary) => (
                       <Collapsible
                         key={summary.id}
                         open={expandedVans.has(summary.id)}
@@ -767,7 +767,7 @@ export default function VanSalesManagement() {
                                 </div>
                                 <div className="flex items-center gap-4">
                                   <div className="text-right text-sm">
-                                    <p className="text-muted-foreground">Stock: <span className="font-semibold text-foreground">{summary.total_stock}</span></p>
+                                    <p className="text-muted-foreground">Stock: <span className="font-semibold text-foreground">{(summary.total_stock / 1000).toFixed(2)} KG</span></p>
                                   </div>
                                   {expandedVans.has(summary.id) ? (
                                     <ChevronDown className="h-5 w-5 text-muted-foreground" />
@@ -782,35 +782,35 @@ export default function VanSalesManagement() {
                         <CollapsibleContent>
                           <Card className="mt-2 border-l-4 border-l-primary">
                             <CardContent className="p-4">
-                              {/* Summary Stats */}
+                              {/* Summary Stats - Display in KG */}
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                                 <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
                                   <div className="flex items-center gap-2 mb-1">
                                     <Package className="h-4 w-4 text-blue-600" />
                                     <span className="text-xs text-muted-foreground">Stock in Van</span>
                                   </div>
-                                  <p className="text-2xl font-bold text-blue-600">{summary.total_stock}</p>
+                                  <p className="text-2xl font-bold text-blue-600">{(summary.total_stock / 1000).toFixed(2)} <span className="text-sm font-normal">KG</span></p>
                                 </div>
                                 <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-lg">
                                   <div className="flex items-center gap-2 mb-1">
                                     <ShoppingCart className="h-4 w-4 text-amber-600" />
                                     <span className="text-xs text-muted-foreground">Ordered Qty</span>
                                   </div>
-                                  <p className="text-2xl font-bold text-amber-600">{summary.total_ordered}</p>
+                                  <p className="text-2xl font-bold text-amber-600">{(summary.total_ordered / 1000).toFixed(2)} <span className="text-sm font-normal">KG</span></p>
                                 </div>
                                 <div className="bg-purple-50 dark:bg-purple-950 p-3 rounded-lg">
                                   <div className="flex items-center gap-2 mb-1">
                                     <RotateCcw className="h-4 w-4 text-purple-600" />
                                     <span className="text-xs text-muted-foreground">Returned Qty</span>
                                   </div>
-                                  <p className="text-2xl font-bold text-purple-600">{summary.total_returned}</p>
+                                  <p className="text-2xl font-bold text-purple-600">{(summary.total_returned / 1000).toFixed(2)} <span className="text-sm font-normal">KG</span></p>
                                 </div>
                                 <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg">
                                   <div className="flex items-center gap-2 mb-1">
                                     <TrendingDown className="h-4 w-4 text-green-600" />
                                     <span className="text-xs text-muted-foreground">Left in Van</span>
                                   </div>
-                                  <p className="text-2xl font-bold text-green-600">{summary.closing_stock}</p>
+                                  <p className="text-2xl font-bold text-green-600">{(summary.closing_stock / 1000).toFixed(2)} <span className="text-sm font-normal">KG</span></p>
                                 </div>
                               </div>
 
@@ -830,25 +830,29 @@ export default function VanSalesManagement() {
                                   <p className="text-sm text-muted-foreground">No products in this van stock</p>
                                 ) : (
                                   <div className="space-y-2">
-                                    {summary.items.map((item) => (
-                                      <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
-                                        <div className="flex-1">
-                                          <p className="font-medium">{item.product_name}</p>
-                                          <p className="text-sm text-muted-foreground">
-                                            ₹{item.price_without_gst.toFixed(2)} (excl. GST) • {item.unit}
-                                          </p>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                          <div className="text-right">
-                                            <p className="text-lg font-bold">{item.start_qty}</p>
-                                            <p className="text-xs text-muted-foreground">{item.unit}</p>
+                                    {summary.items.map((item) => {
+                                      // Convert grams to KG for display
+                                      const qtyInKG = item.start_qty / 1000;
+                                      return (
+                                        <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
+                                          <div className="flex-1">
+                                            <p className="font-medium">{item.product_name}</p>
+                                            <p className="text-sm text-muted-foreground">
+                                              ₹{item.price_without_gst.toFixed(2)} (excl. GST) • {item.unit}
+                                            </p>
                                           </div>
-                                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                                            <Edit className="h-4 w-4" />
-                                          </Button>
+                                          <div className="flex items-center gap-4">
+                                            <div className="text-right">
+                                              <p className="text-lg font-bold">{qtyInKG.toFixed(2)}</p>
+                                              <p className="text-xs text-muted-foreground">KG</p>
+                                            </div>
+                                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                                              <Edit className="h-4 w-4" />
+                                            </Button>
+                                          </div>
                                         </div>
-                                      </div>
-                                    ))}
+                                      );
+                                    })}
                                   </div>
                                 )}
                               </div>

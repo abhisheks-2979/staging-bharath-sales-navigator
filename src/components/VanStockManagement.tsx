@@ -827,13 +827,20 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
 
       if (stockError) throw stockError;
 
-      // Get existing items from database
-      const existingItems = todayStock?.van_stock_items || [];
+      // IMPORTANT: Fetch fresh existing items from DB to avoid duplicate insertions
+      const { data: freshExistingItems } = await supabase
+        .from('van_stock_items')
+        .select('id, product_id')
+        .eq('van_stock_id', vanStock.id);
       
-      // Process each stock item - update existing or insert new
+      const existingItemsMap = new Map<string, string>();
+      (freshExistingItems || []).forEach((e: any) => {
+        existingItemsMap.set(e.product_id, e.id);
+      });
+      
+      // Process each stock item - upsert by product_id to prevent duplicates
       for (const item of stockItems) {
-        // Check if this product already exists in saved items
-        const existingItem = existingItems.find((e: any) => e.product_id === item.product_id);
+        const existingItemId = existingItemsMap.get(item.product_id);
         
         // Convert kg to grams for storage (database stores integers)
         // 2.75 KG = 2750 grams
@@ -846,7 +853,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         const convertedReturnedQty = Math.round(Number(item.returned_qty || 0) * conversionFactor);
         const convertedLeftQty = Math.round(Number(item.left_qty || 0) * conversionFactor);
         
-        if (existingItem) {
+        if (existingItemId) {
           // Update existing item
           const { error: updateError } = await supabase
             .from('van_stock_items')
@@ -858,7 +865,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
               left_qty: convertedLeftQty,
               unit: storageUnit,
             })
-            .eq('id', existingItem.id);
+            .eq('id', existingItemId);
           
           if (updateError) throw updateError;
         } else {
