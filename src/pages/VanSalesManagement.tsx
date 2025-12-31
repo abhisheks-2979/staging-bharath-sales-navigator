@@ -297,9 +297,15 @@ export default function VanSalesManagement() {
       const profilesMap: Record<string, any> = {};
       profilesData?.forEach(p => { profilesMap[p.id] = p; });
       
-      // Build product price map from products table
-      const productPriceMap: Record<string, number> = {};
-      products?.forEach(p => { productPriceMap[p.id] = p.rate || 0; });
+      // Build product price map from products table - by ID and by name
+      const productPriceMapById: Record<string, number> = {};
+      const productPriceMapByName: Record<string, number> = {};
+      products?.forEach(p => { 
+        productPriceMapById[p.id] = p.rate || 0;
+        if (p.name) {
+          productPriceMapByName[p.name.toUpperCase().trim()] = p.rate || 0;
+        }
+      });
 
       // Get stock items for each van_stock
       const summaries: VanStockSummary[] = [];
@@ -330,7 +336,10 @@ export default function VanSalesManagement() {
         });
 
         const stockItems: VanStockItem[] = Array.from(deduplicatedItemsMap.values()).map((item: any) => {
-          const priceWithGST = productPriceMap[item.product_id] || 0;
+          // Look up price by product_id first, then fallback to product_name
+          const priceById = productPriceMapById[item.product_id] || 0;
+          const priceByName = productPriceMapByName[(item.product_name || '').toUpperCase().trim()] || 0;
+          const priceWithGST = priceById || priceByName;
           const priceWithoutGST = priceWithGST / 1.05; // Remove 5% GST
           return {
             id: item.id,
