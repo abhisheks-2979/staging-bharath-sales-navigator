@@ -72,6 +72,7 @@ interface ProductFormData {
   barcode: string;
   barcode_image_url?: string;
   qr_code?: string;
+  hsn_code?: string;
   is_focused_product: boolean;
   focused_type?: 'fixed_date' | 'recurring' | 'keep_open';
   focused_due_date: string;
@@ -268,6 +269,17 @@ export const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
             placeholder="0"
           />
         </div>
+      </div>
+
+      {/* HSN/SAC Code */}
+      <div>
+        <Label htmlFor="hsn_code">HSN/SAC Code</Label>
+        <Input
+          id="hsn_code"
+          value={form.hsn_code || ''}
+          onChange={(e) => onFormChange({ hsn_code: e.target.value })}
+          placeholder="Enter HSN/SAC code"
+        />
       </div>
 
       {/* Barcode Upload */}
