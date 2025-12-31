@@ -2171,20 +2171,20 @@ export const VisitCard = ({
         });
 
         // Helper function to convert quantity and rate for display
+        // Must match invoice display logic: rate * 1000 for gram-based products
         const getDisplayValues = (qty: number, rate: number, total: number, unit: string) => {
           const unitLower = (unit || '').toLowerCase().trim();
           
           // Always convert grams to kg for display (consistent with invoice)
           if (unitLower === 'grams' || unitLower === 'g' || unitLower === 'gram') {
             const kgQty = qty / 1000;
-            // Rate per kg = total / kgQty (handles all quantities)
-            const ratePerKg = kgQty > 0 ? total / kgQty : rate * 1000;
+            // Use rate * 1000 to match invoice display (rate is per gram, convert to per KG)
+            const ratePerKg = rate * 1000;
             return { displayQty: kgQty, displayUnit: 'KG', displayRate: ratePerKg };
           }
           
-          // For other units, use rate from total/quantity to get actual discounted rate
-          const actualRate = qty > 0 ? total / qty : rate;
-          return { displayQty: qty, displayUnit: unit, displayRate: actualRate };
+          // For other units, use the stored rate directly
+          return { displayQty: qty, displayUnit: unit, displayRate: rate };
         };
 
         // Group items by product for a clean summary
