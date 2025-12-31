@@ -285,10 +285,11 @@ export default function VanSalesManagement() {
       const vanIds = [...new Set(stockData.map(s => s.van_id))];
       const userIds = [...new Set(stockData.map(s => s.user_id))];
 
-      const [{ data: vansData }, { data: profilesData }, { data: products }] = await Promise.all([
+      const [{ data: vansData }, { data: profilesData }, { data: products }, { data: variants }] = await Promise.all([
         supabase.from('vans').select('id, registration_number, make_model').in('id', vanIds),
         supabase.from('profiles').select('id, full_name').in('id', userIds),
-        supabase.from('products').select('id, name, rate')
+        supabase.from('products').select('id, name, rate'),
+        supabase.from('product_variants').select('id, variant_name, price')
       ]);
 
       const vansMap: Record<string, any> = {};
@@ -304,6 +305,16 @@ export default function VanSalesManagement() {
         productPriceMapById[p.id] = p.rate || 0;
         if (p.name) {
           productPriceMapByName[p.name.toUpperCase().trim()] = p.rate || 0;
+        }
+      });
+      
+      // Build variant price map - van_stock_items.product_id often refers to product_variants.id
+      const variantPriceMapById: Record<string, number> = {};
+      const variantPriceMapByName: Record<string, number> = {};
+      variants?.forEach(v => {
+        variantPriceMapById[v.id] = v.price || 0;
+        if (v.variant_name) {
+          variantPriceMapByName[v.variant_name.toUpperCase().trim()] = v.price || 0;
         }
       });
 
@@ -336,10 +347,12 @@ export default function VanSalesManagement() {
         });
 
         const stockItems: VanStockItem[] = Array.from(deduplicatedItemsMap.values()).map((item: any) => {
-          // Look up price by product_id first, then fallback to product_name
-          const priceById = productPriceMapById[item.product_id] || 0;
-          const priceByName = productPriceMapByName[(item.product_name || '').toUpperCase().trim()] || 0;
-          const priceWithGST = priceById || priceByName;
+          // Look up price: variant first (by ID, then name), then product (by ID, then name)
+          const variantPriceById = variantPriceMapById[item.product_id] || 0;
+          const variantPriceByName = variantPriceMapByName[(item.product_name || '').toUpperCase().trim()] || 0;
+          const productPriceById = productPriceMapById[item.product_id] || 0;
+          const productPriceByName = productPriceMapByName[(item.product_name || '').toUpperCase().trim()] || 0;
+          const priceWithGST = variantPriceById || variantPriceByName || productPriceById || productPriceByName;
           const priceWithoutGST = priceWithGST / 1.05; // Remove 5% GST
           return {
             id: item.id,
