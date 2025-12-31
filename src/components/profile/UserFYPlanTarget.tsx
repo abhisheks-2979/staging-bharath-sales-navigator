@@ -24,7 +24,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Target, Package, Store, Trash2, ChevronDown, ChevronRight, X, Calendar, Pencil, MoreVertical, CalendarDays } from "lucide-react";
+import { Plus, Target, Package, Store, Trash2, ChevronDown, ChevronRight, X, Calendar, Pencil, MoreVertical, CalendarDays, MapPin } from "lucide-react";
+import { TerritoryTargets } from "./TerritoryTargets";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1310,20 +1311,24 @@ export function UserFYPlanTarget() {
                 </AlertDialogContent>
               </AlertDialog>
 
-              {/* Tabs for Product, Retailer and Month Targets */}
+              {/* Tabs for Product, Retailer, Month and Territory Targets */}
               <Tabs defaultValue="products">
-                <TabsList className="grid grid-cols-3 w-full">
-                  <TabsTrigger value="products" className="text-xs gap-1">
+                <TabsList className="grid grid-cols-4 w-full">
+                  <TabsTrigger value="products" className="text-xs gap-1 px-1 sm:px-3">
                     <Package className="h-3 w-3" />
-                    Products
+                    <span className="hidden xs:inline">Products</span>
                   </TabsTrigger>
-                  <TabsTrigger value="retailers" className="text-xs gap-1">
+                  <TabsTrigger value="retailers" className="text-xs gap-1 px-1 sm:px-3">
                     <Store className="h-3 w-3" />
-                    Retailers
+                    <span className="hidden xs:inline">Retailers</span>
                   </TabsTrigger>
-                  <TabsTrigger value="months" className="text-xs gap-1">
+                  <TabsTrigger value="months" className="text-xs gap-1 px-1 sm:px-3">
                     <Calendar className="h-3 w-3" />
-                    Monthly
+                    <span className="hidden xs:inline">Monthly</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="territory" className="text-xs gap-1 px-1 sm:px-3">
+                    <MapPin className="h-3 w-3" />
+                    <span className="hidden xs:inline">Territory</span>
                   </TabsTrigger>
                 </TabsList>
 
@@ -1914,6 +1919,15 @@ export function UserFYPlanTarget() {
                       </div>
                     </CardContent>
                   </Card>
+                </TabsContent>
+
+                {/* TERRITORY TARGETS TAB */}
+                <TabsContent value="territory" className="mt-4">
+                  <TerritoryTargets
+                    selectedPlanId={selectedPlan?.id || null}
+                    userId={user?.id || null}
+                    quantityUnit={quantityUnit}
+                  />
                 </TabsContent>
               </Tabs>
             </>
