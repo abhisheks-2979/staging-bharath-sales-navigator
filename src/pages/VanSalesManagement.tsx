@@ -821,7 +821,7 @@ export default function VanSalesManagement() {
                                 <span className="text-muted-foreground">Total KM: <span className="font-semibold text-primary">{summary.end_km > 0 ? summary.end_km - summary.start_km : '-'}</span></span>
                               </div>
 
-                              {/* Product Details */}
+                              {/* Product Details - Unified with Opening GRN Edits */}
                               <div className="border-t pt-4">
                                 <h4 className="font-semibold mb-3 flex items-center gap-2">
                                   <Package className="h-4 w-4" /> Product Details
@@ -829,92 +829,71 @@ export default function VanSalesManagement() {
                                 {summary.items.length === 0 ? (
                                   <p className="text-sm text-muted-foreground">No products in this van stock</p>
                                 ) : (
-                                  <div className="border rounded-lg overflow-hidden">
-                                    <table className="w-full text-sm">
-                                      <thead className="bg-muted/50">
-                                        <tr>
-                                          <th className="text-left p-3 font-medium">Product</th>
-                                          <th className="text-right p-3 font-medium">Stock in Van</th>
-                                          <th className="text-right p-3 font-medium">Ordered</th>
-                                          <th className="text-right p-3 font-medium">Returned</th>
-                                          <th className="text-right p-3 font-medium">Left in Van</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {summary.items.map((item) => {
-                                          const stockKG = (item.start_qty / 1000).toFixed(2);
-                                          const orderedKG = (item.ordered_qty / 1000).toFixed(2);
-                                          const returnedKG = (item.returned_qty / 1000).toFixed(2);
-                                          const leftKG = (item.left_qty / 1000).toFixed(2);
-                                          return (
-                                            <tr key={item.id} className="border-t">
-                                              <td className="p-3">
-                                                <p className="font-medium">{item.product_name}</p>
-                                                <p className="text-xs text-muted-foreground">₹{item.price_without_gst.toFixed(2)}/KG</p>
-                                              </td>
-                                              <td className="p-3 text-right font-medium">{stockKG} KG</td>
-                                              <td className="p-3 text-right text-amber-600 font-medium">{orderedKG} KG</td>
-                                              <td className="p-3 text-right text-purple-600 font-medium">{returnedKG} KG</td>
-                                              <td className="p-3 text-right text-green-600 font-medium">{leftKG} KG</td>
+                                  (() => {
+                                    // Get edits for this summary
+                                    const editsForSummary = openingGRNEdits.filter(
+                                      e => e.stock_date === summary.stock_date && e.user_id === summary.user_id
+                                    );
+                                    
+                                    // Create a map of edits by product_id for quick lookup
+                                    const editsByProductId = new Map(
+                                      editsForSummary.map(edit => [edit.product_id, edit])
+                                    );
+                                    
+                                    return (
+                                      <div className="border rounded-lg overflow-hidden bg-amber-50/50 dark:bg-amber-950/20">
+                                        <table className="w-full text-sm">
+                                          <thead className="bg-amber-100/50 dark:bg-amber-900/30">
+                                            <tr>
+                                              <th className="text-left p-3 font-medium">Product</th>
+                                              <th className="text-right p-3 font-medium">Previous Left</th>
+                                              <th className="text-right p-3 font-medium">Edited Qty</th>
+                                              <th className="text-right p-3 font-medium">Difference</th>
                                             </tr>
-                                          );
-                                        })}
-                                      </tbody>
-                                    </table>
-                                  </div>
+                                          </thead>
+                                          <tbody>
+                                            {summary.items.map((item) => {
+                                              const edit = editsByProductId.get(item.product_id);
+                                              
+                                              // If there's an edit, use the edit data
+                                              // Otherwise, use current stock as both previous and edited (0 difference)
+                                              const prevQty = edit ? edit.previous_qty : item.start_qty;
+                                              const editedQty = edit ? edit.edited_qty : item.start_qty;
+                                              const difference = edit ? edit.difference : 0;
+                                              const unit = edit?.unit || 'grams';
+                                              
+                                              // Convert to KG for display
+                                              const isGrams = unit.toLowerCase() === 'grams';
+                                              const prevDisplay = isGrams ? (prevQty / 1000).toFixed(2) : prevQty.toFixed(2);
+                                              const editDisplay = isGrams ? (editedQty / 1000).toFixed(2) : editedQty.toFixed(2);
+                                              const diffDisplay = isGrams ? (difference / 1000).toFixed(2) : difference.toFixed(2);
+                                              const displayUnit = isGrams ? 'KG' : unit;
+                                              
+                                              return (
+                                                <tr key={item.id} className="border-t border-amber-200/50 dark:border-amber-800/50">
+                                                  <td className="p-3">
+                                                    <p className="font-medium">{item.product_name}</p>
+                                                    <p className="text-xs text-muted-foreground">₹{item.price_without_gst.toFixed(2)}/KG</p>
+                                                  </td>
+                                                  <td className="p-3 text-right font-medium">{prevDisplay} {displayUnit}</td>
+                                                  <td className="p-3 text-right font-medium">{editDisplay} {displayUnit}</td>
+                                                  <td className={`p-3 text-right font-medium ${
+                                                    difference > 0 ? 'text-green-600' : 
+                                                    difference < 0 ? 'text-red-600' : 
+                                                    'text-muted-foreground'
+                                                  }`}>
+                                                    {difference > 0 ? '+' : ''}{diffDisplay} {displayUnit}
+                                                  </td>
+                                                </tr>
+                                              );
+                                            })}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    );
+                                  })()
                                 )}
                               </div>
-
-                              {/* Opening GRN Edits for this user/date */}
-                              {(() => {
-                                const editsForSummary = openingGRNEdits.filter(
-                                  e => e.stock_date === summary.stock_date && e.user_id === summary.user_id
-                                );
-                                if (editsForSummary.length === 0) return null;
-                                
-                                return (
-                                  <div className="border-t pt-4 mt-4">
-                                    <h4 className="font-semibold mb-3 flex items-center gap-2">
-                                      <Edit className="h-4 w-4 text-amber-600" /> Opening GRN Edits
-                                    </h4>
-                                    <div className="border rounded-lg overflow-hidden bg-amber-50/50 dark:bg-amber-950/20">
-                                      <table className="w-full text-sm">
-                                        <thead className="bg-amber-100/50 dark:bg-amber-900/30">
-                                          <tr>
-                                            <th className="text-left p-2 font-medium">Product</th>
-                                            <th className="text-right p-2 font-medium">Previous Left</th>
-                                            <th className="text-right p-2 font-medium">Edited Qty</th>
-                                            <th className="text-right p-2 font-medium">Difference</th>
-                                          </tr>
-                                        </thead>
-                                        <tbody>
-                                          {editsForSummary.map((edit) => {
-                                            const isGrams = edit.unit?.toLowerCase() === 'grams';
-                                            const prevDisplay = isGrams ? (edit.previous_qty / 1000).toFixed(2) : edit.previous_qty;
-                                            const editDisplay = isGrams ? (edit.edited_qty / 1000).toFixed(2) : edit.edited_qty;
-                                            const diffDisplay = isGrams ? (edit.difference / 1000).toFixed(2) : edit.difference;
-                                            const displayUnit = isGrams ? 'KG' : edit.unit;
-                                            
-                                            return (
-                                              <tr key={edit.id} className="border-t border-amber-200/50 dark:border-amber-800/50">
-                                                <td className="p-2 font-medium">{edit.product_name}</td>
-                                                <td className="p-2 text-right">{prevDisplay} {displayUnit}</td>
-                                                <td className="p-2 text-right">{editDisplay} {displayUnit}</td>
-                                                <td className={`p-2 text-right font-semibold ${edit.difference > 0 ? 'text-green-600' : edit.difference < 0 ? 'text-red-600' : ''}`}>
-                                                  {edit.difference > 0 ? '+' : ''}{diffDisplay} {displayUnit}
-                                                </td>
-                                              </tr>
-                                            );
-                                          })}
-                                        </tbody>
-                                      </table>
-                                      <div className="p-2 text-xs text-muted-foreground bg-amber-100/30 dark:bg-amber-900/20 border-t border-amber-200/50">
-                                        👉 Only modified quantities are tracked as today's activity
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })()}
                             </CardContent>
                           </Card>
                         </CollapsibleContent>
