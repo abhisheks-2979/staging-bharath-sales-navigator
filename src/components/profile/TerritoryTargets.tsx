@@ -460,12 +460,7 @@ export function TerritoryTargets({ selectedPlanId, userId, quantityUnit }: Terri
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div className="text-sm">
-          <span className="font-medium">Qty: {Math.round(totalTerritoryQuantity).toLocaleString()} {quantityUnit}</span>
-          <span className="mx-2 text-muted-foreground">|</span>
-          <span className="font-medium">₹{Math.round(totalTerritoryRevenue).toLocaleString()}</span>
-        </div>
+      <div className="flex justify-end">
         <Button size="sm" onClick={saveTerritoryTargets}>
           Save Targets
         </Button>

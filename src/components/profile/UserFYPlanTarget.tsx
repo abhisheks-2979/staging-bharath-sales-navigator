@@ -1572,12 +1572,7 @@ export function UserFYPlanTarget() {
 
                 {/* PRODUCT TARGETS TAB */}
                 <TabsContent value="products" className="mt-4 space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div className="text-sm">
-                      <span className="font-medium">Qty: {Math.round(totalProductQuantity).toLocaleString()} {quantityUnit}</span>
-                      <span className="mx-2 text-muted-foreground">|</span>
-                      <span className="font-medium">₹{Math.round(totalProductRevenue).toLocaleString()}</span>
-                    </div>
+                  <div className="flex justify-end">
                     <Button size="sm" onClick={saveProductTargets}>
                       Save Targets
                     </Button>
@@ -1752,12 +1747,7 @@ export function UserFYPlanTarget() {
 
                 {/* RETAILER TARGETS TAB */}
                 <TabsContent value="retailers" className="mt-4 space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div className="text-sm">
-                      <span className="font-medium">Qty: {Math.round(totalRetailerQuantity).toLocaleString()} {quantityUnit}</span>
-                      <span className="mx-2 text-muted-foreground">|</span>
-                      <span className="font-medium">₹{Math.round(totalRetailerRevenue).toLocaleString()}</span>
-                    </div>
+                  <div className="flex justify-end">
                     <Button size="sm" onClick={saveRetailerTargets}>
                       Save Targets
                     </Button>
@@ -1932,12 +1922,7 @@ export function UserFYPlanTarget() {
 
                 {/* MONTHLY TARGETS TAB */}
                 <TabsContent value="months" className="mt-4 space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div className="text-sm">
-                      <span className="font-medium">Qty: {Math.round(totalMonthQuantityComputed).toLocaleString()} {quantityUnit}</span>
-                      <span className="mx-2 text-muted-foreground">|</span>
-                      <span className="font-medium">₹{Math.round(totalMonthRevenueComputed).toLocaleString()}</span>
-                    </div>
+                  <div className="flex justify-end">
                     <Button size="sm" onClick={saveMonthTargets}>
                       Save Targets
                     </Button>
