@@ -12,6 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import { CreditScoreDisplay } from "@/components/CreditScoreDisplay";
 import { RetailerPerformanceAnalytics } from "@/components/RetailerPerformanceAnalytics";
 import { RetailerLoyaltyCard } from "@/components/loyalty/RetailerLoyaltyCard";
+import { TargetVsActualCard } from "@/components/performance/TargetVsActualCard";
 
 interface Retailer {
   id: string;
@@ -285,6 +286,10 @@ export const RetailerDetail = () => {
                 </div>
               </div>
             </div>
+
+            {/* Target vs Actual Section */}
+            <Separator />
+            <TargetVsActualCard entityType="retailer" entityId={retailer.id} userId={user?.id} />
 
             {/* Credit Score Section */}
             <Separator />
