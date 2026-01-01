@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight, Search, X, XCircle, UserX, DoorClosed, Camera, RotateCcw, Star, Sparkles, Target, MessageSquare, Mic } from "lucide-react";
 import { VoiceOrderAssistant } from "@/components/VoiceOrderAssistant";
+import { SmartBasketButton } from "@/components/SmartBasketButton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -1737,8 +1738,8 @@ export const OrderEntry = () => {
                 </Button>
               </div>
               
-              {/* Row 2: Voice Order (Full Width) */}
-              <div className="flex">
+              {/* Row 2: Voice Order + Smart Basket */}
+              <div className="flex gap-1.5">
                 <VoiceOrderAssistant
                   products={cachedProducts.map(p => ({
                     id: p.id,
@@ -1771,6 +1772,32 @@ export const OrderEntry = () => {
                     }
                   }}
                   disabled={!isActuallyOnline || cachedProducts.length === 0}
+                  className="flex-1"
+                />
+                <SmartBasketButton
+                  retailerId={validRetailerId || ''}
+                  onAutoFillProducts={(results) => {
+                    if (orderMode === "table" && tableFormRef.current) {
+                      tableFormRef.current.applyVoiceAutoFill(results);
+                    } else {
+                      results.forEach(result => {
+                        handleQuantityChange(result.productId, result.quantity);
+                        if (result.unit) {
+                          setSelectedUnits(prev => ({
+                            ...prev,
+                            [result.productId]: result.unit
+                          }));
+                        }
+                      });
+                      if (results.length > 0) {
+                        toast({
+                          title: `✓ ${results.length} product${results.length > 1 ? 's' : ''} auto-filled`,
+                          description: results.map(r => `${r.productName}: ${r.quantity} ${r.unit}`).join(', '),
+                        });
+                      }
+                    }
+                  }}
+                  disabled={!isActuallyOnline || !validRetailerId}
                   className="flex-1"
                 />
               </div>
