@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
-import { Store, Search, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
+import { Store, Search, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 import type { PerformanceData } from '@/hooks/usePerformanceSummary';
 
 interface RetailerPerformanceProps {
@@ -32,6 +33,7 @@ const getProgressBgColor = (progress: number): string => {
 };
 
 export function RetailerPerformance({ retailers, quantityUnit, isLoading }: RetailerPerformanceProps) {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'progress' | 'revenue' | 'gap'>('progress');
 
@@ -151,7 +153,11 @@ export function RetailerPerformance({ retailers, quantityUnit, isLoading }: Reta
             </TableHeader>
             <TableBody>
               {sortedRetailers.map(retailer => (
-                <TableRow key={retailer.id}>
+                <TableRow 
+                  key={retailer.id} 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => navigate(`/retailer/${retailer.id}`)}
+                >
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <div className={cn(
@@ -160,7 +166,10 @@ export function RetailerPerformance({ retailers, quantityUnit, isLoading }: Reta
                         retailer.revenueProgress >= 50 ? "bg-yellow-500" :
                         "bg-red-500"
                       )} />
-                      <span className="font-medium">{retailer.name}</span>
+                      <span className="font-medium text-primary hover:underline flex items-center gap-1">
+                        {retailer.name}
+                        <ExternalLink className="h-3 w-3 opacity-50" />
+                      </span>
                     </div>
                   </TableCell>
                   <TableCell className="text-right">{formatCurrency(retailer.revenueTarget)}</TableCell>
