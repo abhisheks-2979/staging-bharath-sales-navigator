@@ -87,19 +87,23 @@ const Index = () => {
           <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
           <div className="relative p-4">
             <div className="flex items-center justify-between">
-              {/* Profile Section */}
-              <div className="flex items-center gap-3">
-                {user && (
-                  <ProfilePictureUpload
-                    userId={user.id}
-                    currentPhotoUrl={profilePictureUrl || undefined}
-                    fullName={displayName}
-                    onPhotoUpdate={(newUrl) => {
-                      setProfilePictureUrl(newUrl);
-                      refreshProfilePicture();
-                    }}
-                    size="sm"
-                  />
+              {/* Profile Section - Clickable to My Profile */}
+              <div 
+                className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => navigate('/profile')}
+              >
+                {profilePictureUrl ? (
+                  <div className="h-10 w-10 rounded-full border-2 border-white/30 overflow-hidden">
+                    <img 
+                      src={profilePictureUrl} 
+                      alt={displayName} 
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="h-10 w-10 rounded-full border-2 border-white/30 bg-white/20 flex items-center justify-center">
+                    <span className="text-sm font-bold">{displayName?.charAt(0)?.toUpperCase()}</span>
+                  </div>
                 )}
                 <div>
                   <p className="text-[10px] opacity-80">
