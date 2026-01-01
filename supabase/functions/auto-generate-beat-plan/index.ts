@@ -47,7 +47,7 @@ serve(async (req) => {
     // Get all active users or specific user
     let usersQuery = supabaseClient
       .from('profiles')
-      .select('id, full_name, role')
+      .select('id, full_name')
       .eq('is_active', true);
     
     if (userId) {
