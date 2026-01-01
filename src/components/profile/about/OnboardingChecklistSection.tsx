@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { ClipboardCheck, Upload, Loader2, CheckCircle2, Circle, FileText } from "lucide-react";
+import { ClipboardCheck, Upload, Loader2, CheckCircle2, Circle, FileText, Pencil, X, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -30,6 +30,7 @@ interface UserProgress {
 
 export function OnboardingChecklistSection() {
   const { user } = useAuth();
+  const [isEditMode, setIsEditMode] = useState(false);
   const [tasks, setTasks] = useState<OnboardingTask[]>([]);
   const [progress, setProgress] = useState<Record<string, UserProgress>>({});
   const [loading, setLoading] = useState(true);
@@ -182,17 +183,97 @@ export function OnboardingChecklistSection() {
     );
   }
 
+  // View Mode
+  if (!isEditMode) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5 text-primary" />
+              Onboarding Checklist
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Badge variant={progressPercent === 100 ? "default" : "secondary"}>
+                {completedCount}/{tasks.length} Complete
+              </Badge>
+              <Button size="sm" variant="outline" onClick={() => setIsEditMode(true)}>
+                <Pencil className="h-4 w-4 mr-1" /> Edit
+              </Button>
+            </div>
+          </div>
+          <Progress value={progressPercent} className="h-2 mt-2" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {tasks.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No onboarding tasks configured yet.
+            </p>
+          ) : (
+            Object.entries(tasksByCategory).map(([category, categoryTasks]) => (
+              <div key={category}>
+                <h4 className="text-sm font-semibold text-muted-foreground mb-2">{category}</h4>
+                <div className="space-y-2">
+                  {categoryTasks.map((task) => {
+                    const taskProgress = progress[task.id];
+                    const isCompleted = taskProgress?.is_completed;
+
+                    return (
+                      <div
+                        key={task.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg ${
+                          isCompleted ? "bg-primary/5" : "bg-muted/30"
+                        }`}
+                      >
+                        {isCompleted ? (
+                          <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0" />
+                        ) : (
+                          <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <span className={`text-sm ${isCompleted ? "line-through text-muted-foreground" : "font-medium"}`}>
+                            {task.task_name}
+                          </span>
+                          {task.requires_attachment && taskProgress?.attachment_url && (
+                            <a
+                              href={taskProgress.attachment_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="ml-2 text-xs text-primary hover:underline inline-flex items-center gap-1"
+                            >
+                              <FileText className="h-3 w-3" /> View
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Edit Mode
   return (
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
             <ClipboardCheck className="h-5 w-5 text-primary" />
-            Onboarding Checklist
+            Edit Onboarding Checklist
           </CardTitle>
-          <Badge variant={progressPercent === 100 ? "default" : "secondary"}>
-            {completedCount}/{tasks.length} Complete
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant={progressPercent === 100 ? "default" : "secondary"}>
+              {completedCount}/{tasks.length} Complete
+            </Badge>
+            <Button size="sm" variant="ghost" onClick={() => setIsEditMode(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <Progress value={progressPercent} className="h-2 mt-2" />
       </CardHeader>
@@ -277,6 +358,12 @@ export function OnboardingChecklistSection() {
             </div>
           ))
         )}
+
+        <div className="pt-4">
+          <Button variant="outline" onClick={() => setIsEditMode(false)} className="w-full">
+            Done
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

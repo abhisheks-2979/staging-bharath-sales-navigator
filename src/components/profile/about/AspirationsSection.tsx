@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Sparkles, Loader2, Target, Heart, Users, Rocket, Gift, Save } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Sparkles, Loader2, Target, Heart, Users, Rocket, Gift, Save, Pencil, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -131,6 +132,7 @@ interface AspirationsData {
 
 export function AspirationsSection() {
   const { user } = useAuth();
+  const [isEditMode, setIsEditMode] = useState(false);
   const [data, setData] = useState<AspirationsData>({
     career_goal: "",
     dream_role: "",
@@ -141,6 +143,7 @@ export function AspirationsSection() {
     preferred_reward: "",
     team_preference: "",
   });
+  const [originalData, setOriginalData] = useState<AspirationsData>(data);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -158,7 +161,7 @@ export function AspirationsSection() {
       .maybeSingle();
 
     if (result) {
-      setData({
+      const fetchedData = {
         career_goal: result.career_goal || "",
         dream_role: result.dream_role || "",
         preferred_work_style: result.preferred_work_style || "",
@@ -167,7 +170,9 @@ export function AspirationsSection() {
         favorite_activity: result.favorite_activity || "",
         preferred_reward: result.preferred_reward || "",
         team_preference: result.team_preference || "",
-      });
+      };
+      setData(fetchedData);
+      setOriginalData(fetchedData);
     }
     setLoading(false);
   };
@@ -188,8 +193,15 @@ export function AspirationsSection() {
       toast.error("Failed to save");
     } else {
       toast.success("Aspirations saved!");
+      setOriginalData(data);
+      setIsEditMode(false);
     }
     setSaving(false);
+  };
+
+  const handleCancel = () => {
+    setData(originalData);
+    setIsEditMode(false);
   };
 
   const handleChange = (key: keyof AspirationsData, value: string) => {
@@ -209,20 +221,100 @@ export function AspirationsSection() {
     );
   }
 
+  // View Mode
+  if (!isEditMode) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Aspirations & Preferences
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Badge variant={completedCount === totalQuestions ? "default" : "secondary"}>
+                {completedCount}/{totalQuestions} answered
+              </Badge>
+              <Button size="sm" variant="outline" onClick={() => setIsEditMode(true)}>
+                <Pencil className="h-4 w-4 mr-1" /> Edit
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {completedCount === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No aspirations added yet. Click "Edit" to share your career goals.
+            </p>
+          ) : (
+            <>
+              {/* Aspirations */}
+              <div>
+                <h4 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Your Career Aspirations
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {ASPIRATION_QUESTIONS.map((q) => {
+                    const value = data[q.key as keyof AspirationsData];
+                    if (!value) return null;
+                    return (
+                      <div key={q.key} className="p-3 rounded-lg bg-muted/30">
+                        <div className="flex items-center gap-2 mb-1">
+                          <q.icon className="h-4 w-4 text-primary" />
+                          <span className="text-xs text-muted-foreground">{q.question}</span>
+                        </div>
+                        <p className="text-sm font-medium">{value}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Preferences */}
+              <div>
+                <h4 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                  <Heart className="h-4 w-4" />
+                  Likes & Preferences
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {PREFERENCE_QUESTIONS.map((q) => {
+                    const value = data[q.key as keyof AspirationsData];
+                    if (!value) return null;
+                    return (
+                      <div key={q.key} className="p-3 rounded-lg bg-muted/30">
+                        <div className="flex items-center gap-2 mb-1">
+                          <q.icon className="h-4 w-4 text-primary" />
+                          <span className="text-xs text-muted-foreground">{q.question}</span>
+                        </div>
+                        <p className="text-sm font-medium">{value}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Edit Mode
   return (
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            Aspirations & Preferences
+            Edit Aspirations & Preferences
           </CardTitle>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">
               {completedCount}/{totalQuestions} answered
             </span>
-            <Button size="sm" onClick={handleSave} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            <Button size="sm" variant="ghost" onClick={handleCancel}>
+              <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -292,6 +384,17 @@ export function AspirationsSection() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-3 pt-4">
+          <Button variant="outline" onClick={handleCancel} className="flex-1">
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={saving} className="flex-1">
+            {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+            Save Changes
+          </Button>
         </div>
       </CardContent>
     </Card>

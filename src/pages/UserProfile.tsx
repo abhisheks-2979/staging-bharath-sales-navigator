@@ -19,7 +19,7 @@ import { OnboardingChecklistSection } from '@/components/profile/about/Onboardin
 import { AboutViewMode } from '@/components/profile/about/AboutViewMode';
 import { AboutEditMode } from '@/components/profile/about/AboutEditMode';
 import { ProfilePointsBadge } from '@/components/profile/ProfilePointsBadge';
-import { CompactProfilePhoto } from '@/components/profile/CompactProfilePhoto';
+
 
 interface Territory {
   id: string;
@@ -236,13 +236,6 @@ const UserProfile = () => {
 
           {/* About Tab */}
           <TabsContent value="about" className="space-y-6">
-            {/* Profile Photo Section - Only in view mode */}
-            {!isEditMode && (
-              <div className="flex justify-center mb-4">
-                <CompactProfilePhoto userId={user.id} userProfile={userProfile} />
-              </div>
-            )}
-            
             {/* View/Edit Mode Toggle */}
             {isEditMode ? (
               <AboutEditMode
