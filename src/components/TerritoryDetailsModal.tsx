@@ -103,12 +103,36 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
   const [growthPotential, setGrowthPotential] = useState<string>('');
   const [growthPotentialDetails, setGrowthPotentialDetails] = useState<string>('');
   const [territoryTargets, setTerritoryTargets] = useState<{ revenueTarget: number; quantityTarget: number; actualRevenue: number; actualQuantity: number }>({ revenueTarget: 0, quantityTarget: 0, actualRevenue: 0, actualQuantity: 0 });
+  
+  // Financial Year state - default to current FY (April to March)
+  const getDefaultFY = () => {
+    const now = new Date();
+    const currentMonth = now.getMonth(); // 0-11
+    const currentYear = now.getFullYear();
+    // If current month is April (3) or later, FY starts this year, otherwise it started last year
+    return currentMonth >= 3 ? currentYear : currentYear - 1;
+  };
+  const [selectedFY, setSelectedFY] = useState<number>(getDefaultFY());
+  
+  // Generate available FY options (last 5 years)
+  const fyOptions = useMemo(() => {
+    const currentFY = getDefaultFY();
+    const options = [];
+    for (let i = 0; i < 5; i++) {
+      const fy = currentFY - i;
+      options.push({
+        value: fy,
+        label: `FY ${fy}-${(fy + 1).toString().slice(-2)}`
+      });
+    }
+    return options;
+  }, []);
 
   const modalTitle = useMemo(() => territory ? `${territory.name}` : 'Territory Details', [territory]);
 
   useEffect(() => {
     if (open && territory) loadTerritoryData();
-  }, [open, territory]);
+  }, [open, territory, selectedFY]);
 
   // Calculate sales trend based on filter
   useEffect(() => {
@@ -531,38 +555,39 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
       const { data: historyData } = await supabase.from('territory_assignment_history').select('*, profiles(full_name)').eq('territory_id', territory.id).order('assigned_from', { ascending: false });
       setAssignmentHistory(historyData || []);
 
-      // Load territory targets for the current year
-      const currentYear = new Date().getFullYear();
-      const yearStart = new Date(currentYear, 0, 1);
-      const yearEnd = new Date(currentYear, 11, 31, 23, 59, 59);
+      // Load territory targets for the selected Financial Year (April to March)
+      // FY 2025 means April 2025 to March 2026
+      const fyStartDate = new Date(selectedFY, 3, 1); // April 1st of selected FY year
+      const fyEndDate = new Date(selectedFY + 1, 2, 31, 23, 59, 59); // March 31st of next year
       
       // Get all territory targets for this territory (from all users' business plans)
+      // Business plans are stored by the starting year of FY (e.g., 2025 for FY 2025-26)
       const { data: targetsData } = await supabase
         .from('user_business_plan_territories')
         .select('quantity_target, revenue_target, user_business_plans!inner(year)')
         .eq('territory_id', territory.id)
-        .eq('user_business_plans.year', currentYear);
+        .eq('user_business_plans.year', selectedFY);
       
       // Sum up all targets for this territory
       const totalRevenueTarget = targetsData?.reduce((sum, t) => sum + Number(t.revenue_target || 0), 0) || 0;
       const totalQuantityTarget = targetsData?.reduce((sum, t) => sum + Number(t.quantity_target || 0), 0) || 0;
       
-      // Get actual revenue and quantity for the current year
-      const yearlyOrders = allOrdersData?.filter(o => {
+      // Get actual revenue and quantity for the selected FY
+      const fyOrders = allOrdersData?.filter(o => {
         const orderDate = new Date(o.created_at);
-        return orderDate >= yearStart && orderDate <= yearEnd;
+        return orderDate >= fyStartDate && orderDate <= fyEndDate;
       }) || [];
       
-      const actualRevenue = yearlyOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+      const actualRevenue = fyOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
       
-      // Get quantity from order items for yearly orders
+      // Get quantity from order items for FY orders
       let actualQuantity = 0;
-      if (yearlyOrders.length > 0) {
-        const yearlyOrderIds = yearlyOrders.map(o => o.id);
+      if (fyOrders.length > 0) {
+        const fyOrderIds = fyOrders.map(o => o.id);
         const { data: orderItemsData } = await supabase
           .from('order_items')
           .select('quantity')
-          .in('order_id', yearlyOrderIds);
+          .in('order_id', fyOrderIds);
         actualQuantity = orderItemsData?.reduce((sum, item) => sum + Number(item.quantity || 0), 0) || 0;
       }
       
@@ -944,10 +969,24 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
             {/* Target vs Actual Section */}
             <Card className="shadow-lg">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                  <Target className="h-4 w-4 text-primary" />
-                  Target vs. Actual ({new Date().getFullYear()})
-                </CardTitle>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary" />
+                    Target vs. Actual
+                  </CardTitle>
+                  <Select value={selectedFY.toString()} onValueChange={(val) => setSelectedFY(parseInt(val))}>
+                    <SelectTrigger className="w-[140px] h-8 text-xs">
+                      <SelectValue placeholder="Select FY" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fyOptions.map(fy => (
+                        <SelectItem key={fy.value} value={fy.value.toString()}>
+                          {fy.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </CardHeader>
               <CardContent className="p-3 sm:p-4">
                 {territoryTargets.revenueTarget > 0 || territoryTargets.quantityTarget > 0 ? (
@@ -1035,7 +1074,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">No annual targets set for this territory</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">No targets set for FY {selectedFY}-{(selectedFY + 1).toString().slice(-2)}</p>
                 )}
               </CardContent>
             </Card>
