@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users, Clock, Truck, ArrowUpDown, RefreshCw, Download } from "lucide-react";
+import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users, Clock, Truck, ArrowUpDown, RefreshCw, Download, Sparkles, Loader2 } from "lucide-react";
 import { PointsDetailsModal } from "@/components/PointsDetailsModal";
 import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addWeeks, subWeeks, differenceInDays } from "date-fns";
 import { SearchInput } from "@/components/SearchInput";
@@ -184,6 +184,7 @@ export const MyVisits = () => {
   const [showClearCacheDialog, setShowClearCacheDialog] = useState(false);
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [selectedViewUserId, setSelectedViewUserId] = useState<string>('self'); // For viewing subordinates' data
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const {
     user
   } = useAuth();
@@ -902,6 +903,37 @@ export const MyVisits = () => {
     setSelectedDate(targetDay.isoDate);
   };
 
+  const handleAutoGeneratePlan = async () => {
+    if (!user?.id) return;
+    
+    setIsGeneratingPlan(true);
+    const loadingToast = toast.loading('Generating optimized weekly plan...');
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('auto-generate-beat-plan', {
+        body: { 
+          userId: user.id,
+          forceRegenerate: true 
+        }
+      });
+      
+      if (error) throw error;
+      
+      toast.dismiss(loadingToast);
+      const plansCreated = data?.results?.[0]?.plansCreated || 0;
+      toast.success(`Created ${plansCreated} beat plans for next week!`);
+      
+      // Refresh current view
+      invalidateData?.();
+    } catch (error) {
+      console.error('Auto-generate error:', error);
+      toast.dismiss(loadingToast);
+      toast.error('Failed to generate plan. Please try again.');
+    } finally {
+      setIsGeneratingPlan(false);
+    }
+  };
+
   // Extract unique categories and locations for filter options
   const availableCategories = useMemo(() => {
     return Array.from(new Set(retailers.map(r => r.retailerCategory).filter(Boolean)));
@@ -1158,14 +1190,29 @@ export const MyVisits = () => {
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mb-2">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-2 mb-2">
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3"
+                onClick={handleAutoGeneratePlan}
+                disabled={isGeneratingPlan}
+                title="AI generates optimized weekly beat plans"
+              >
+                {isGeneratingPlan ? (
+                  <Loader2 size={12} className="mr-1 sm:mr-1.5 animate-spin" />
+                ) : (
+                  <Sparkles size={12} className="mr-1 sm:mr-1.5" />
+                )}
+                <span className="whitespace-nowrap">{isGeneratingPlan ? 'Planning...' : 'Auto Plan'}</span>
+              </Button>
               <Button variant="secondary" size="sm" className={`bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3 ${selectedDate < new Date().toISOString().split('T')[0] ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => navigate(`/beat-planning?date=${selectedDate}`)} disabled={selectedDate < new Date().toISOString().split('T')[0]}>
                 <Route size={12} className="mr-1 sm:mr-1.5" />
                 <span className="whitespace-nowrap">All Beat</span>
               </Button>
               <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={() => navigate('/my-retailers', { state: { returnTo: '/visits/retailers' } })}>
                 <Users size={12} className="mr-1 sm:mr-1.5" />
-                <span className="whitespace-nowrap">All Retailers</span>
+                <span className="whitespace-nowrap">Retailers</span>
               </Button>
               <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[9px] sm:text-sm h-8 sm:h-9 px-1 sm:px-3 overflow-hidden" onClick={() => navigate(`/today-summary?date=${selectedDate}`)}>
                 <FileText size={10} className="mr-0.5 sm:mr-1.5 flex-shrink-0" />
