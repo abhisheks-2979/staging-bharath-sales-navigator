@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Settings, Plus, Edit, Trash2, Eye, EyeOff } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Layout } from "@/components/Layout";
 
 interface Template {
   id: string;
@@ -172,8 +173,8 @@ export default function PushContentSetup() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-subtle p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <Layout>
+      <div className="container mx-auto p-4 sm:p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Settings className="h-8 w-8 text-primary" />
@@ -343,6 +344,6 @@ export default function PushContentSetup() {
           )}
         </div>
       </div>
-    </div>
+    </Layout>
   );
 }
