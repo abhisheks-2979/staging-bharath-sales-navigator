@@ -47,7 +47,7 @@ export const Navbar = memo(() => {
   const connectivityStatus = useConnectivity();
   const { t } = useTranslation('common');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { activeModule, isGamificationActive, isTargetActualActive } = useActivePerformanceModule();
+  const { isGamificationActive } = useActivePerformanceModule();
   
   // Hide back button on home/dashboard
   const showBackButton = location.pathname !== '/dashboard' && location.pathname !== '/';
@@ -69,11 +69,6 @@ export const Navbar = memo(() => {
       { icon: CreditCard, label: t('nav.expenses'), href: "/expenses", color: "from-indigo-500 to-indigo-600" },
     ];
 
-    // Only add Performance if module is not 'none'
-    if (activeModule !== 'none') {
-      baseItems.push({ icon: Target, label: "Performance", href: "/performance", color: "from-cyan-500 to-cyan-600" });
-    }
-
     // Add Leaderboard only if gamification is active
     if (isGamificationActive) {
       baseItems.push({ icon: Trophy, label: "Leader board", href: "/leaderboard", color: "from-yellow-500 to-yellow-600" });
@@ -87,7 +82,7 @@ export const Navbar = memo(() => {
     );
 
     return baseItems;
-  }, [t, activeModule, isGamificationActive]);
+  }, [t, isGamificationActive]);
 
   // Admin-only navigation items
   const adminNavigationItems = [

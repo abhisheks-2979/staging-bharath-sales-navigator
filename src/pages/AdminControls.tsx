@@ -4,7 +4,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Shield, Users, Settings, Package, ArrowLeft, CalendarDays, MapPin, DollarSign, BarChart3, MessageSquareText, Navigation, Store, Truck, Flag, Trophy, FileText, CreditCard, Lock, Bell, Target, Trash2 } from 'lucide-react';
+import { Shield, Users, Settings, Package, ArrowLeft, CalendarDays, MapPin, DollarSign, BarChart3, MessageSquareText, Navigation, Store, Truck, Flag, Trophy, FileText, CreditCard, Lock, Bell, Trash2 } from 'lucide-react';
 import { SearchInput } from '@/components/SearchInput';
 
 const AdminControls = () => {
@@ -48,7 +48,6 @@ const AdminControls = () => {
     { title: "Invoice Management", description: "Create and manage GST invoices with automatic tax calculations", icon: FileText, color: "cyan", path: "/invoice-management" },
     { title: "Credit Management", description: "Configure retailer credit scoring and limit management system", icon: CreditCard, color: "emerald", path: "/credit-management" },
     { title: "Notification Setup", description: "Manage automated content templates and schedules for users", icon: Bell, color: "rose", path: "/push-content-setup" },
-    { title: "Performance Module", description: "Choose between Gamification or Target vs. Actual tracking", icon: Target, color: "cyan", path: "/admin/performance-module" },
     { title: "Recycle Bin Master", description: "Configure recycle bin settings and view permanent deletion logs", icon: Trash2, color: "rose", path: "/admin/recycle-bin" },
   ];
 
