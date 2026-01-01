@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Route } from 'lucide-react';
+import { Route, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 import type { PerformanceData } from '@/hooks/usePerformanceSummary';
 
 interface BeatPerformanceProps {
@@ -18,6 +19,8 @@ const formatCurrency = (amount: number): string => {
 };
 
 export function BeatPerformance({ beats, quantityUnit, isLoading }: BeatPerformanceProps) {
+  const navigate = useNavigate();
+
   if (isLoading) {
     return (
       <Card>
@@ -79,7 +82,11 @@ export function BeatPerformance({ beats, quantityUnit, isLoading }: BeatPerforma
             </TableHeader>
             <TableBody>
               {sortedBeats.slice(0, 10).map((beat, index) => (
-                <TableRow key={beat.id}>
+                <TableRow 
+                  key={beat.id} 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => navigate(`/beat/${beat.id}`)}
+                >
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <span className={cn(
@@ -91,7 +98,10 @@ export function BeatPerformance({ beats, quantityUnit, isLoading }: BeatPerforma
                       )}>
                         {index + 1}
                       </span>
-                      <span className="font-medium">{beat.name}</span>
+                      <span className="font-medium text-primary hover:underline flex items-center gap-1">
+                        {beat.name}
+                        <ExternalLink className="h-3 w-3 opacity-50" />
+                      </span>
                     </div>
                   </TableCell>
                   <TableCell className="text-right font-medium">{formatCurrency(beat.revenueActual)}</TableCell>

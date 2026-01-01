@@ -1,8 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Progress } from '@/components/ui/progress';
-import { MapPin, TrendingUp, TrendingDown } from 'lucide-react';
+import { MapPin, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 import type { PerformanceData } from '@/hooks/usePerformanceSummary';
 
 interface TerritoryPerformanceProps {
@@ -31,6 +31,8 @@ const getProgressBgColor = (progress: number): string => {
 };
 
 export function TerritoryPerformance({ territories, quantityUnit, isLoading }: TerritoryPerformanceProps) {
+  const navigate = useNavigate();
+
   if (isLoading) {
     return (
       <Card>
@@ -93,8 +95,13 @@ export function TerritoryPerformance({ territories, quantityUnit, isLoading }: T
             </TableHeader>
             <TableBody>
               {territories.map(territory => (
-                <TableRow key={territory.id}>
-                  <TableCell className="font-medium">{territory.name}</TableCell>
+                <TableRow key={territory.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/territory/${territory.id}`)}>
+                  <TableCell>
+                    <div className="flex items-center gap-2 font-medium text-primary hover:underline">
+                      {territory.name}
+                      <ExternalLink className="h-3 w-3 opacity-50" />
+                    </div>
+                  </TableCell>
                   <TableCell className="text-right">{formatCurrency(territory.revenueTarget)}</TableCell>
                   <TableCell className="text-right">{formatCurrency(territory.revenueActual)}</TableCell>
                   <TableCell>

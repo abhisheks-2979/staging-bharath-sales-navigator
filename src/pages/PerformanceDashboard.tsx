@@ -10,6 +10,7 @@ import { OverallPerformanceHeader } from '@/components/performance/OverallPerfor
 import { TerritoryPerformance } from '@/components/performance/TerritoryPerformance';
 import { BeatPerformance } from '@/components/performance/BeatPerformance';
 import { RetailerPerformance } from '@/components/performance/RetailerPerformance';
+import { AIRecommendations } from '@/components/performance/AIRecommendations';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
@@ -90,6 +91,15 @@ const PerformanceDashboard = () => {
               </Button>
             ))}
           </div>
+
+          {/* AI Recommendations */}
+          <AIRecommendations
+            overall={overall}
+            territories={territories}
+            beats={beats}
+            retailers={retailers}
+            isLoading={isLoading}
+          />
 
           {/* Overall Performance */}
           <OverallPerformanceHeader performance={overall} isLoading={isLoading} />
