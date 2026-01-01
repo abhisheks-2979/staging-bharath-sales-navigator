@@ -48,6 +48,7 @@ interface EmployeeData {
   date_of_joining: string | null;
   band: number | null;
   manager_id: string | null;
+  alternate_email: string | null;
 }
 
 interface ManagerInfo {
@@ -58,6 +59,8 @@ interface AspirationData {
   career_goal: string | null;
   motivation_driver: string | null;
   preferred_work_style: string | null;
+  dream_role: string | null;
+  five_year_vision: string | null;
 }
 
 interface EducationItem {
@@ -69,6 +72,15 @@ interface EducationItem {
   to_date: string | null;
 }
 
+interface WorkExperienceItem {
+  id: string;
+  company_name: string;
+  designation: string | null;
+  from_date: string | null;
+  to_date: string | null;
+  description: string | null;
+}
+
 export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProfileModalProps) {
   const { user } = useAuth();
   const [profile, setProfile] = useState<MemberProfile | null>(null);
@@ -76,6 +88,7 @@ export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProf
   const [managerInfo, setManagerInfo] = useState<ManagerInfo | null>(null);
   const [aspirations, setAspirations] = useState<AspirationData | null>(null);
   const [educationHistory, setEducationHistory] = useState<EducationItem[]>([]);
+  const [workHistory, setWorkHistory] = useState<WorkExperienceItem[]>([]);
   const [totalPoints, setTotalPoints] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
@@ -103,7 +116,8 @@ export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProf
         followingCountResult,
         postsResult,
         aspirationsResult,
-        educationResult
+        educationResult,
+        workResult
       ] = await Promise.all([
         supabase
           .from("profiles")
@@ -112,7 +126,7 @@ export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProf
           .single(),
         supabase
           .from("employees")
-          .select("hq, education, date_of_joining, band, manager_id")
+          .select("hq, education, date_of_joining, band, manager_id, alternate_email")
           .eq("user_id", userId)
           .maybeSingle(),
         supabase
@@ -139,7 +153,7 @@ export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProf
           .eq("user_id", userId),
         supabase
           .from("aspirations_and_preferences")
-          .select("career_goal, motivation_driver, preferred_work_style")
+          .select("career_goal, motivation_driver, preferred_work_style, dream_role, five_year_vision")
           .eq("user_id", userId)
           .maybeSingle(),
         supabase
@@ -147,15 +161,21 @@ export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProf
           .select("id, institution_name, degree, field_of_study, from_date, to_date")
           .eq("user_id", userId)
           .order("from_date", { ascending: false })
+          .limit(3),
+        supabase
+          .from("work_experiences")
+          .select("id, company_name, designation, from_date, to_date, description")
+          .eq("user_id", userId)
+          .order("from_date", { ascending: false })
           .limit(3)
       ]);
 
       if (profileResult.data) {
-        setProfile(profileResult.data);
+        setProfile(profileResult.data as MemberProfile);
       }
       
       if (employeeResult.data) {
-        setEmployeeData(employeeResult.data);
+        setEmployeeData(employeeResult.data as EmployeeData);
         
         // Fetch manager info if manager_id exists
         if (employeeResult.data.manager_id) {
@@ -179,11 +199,15 @@ export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProf
       setPostsCount(postsResult.count || 0);
       
       if (aspirationsResult.data) {
-        setAspirations(aspirationsResult.data);
+        setAspirations(aspirationsResult.data as AspirationData);
       }
       
       if (educationResult.data) {
         setEducationHistory(educationResult.data);
+      }
+      
+      if (workResult.data) {
+        setWorkHistory(workResult.data);
       }
     } catch (error) {
       console.error("Error fetching member data:", error);
@@ -300,6 +324,14 @@ export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProf
             <div className="space-y-2">
               <p className="text-sm font-medium">Contact Details</p>
               <div className="space-y-2 text-sm">
+                {employeeData?.alternate_email && (
+                  <div className="flex items-center gap-3">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <a href={`mailto:${employeeData.alternate_email}`} className="hover:underline text-primary">
+                      {employeeData.alternate_email}
+                    </a>
+                  </div>
+                )}
                 {profile.phone_number && (
                   <div className="flex items-center gap-3">
                     <Phone className="h-4 w-4 text-muted-foreground" />
@@ -309,32 +341,34 @@ export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProf
                   </div>
                 )}
                 {/* Social Links */}
-                <div className="flex gap-2 mt-2">
-                  {profile.linkedin_url && (
-                    <a href={profile.linkedin_url} target="_blank" rel="noopener noreferrer" 
-                       className="p-2 rounded-lg bg-muted hover:bg-primary/10">
-                      <Linkedin className="h-4 w-4" />
-                    </a>
-                  )}
-                  {profile.twitter_url && (
-                    <a href={profile.twitter_url} target="_blank" rel="noopener noreferrer"
-                       className="p-2 rounded-lg bg-muted hover:bg-primary/10">
-                      <Twitter className="h-4 w-4" />
-                    </a>
-                  )}
-                  {profile.instagram_url && (
-                    <a href={profile.instagram_url} target="_blank" rel="noopener noreferrer"
-                       className="p-2 rounded-lg bg-muted hover:bg-primary/10">
-                      <Instagram className="h-4 w-4" />
-                    </a>
-                  )}
-                  {profile.facebook_url && (
-                    <a href={profile.facebook_url} target="_blank" rel="noopener noreferrer"
-                       className="p-2 rounded-lg bg-muted hover:bg-primary/10">
-                      <Facebook className="h-4 w-4" />
-                    </a>
-                  )}
-                </div>
+                {(profile.linkedin_url || profile.twitter_url || profile.instagram_url || profile.facebook_url) && (
+                  <div className="flex gap-2 mt-2">
+                    {profile.linkedin_url && (
+                      <a href={profile.linkedin_url} target="_blank" rel="noopener noreferrer" 
+                         className="p-2 rounded-lg bg-muted hover:bg-primary/10">
+                        <Linkedin className="h-4 w-4" />
+                      </a>
+                    )}
+                    {profile.twitter_url && (
+                      <a href={profile.twitter_url} target="_blank" rel="noopener noreferrer"
+                         className="p-2 rounded-lg bg-muted hover:bg-primary/10">
+                        <Twitter className="h-4 w-4" />
+                      </a>
+                    )}
+                    {profile.instagram_url && (
+                      <a href={profile.instagram_url} target="_blank" rel="noopener noreferrer"
+                         className="p-2 rounded-lg bg-muted hover:bg-primary/10">
+                        <Instagram className="h-4 w-4" />
+                      </a>
+                    )}
+                    {profile.facebook_url && (
+                      <a href={profile.facebook_url} target="_blank" rel="noopener noreferrer"
+                         className="p-2 rounded-lg bg-muted hover:bg-primary/10">
+                        <Facebook className="h-4 w-4" />
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -403,8 +437,36 @@ export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProf
               </>
             )}
 
+            {/* Work Experience */}
+            {workHistory.length > 0 && (
+              <>
+                <Separator />
+                <div>
+                  <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <Briefcase className="h-4 w-4" />
+                    Work Experience
+                  </p>
+                  <div className="space-y-2">
+                    {workHistory.map((work) => (
+                      <div key={work.id} className="text-sm">
+                        <p className="font-medium">{work.company_name}</p>
+                        <p className="text-muted-foreground">
+                          {work.designation}
+                          {work.from_date && work.to_date && (
+                            <span className="ml-1">
+                              ({format(new Date(work.from_date), "MMM yyyy")} - {work.to_date ? format(new Date(work.to_date), "MMM yyyy") : "Present"})
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
             {/* Aspirations Highlights */}
-            {aspirations && (aspirations.career_goal || aspirations.motivation_driver) && (
+            {aspirations && (aspirations.career_goal || aspirations.motivation_driver || aspirations.dream_role || aspirations.five_year_vision) && (
               <>
                 <Separator />
                 <div>
@@ -413,21 +475,33 @@ export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProf
                     Aspirations
                   </p>
                   <div className="space-y-2">
+                    {aspirations.dream_role && (
+                      <div className="flex items-start gap-2">
+                        <Briefcase className="h-3 w-3 text-primary mt-1" />
+                        <span className="text-sm">Dream Role: {aspirations.dream_role}</span>
+                      </div>
+                    )}
                     {aspirations.career_goal && (
-                      <div className="flex items-center gap-2">
-                        <Target className="h-3 w-3 text-primary" />
+                      <div className="flex items-start gap-2">
+                        <Target className="h-3 w-3 text-primary mt-1" />
                         <span className="text-sm">{aspirations.career_goal}</span>
                       </div>
                     )}
+                    {aspirations.five_year_vision && (
+                      <div className="flex items-start gap-2">
+                        <Sparkles className="h-3 w-3 text-primary mt-1" />
+                        <span className="text-sm">5-Year Vision: {aspirations.five_year_vision}</span>
+                      </div>
+                    )}
                     {aspirations.motivation_driver && (
-                      <div className="flex items-center gap-2">
-                        <Heart className="h-3 w-3 text-primary" />
+                      <div className="flex items-start gap-2">
+                        <Heart className="h-3 w-3 text-primary mt-1" />
                         <span className="text-sm">Motivated by: {aspirations.motivation_driver}</span>
                       </div>
                     )}
                     {aspirations.preferred_work_style && (
-                      <div className="flex items-center gap-2">
-                        <Users className="h-3 w-3 text-primary" />
+                      <div className="flex items-start gap-2">
+                        <Users className="h-3 w-3 text-primary mt-1" />
                         <span className="text-sm">{aspirations.preferred_work_style}</span>
                       </div>
                     )}
