@@ -53,6 +53,45 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_autonomous_actions: {
+        Row: {
+          action_data: Json | null
+          action_type: string
+          can_undo: boolean | null
+          created_at: string
+          executed_at: string | null
+          id: string
+          status: string
+          undo_until: string | null
+          undone_at: string | null
+          user_id: string
+        }
+        Insert: {
+          action_data?: Json | null
+          action_type: string
+          can_undo?: boolean | null
+          created_at?: string
+          executed_at?: string | null
+          id?: string
+          status?: string
+          undo_until?: string | null
+          undone_at?: string | null
+          user_id: string
+        }
+        Update: {
+          action_data?: Json | null
+          action_type?: string
+          can_undo?: boolean | null
+          created_at?: string
+          executed_at?: string | null
+          id?: string
+          status?: string
+          undo_until?: string | null
+          undone_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_feature_feedback: {
         Row: {
           created_at: string | null
@@ -8673,6 +8712,45 @@ export type Database = {
           status?: Database["public"]["Enums"]["approval_status"] | null
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      user_autonomy_settings: {
+        Row: {
+          auto_beat_planning: boolean | null
+          auto_daily_summary: boolean | null
+          auto_escalation: boolean | null
+          auto_order_prefill: boolean | null
+          auto_payment_reminders: boolean | null
+          created_at: string
+          quiet_hours_end: string | null
+          quiet_hours_start: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_beat_planning?: boolean | null
+          auto_daily_summary?: boolean | null
+          auto_escalation?: boolean | null
+          auto_order_prefill?: boolean | null
+          auto_payment_reminders?: boolean | null
+          created_at?: string
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auto_beat_planning?: boolean | null
+          auto_daily_summary?: boolean | null
+          auto_escalation?: boolean | null
+          auto_order_prefill?: boolean | null
+          auto_payment_reminders?: boolean | null
+          created_at?: string
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

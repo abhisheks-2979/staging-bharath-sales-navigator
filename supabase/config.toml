@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.voice-order-parser]
 verify_jwt = true
+
+[functions.auto-generate-beat-plan]
+verify_jwt = false
