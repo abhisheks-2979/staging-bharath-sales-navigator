@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { 
   Heart, MessageCircle, Send, Image as ImageIcon, X, UserPlus, UserCheck, 
-  MoreHorizontal, Smile, Paperclip, Loader2 
+  Smile, Paperclip, Loader2, Download, FileText
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,6 +18,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { ImageLightbox } from "./social/ImageLightbox";
+import { DocumentViewer } from "./social/DocumentViewer";
+import { ReactorsModal } from "./social/ReactorsModal";
+import { PostMenu } from "./social/PostMenu";
 
 interface User {
   id: string;
@@ -65,6 +69,7 @@ interface Comment {
 }
 
 const EMOJI_OPTIONS = ["👍", "❤️", "😂", "😮", "😢", "🔥", "👏", "🎉"];
+const INITIAL_POSTS_COUNT = 5;
 
 export function InstagramSocialFeed() {
   const { user, userProfile } = useAuth();
@@ -80,6 +85,18 @@ export function InstagramSocialFeed() {
   const [expandedComments, setExpandedComments] = useState<string | null>(null);
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
   const [newComment, setNewComment] = useState<Record<string, string>>({});
+  const [displayedPostsCount, setDisplayedPostsCount] = useState(INITIAL_POSTS_COUNT);
+  
+  // Lightbox & viewer states
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxImages, setLightboxImages] = useState<{ url: string; name?: string }[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [documentViewerOpen, setDocumentViewerOpen] = useState(false);
+  const [documentToView, setDocumentToView] = useState<{ url: string; name: string } | null>(null);
+  const [reactorsModalOpen, setReactorsModalOpen] = useState(false);
+  const [reactorsPostId, setReactorsPostId] = useState("");
+  const [reactorsType, setReactorsType] = useState<"likes" | "reactions">("likes");
+
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -93,6 +110,20 @@ export function InstagramSocialFeed() {
       fetchPosts();
     }
   }, [user]);
+
+  // Progressive loading: show more posts after initial render
+  useEffect(() => {
+    if (!postsLoading && posts.length > INITIAL_POSTS_COUNT && displayedPostsCount === INITIAL_POSTS_COUNT) {
+      const timer = setTimeout(() => {
+        setDisplayedPostsCount(posts.length);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [postsLoading, posts.length, displayedPostsCount]);
+
+  const displayedPosts = useMemo(() => {
+    return posts.slice(0, displayedPostsCount);
+  }, [posts, displayedPostsCount]);
 
   const fetchFollowingList = async () => {
     if (!user) return;
@@ -124,7 +155,7 @@ export function InstagramSocialFeed() {
             .select("id")
             .eq("follower_id", user.id)
             .eq("following_id", u.id)
-            .single();
+            .maybeSingle();
 
           return {
             id: u.id,
@@ -165,19 +196,17 @@ export function InstagramSocialFeed() {
     if (!user) return;
 
     setPostsLoading(true);
+    setDisplayedPostsCount(INITIAL_POSTS_COUNT);
+    
     try {
-      // Get all posts - visible to all team members
-      // NOTE: We fetch attachments in a second query because the DB currently has
-      // no FK relationship for PostgREST to embed `social_post_attachments`.
+      // Get all posts - visible to all team members, ordered by latest first
       const { data, error } = await supabase
         .from("social_posts")
-        .select(
-          `
+        .select(`
           *,
           social_likes(count),
           social_comments(count)
-        `
-        )
+        `)
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -219,53 +248,57 @@ export function InstagramSocialFeed() {
           );
         }
 
-        const formattedPosts: Post[] = await Promise.all(
-          data.map(async (post: any) => {
-            // Check if current user liked
-            const { data: likeData } = await supabase
-              .from("social_likes")
-              .select("id")
-              .eq("post_id", post.id)
-              .eq("user_id", user.id)
-              .maybeSingle();
+        // Batch fetch all likes and reactions for efficiency
+        const [likesResult, reactionsResult] = await Promise.all([
+          supabase
+            .from("social_likes")
+            .select("post_id, user_id")
+            .in("post_id", postIds),
+          supabase
+            .from("social_reactions")
+            .select("post_id, emoji, user_id")
+            .in("post_id", postIds)
+        ]);
 
-            // Fetch reactions for this post
-            const { data: reactionsData } = await supabase
-              .from("social_reactions")
-              .select("emoji, user_id")
-              .eq("post_id", post.id);
-
-            const reactions: Record<string, Reaction> = {};
-            if (reactionsData) {
-              reactionsData.forEach((r: any) => {
-                if (!reactions[r.emoji]) {
-                  reactions[r.emoji] = { emoji: r.emoji, count: 0, has_reacted: false };
-                }
-                reactions[r.emoji].count++;
-                if (r.user_id === user.id) {
-                  reactions[r.emoji].has_reacted = true;
-                }
-              });
-            }
-
-            const profile = profilesMap.get(post.user_id);
-
-            return {
-              id: post.id,
-              user_id: post.user_id,
-              content: post.content,
-              image_url: post.image_url,
-              created_at: post.created_at,
-              user_name: profile?.full_name || "Unknown User",
-              user_avatar: profile?.profile_picture_url || null,
-              likes_count: post.social_likes?.[0]?.count || 0,
-              comments_count: post.social_comments?.[0]?.count || 0,
-              has_liked: !!likeData,
-              attachments: attachmentsByPostId[post.id] || [],
-              reactions,
-            };
-          })
+        const userLikesSet = new Set(
+          (likesResult.data || [])
+            .filter((l: any) => l.user_id === user.id)
+            .map((l: any) => l.post_id)
         );
+
+        const reactionsByPostId: Record<string, Record<string, Reaction>> = {};
+        (reactionsResult.data || []).forEach((r: any) => {
+          if (!reactionsByPostId[r.post_id]) {
+            reactionsByPostId[r.post_id] = {};
+          }
+          if (!reactionsByPostId[r.post_id][r.emoji]) {
+            reactionsByPostId[r.post_id][r.emoji] = { emoji: r.emoji, count: 0, has_reacted: false };
+          }
+          reactionsByPostId[r.post_id][r.emoji].count++;
+          if (r.user_id === user.id) {
+            reactionsByPostId[r.post_id][r.emoji].has_reacted = true;
+          }
+        });
+
+        const formattedPosts: Post[] = data.map((post: any) => {
+          const profile = profilesMap.get(post.user_id);
+
+          return {
+            id: post.id,
+            user_id: post.user_id,
+            content: post.content,
+            image_url: post.image_url,
+            created_at: post.created_at,
+            user_name: profile?.full_name || "Unknown User",
+            user_avatar: profile?.profile_picture_url || null,
+            likes_count: post.social_likes?.[0]?.count || 0,
+            comments_count: post.social_comments?.[0]?.count || 0,
+            has_liked: userLikesSet.has(post.id),
+            attachments: attachmentsByPostId[post.id] || [],
+            reactions: reactionsByPostId[post.id] || {},
+          };
+        });
+        
         setPosts(formattedPosts);
       }
     } catch (error) {
@@ -305,10 +338,9 @@ export function InstagramSocialFeed() {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    const newFiles = [...selectedImages, ...files].slice(0, 10); // Max 10 images
+    const newFiles = [...selectedImages, ...files].slice(0, 10);
     setSelectedImages(newFiles);
 
-    // Generate previews
     newFiles.forEach((file, index) => {
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -325,7 +357,7 @@ export function InstagramSocialFeed() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
-    setSelectedFiles((prev) => [...prev, ...files].slice(0, 5)); // Max 5 files
+    setSelectedFiles((prev) => [...prev, ...files].slice(0, 5));
   };
 
   const removeImage = (index: number) => {
@@ -345,7 +377,6 @@ export function InstagramSocialFeed() {
     try {
       let imageUrl = null;
 
-      // Upload first image as main image (legacy support)
       if (selectedImages.length > 0) {
         const file = selectedImages[0];
         const fileExt = file.name.split(".").pop();
@@ -358,7 +389,6 @@ export function InstagramSocialFeed() {
         imageUrl = data.path;
       }
 
-      // Create post
       const { data: postData, error: postError } = await supabase
         .from("social_posts")
         .insert({
@@ -371,7 +401,6 @@ export function InstagramSocialFeed() {
 
       if (postError) throw postError;
 
-      // Upload additional images as attachments
       for (let i = 1; i < selectedImages.length; i++) {
         const file = selectedImages[i];
         const fileExt = file.name.split(".").pop();
@@ -391,9 +420,7 @@ export function InstagramSocialFeed() {
         }
       }
 
-      // Upload files as attachments
       for (const file of selectedFiles) {
-        const fileExt = file.name.split(".").pop();
         const fileName = `${user.id}/files/${Date.now()}_${file.name}`;
         
         const { data: uploadData, error: uploadError } = await supabase.storage
@@ -479,9 +506,7 @@ export function InstagramSocialFeed() {
   const fetchComments = async (postId: string) => {
     const { data, error } = await supabase
       .from("social_comments")
-      .select(`
-        *
-      `)
+      .select("*")
       .eq("post_id", postId)
       .order("created_at", { ascending: true });
 
@@ -545,6 +570,62 @@ export function InstagramSocialFeed() {
 
   const getStorageUrl = (path: string) => {
     return `https://etabpbfokzhhfuybeieu.supabase.co/storage/v1/object/public/social-posts/${path}`;
+  };
+
+  const openImageLightbox = (post: Post, startIndex: number = 0) => {
+    const images: { url: string; name?: string }[] = [];
+    
+    if (post.image_url) {
+      images.push({ url: getStorageUrl(post.image_url), name: "post-image.jpg" });
+    }
+    
+    post.attachments
+      .filter((att) => att.file_type?.startsWith("image/"))
+      .forEach((att) => {
+        images.push({ url: getStorageUrl(att.file_url), name: att.file_name || "image.jpg" });
+      });
+
+    if (images.length > 0) {
+      setLightboxImages(images);
+      setLightboxIndex(startIndex);
+      setLightboxOpen(true);
+    }
+  };
+
+  const openDocumentViewer = (url: string, name: string) => {
+    setDocumentToView({ url, name });
+    setDocumentViewerOpen(true);
+  };
+
+  const openReactorsModal = (postId: string, type: "likes" | "reactions") => {
+    setReactorsPostId(postId);
+    setReactorsType(type);
+    setReactorsModalOpen(true);
+  };
+
+  const handleDownloadFile = async (url: string, name: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(downloadUrl);
+      toast.success("File downloaded");
+    } catch (error) {
+      toast.error("Failed to download file");
+    }
+  };
+
+  // Get reaction summary for display
+  const getReactionSummary = (reactions: Record<string, Reaction>) => {
+    const totalCount = Object.values(reactions).reduce((sum, r) => sum + r.count, 0);
+    const emojis = Object.keys(reactions).slice(0, 3);
+    return { totalCount, emojis };
   };
 
   return (
@@ -719,220 +800,304 @@ export function InstagramSocialFeed() {
             </CardContent>
           </Card>
         ) : (
-          posts.map((post) => (
-            <Card key={post.id} className="border border-border overflow-hidden">
-              {/* Post Header */}
-              <div className="flex items-center justify-between p-3">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={post.user_avatar || ""} />
-                    <AvatarFallback className="bg-primary text-primary-foreground">
-                      {post.user_name?.[0] || "?"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-semibold text-sm">{post.user_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(post.created_at), "MMM d, yyyy 'at' h:mm a")}
-                    </p>
-                  </div>
-                </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </div>
-
-              {/* Post Content */}
-              {post.content && (
-                <div className="px-3 pb-3">
-                  <p className="text-sm whitespace-pre-wrap">{post.content}</p>
-                </div>
-              )}
-
-              {/* Post Image */}
-              {post.image_url && (
-                <div className="w-full">
-                  <img
-                    src={getStorageUrl(post.image_url)}
-                    alt="Post"
-                    className="w-full object-cover max-h-[500px]"
-                  />
-                </div>
-              )}
-
-              {/* Additional Attachments */}
-              {post.attachments.length > 0 && (
-                <div className="px-3 py-2 flex gap-2 flex-wrap">
-                  {post.attachments.map((att) => (
-                    att.file_type?.startsWith("image/") ? (
-                      <img
-                        key={att.id}
-                        src={getStorageUrl(att.file_url)}
-                        alt={att.file_name || "Attachment"}
-                        className="w-24 h-24 object-cover rounded-lg"
-                      />
-                    ) : (
-                      <a
-                        key={att.id}
-                        href={getStorageUrl(att.file_url)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2 text-xs hover:bg-muted/80"
-                      >
-                        <Paperclip className="h-3 w-3" />
-                        {att.file_name || "File"}
-                      </a>
-                    )
-                  ))}
-                </div>
-              )}
-
-              {/* Reactions Display */}
-              {Object.keys(post.reactions).length > 0 && (
-                <div className="px-3 py-2 flex gap-2 flex-wrap">
-                  {Object.entries(post.reactions).map(([emoji, reaction]) => (
-                    <button
-                      key={emoji}
-                      onClick={() => handleReaction(post.id, emoji)}
-                      className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
-                        reaction.has_reacted 
-                          ? "bg-primary/10 text-primary" 
-                          : "bg-muted hover:bg-muted/80"
-                      }`}
-                    >
-                      <span>{emoji}</span>
-                      <span>{reaction.count}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Post Actions */}
-              <div className="p-3 border-t">
-                <div className="flex items-center gap-4">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleLike(post.id)}
-                    className={`p-0 h-auto hover:bg-transparent ${
-                      post.has_liked ? "text-red-500" : ""
-                    }`}
-                  >
-                    <Heart
-                      className={`h-5 w-5 ${post.has_liked ? "fill-current" : ""}`}
+          <>
+            {displayedPosts.map((post) => {
+              const reactionSummary = getReactionSummary(post.reactions);
+              const isOwner = post.user_id === user?.id;
+              
+              return (
+                <Card key={post.id} className="border border-border overflow-hidden">
+                  {/* Post Header */}
+                  <div className="flex items-center justify-between p-3">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={post.user_avatar || ""} />
+                        <AvatarFallback className="bg-primary text-primary-foreground">
+                          {post.user_name?.[0] || "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold text-sm">{post.user_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(post.created_at), "MMM d, yyyy 'at' h:mm a")}
+                        </p>
+                      </div>
+                    </div>
+                    <PostMenu
+                      postId={post.id}
+                      postContent={post.content}
+                      isOwner={isOwner}
+                      currentUserId={user?.id || ""}
+                      onPostUpdated={fetchPosts}
                     />
-                  </Button>
-                  
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleComments(post.id)}
-                    className="p-0 h-auto hover:bg-transparent"
-                  >
-                    <MessageCircle className="h-5 w-5" />
-                  </Button>
+                  </div>
 
-                  <Popover>
-                    <PopoverTrigger asChild>
+                  {/* Post Content */}
+                  {post.content && (
+                    <div className="px-3 pb-3">
+                      <p className="text-sm whitespace-pre-wrap">{post.content}</p>
+                    </div>
+                  )}
+
+                  {/* Post Image - Clickable */}
+                  {post.image_url && (
+                    <div className="w-full cursor-pointer" onClick={() => openImageLightbox(post, 0)}>
+                      <img
+                        src={getStorageUrl(post.image_url)}
+                        alt="Post"
+                        className="w-full object-cover max-h-[500px] hover:opacity-95 transition-opacity"
+                      />
+                    </div>
+                  )}
+
+                  {/* Additional Attachments */}
+                  {post.attachments.length > 0 && (
+                    <div className="px-3 py-2 flex gap-2 flex-wrap">
+                      {post.attachments.map((att, attIndex) => (
+                        att.file_type?.startsWith("image/") ? (
+                          <img
+                            key={att.id}
+                            src={getStorageUrl(att.file_url)}
+                            alt={att.file_name || "Attachment"}
+                            className="w-24 h-24 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => openImageLightbox(post, post.image_url ? attIndex + 1 : attIndex)}
+                          />
+                        ) : (
+                          <div
+                            key={att.id}
+                            className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2 text-xs"
+                          >
+                            <FileText className="h-4 w-4" />
+                            <span className="max-w-[100px] truncate">{att.file_name || "File"}</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => openDocumentViewer(getStorageUrl(att.file_url), att.file_name || "Document")}
+                            >
+                              <FileText className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => handleDownloadFile(getStorageUrl(att.file_url), att.file_name || "file")}
+                            >
+                              <Download className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Reactions Display - Clickable to see who reacted */}
+                  {Object.keys(post.reactions).length > 0 && (
+                    <div 
+                      className="px-3 py-2 flex gap-2 flex-wrap cursor-pointer"
+                      onClick={() => openReactorsModal(post.id, "reactions")}
+                    >
+                      {Object.entries(post.reactions).map(([emoji, reaction]) => (
+                        <button
+                          key={emoji}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleReaction(post.id, emoji);
+                          }}
+                          className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+                            reaction.has_reacted 
+                              ? "bg-primary/10 text-primary" 
+                              : "bg-muted hover:bg-muted/80"
+                          }`}
+                        >
+                          <span>{emoji}</span>
+                          <span>{reaction.count}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Post Actions */}
+                  <div className="p-3 border-t">
+                    <div className="flex items-center gap-4">
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => handleLike(post.id)}
+                        className={`p-0 h-auto hover:bg-transparent ${
+                          post.has_liked ? "text-red-500" : ""
+                        }`}
+                      >
+                        <Heart
+                          className={`h-5 w-5 ${post.has_liked ? "fill-current" : ""}`}
+                        />
+                      </Button>
+                      
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleComments(post.id)}
                         className="p-0 h-auto hover:bg-transparent"
                       >
-                        <Smile className="h-5 w-5" />
+                        <MessageCircle className="h-5 w-5" />
                       </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-2">
-                      <div className="flex gap-1">
-                        {EMOJI_OPTIONS.map((emoji) => (
-                          <button
-                            key={emoji}
-                            onClick={() => handleReaction(post.id, emoji)}
-                            className="text-lg hover:scale-125 transition-transform p-1"
+
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="p-0 h-auto hover:bg-transparent"
                           >
-                            {emoji}
-                          </button>
+                            <Smile className="h-5 w-5" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-2">
+                          <div className="flex gap-1">
+                            {EMOJI_OPTIONS.map((emoji) => (
+                              <button
+                                key={emoji}
+                                onClick={() => handleReaction(post.id, emoji)}
+                                className="text-lg hover:scale-125 transition-transform p-1"
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    {/* Likes & Reactions Count - Clickable */}
+                    <div className="flex items-center gap-2 mt-2">
+                      {post.likes_count > 0 && (
+                        <button 
+                          onClick={() => openReactorsModal(post.id, "likes")}
+                          className="font-semibold text-sm hover:underline"
+                        >
+                          {post.likes_count} {post.likes_count === 1 ? "like" : "likes"}
+                        </button>
+                      )}
+                      {reactionSummary.totalCount > 0 && post.likes_count > 0 && (
+                        <span className="text-muted-foreground">•</span>
+                      )}
+                      {reactionSummary.totalCount > 0 && (
+                        <button
+                          onClick={() => openReactorsModal(post.id, "reactions")}
+                          className="text-sm text-muted-foreground hover:underline flex items-center gap-1"
+                        >
+                          {reactionSummary.emojis.join("")} {reactionSummary.totalCount}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Comments Count */}
+                    {post.comments_count > 0 && expandedComments !== post.id && (
+                      <button
+                        onClick={() => toggleComments(post.id)}
+                        className="text-sm text-muted-foreground hover:text-foreground mt-1"
+                      >
+                        View all {post.comments_count} comments
+                      </button>
+                    )}
+
+                    {/* Comments Section */}
+                    {expandedComments === post.id && (
+                      <div className="space-y-3 pt-3 mt-3 border-t">
+                        {comments[post.id]?.map((comment) => (
+                          <div key={comment.id} className="flex gap-2">
+                            <Avatar className="h-7 w-7 flex-shrink-0">
+                              <AvatarImage src={comment.user_avatar || ""} />
+                              <AvatarFallback className="text-xs bg-muted">
+                                {comment.user_name?.[0] || "?"}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <p className="text-sm">
+                                <span className="font-semibold mr-2">{comment.user_name}</span>
+                                {comment.content}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {format(new Date(comment.created_at), "MMM d 'at' h:mm a")}
+                              </p>
+                            </div>
+                          </div>
                         ))}
                       </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
+                    )}
 
-                {/* Likes Count */}
-                <p className="font-semibold text-sm mt-2">
-                  {post.likes_count} {post.likes_count === 1 ? "like" : "likes"}
-                </p>
-
-                {/* View Comments Link */}
-                {post.comments_count > 0 && expandedComments !== post.id && (
-                  <button
-                    onClick={() => toggleComments(post.id)}
-                    className="text-sm text-muted-foreground hover:text-foreground mt-1"
-                  >
-                    View all {post.comments_count} comments
-                  </button>
-                )}
-
-                {/* Comments Section */}
-                {expandedComments === post.id && (
-                  <div className="space-y-3 pt-3 mt-3 border-t">
-                    {comments[post.id]?.map((comment) => (
-                      <div key={comment.id} className="flex gap-2">
-                        <Avatar className="h-7 w-7 flex-shrink-0">
-                          <AvatarImage src={comment.user_avatar || ""} />
-                          <AvatarFallback className="text-xs bg-muted">
-                            {comment.user_name?.[0] || "?"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <p className="text-sm">
-                            <span className="font-semibold mr-2">{comment.user_name}</span>
-                            {comment.content}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {format(new Date(comment.created_at), "MMM d 'at' h:mm a")}
-                          </p>
-                        </div>
+                    {/* Add Comment */}
+                    <div className="flex gap-2 pt-3 mt-3 border-t">
+                      <Avatar className="h-7 w-7 flex-shrink-0">
+                        <AvatarImage src={userProfile?.profile_picture_url || ""} />
+                        <AvatarFallback className="text-xs bg-muted">
+                          {userProfile?.full_name?.[0] || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 flex gap-2">
+                        <Input
+                          placeholder="Add a comment..."
+                          value={newComment[post.id] || ""}
+                          onChange={(e) =>
+                            setNewComment((prev) => ({ ...prev, [post.id]: e.target.value }))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleAddComment(post.id);
+                          }}
+                          className="h-8 text-sm"
+                        />
+                        <Button
+                          size="sm"
+                          className="h-8"
+                          onClick={() => handleAddComment(post.id)}
+                          disabled={!newComment[post.id]?.trim()}
+                        >
+                          <Send className="h-3 w-3" />
+                        </Button>
                       </div>
-                    ))}
+                    </div>
                   </div>
-                )}
-
-                {/* Add Comment - Always visible */}
-                <div className="flex gap-2 pt-3 mt-3 border-t">
-                  <Avatar className="h-7 w-7 flex-shrink-0">
-                    <AvatarImage src={userProfile?.profile_picture_url || ""} />
-                    <AvatarFallback className="text-xs bg-muted">
-                      {userProfile?.full_name?.[0] || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 flex gap-2">
-                    <Input
-                      placeholder="Add a comment..."
-                      value={newComment[post.id] || ""}
-                      onChange={(e) =>
-                        setNewComment((prev) => ({ ...prev, [post.id]: e.target.value }))
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleAddComment(post.id);
-                      }}
-                      className="h-8 text-sm"
-                    />
-                    <Button
-                      size="sm"
-                      className="h-8"
-                      onClick={() => handleAddComment(post.id)}
-                      disabled={!newComment[post.id]?.trim()}
-                    >
-                      <Send className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
+                </Card>
+              );
+            })}
+            
+            {/* Loading more indicator */}
+            {displayedPostsCount < posts.length && (
+              <div className="text-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
+                <p className="text-xs text-muted-foreground mt-1">Loading more posts...</p>
               </div>
-            </Card>
-          ))
+            )}
+          </>
         )}
       </div>
+
+      {/* Modals */}
+      <ImageLightbox
+        images={lightboxImages}
+        initialIndex={lightboxIndex}
+        open={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+      />
+      
+      {documentToView && (
+        <DocumentViewer
+          url={documentToView.url}
+          name={documentToView.name}
+          open={documentViewerOpen}
+          onClose={() => {
+            setDocumentViewerOpen(false);
+            setDocumentToView(null);
+          }}
+        />
+      )}
+
+      <ReactorsModal
+        postId={reactorsPostId}
+        open={reactorsModalOpen}
+        onClose={() => setReactorsModalOpen(false)}
+        type={reactorsType}
+      />
     </div>
   );
 }
