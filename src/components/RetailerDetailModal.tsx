@@ -17,7 +17,7 @@ import { toast } from "@/hooks/use-toast";
 import { 
   Phone, MapPin, Edit2, ExternalLink, TrendingUp, Trash2, ShoppingCart, 
   Check, ChevronsUpDown, FileText, Download, Send, Loader2, ChevronLeft, 
-  ChevronRight, Calendar, BarChart3, User, Building, Gift
+  ChevronRight, Calendar, BarChart3, User, Building, Gift, Target
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -26,6 +26,7 @@ import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from "recharts";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths, startOfWeek, endOfWeek, startOfQuarter, endOfQuarter, subQuarters, subMonths as subM, startOfDay, subDays, startOfYear } from "date-fns";
 import { RetailerLoyaltySection } from "./loyalty/RetailerLoyaltySection";
+import { TargetVsActualCard } from "./performance/TargetVsActualCard";
 
 interface RetailerInvoice {
   id: string;
@@ -756,17 +757,17 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
             <TabsTrigger value="overview" className="text-xs">
               <TrendingUp className="h-3 w-3 mr-1" /> Overview
             </TabsTrigger>
-            <TabsTrigger value="loyalty" className="text-xs">
-              <Gift className="h-3 w-3 mr-1" /> Loyalty
+            <TabsTrigger value="details" className="text-xs">
+              <User className="h-3 w-3 mr-1" /> Details
             </TabsTrigger>
             <TabsTrigger value="calendar" className="text-xs">
               <Calendar className="h-3 w-3 mr-1" /> Calendar
             </TabsTrigger>
+            <TabsTrigger value="loyalty" className="text-xs">
+              <Gift className="h-3 w-3 mr-1" /> Loyalty
+            </TabsTrigger>
             <TabsTrigger value="charts" className="text-xs">
               <BarChart3 className="h-3 w-3 mr-1" /> Charts
-            </TabsTrigger>
-            <TabsTrigger value="details" className="text-xs">
-              <User className="h-3 w-3 mr-1" /> Details
             </TabsTrigger>
           </TabsList>
 
@@ -833,6 +834,9 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                   <p className="text-sm sm:text-base font-semibold">{allOrders.length}</p>
                 </Card>
               </div>
+
+              {/* Target vs Actual */}
+              <TargetVsActualCard entityType="retailer" entityId={formData.id} userId={user?.id} />
 
               {/* Invoices */}
               <Card>
