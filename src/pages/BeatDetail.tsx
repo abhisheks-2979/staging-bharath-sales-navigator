@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Phone, Store, Calendar, TrendingUp, CalendarDays, Edit2, BarChart, Trash2, Sparkles, Target, Shield, AlertTriangle, Lightbulb, Users, Package, DollarSign, Clock, Zap, Search, IndianRupee } from "lucide-react";
-import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { ArrowLeft, MapPin, Phone, Store, Calendar, TrendingUp, CalendarDays, Edit2, BarChart, Trash2, Sparkles, Target, Shield, AlertTriangle, Lightbulb, Users, Package, DollarSign, Clock, Zap, Search, IndianRupee, Info, ThumbsUp, ThumbsDown, CheckCircle } from "lucide-react";
+import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,10 +14,11 @@ import { useBeatMetrics } from "@/hooks/useBeatMetrics";
 import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 import { EditBeatModal } from "@/components/EditBeatModal";
 import { BeatAnalyticsModal } from "@/components/BeatAnalyticsModal";
-import { useRecommendations } from "@/hooks/useRecommendations";
+import { useRecommendations, Recommendation } from "@/hooks/useRecommendations";
 import { RetailerDetailModal } from "@/components/RetailerDetailModal";
 import { BeatRetailerExport } from "@/components/BeatRetailerExport";
 import { TargetVsActualCard } from "@/components/performance/TargetVsActualCard";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface BeatDetailData {
   id?: string; // Database UUID
@@ -98,7 +99,7 @@ export const BeatDetail = () => {
   });
   
   const { metrics, loading: metricsLoading } = useBeatMetrics(id || '', user?.id || '');
-  const { generateRecommendation } = useRecommendations('beat_visit');
+  const { recommendations, generateRecommendation, provideFeedback, loading: recommendationsLoading } = useRecommendations('beat_visit', beatData?.id);
 
   useEffect(() => {
     if (!user || !id) return;
@@ -648,13 +649,25 @@ export const BeatDetail = () => {
                 <div className="text-lg font-bold text-orange-600">{performanceStats.totalVisits}</div>
                 <div className="text-xs text-muted-foreground">Beat Visits (3M)</div>
               </div>
-              <div className="text-center p-3 bg-background rounded-lg shadow-sm">
-                <Target className="h-5 w-5 mx-auto mb-1 text-cyan-600" />
-                <div className="text-sm font-bold text-cyan-600">
-                  {performanceStats.currentMonthConversion.toFixed(0)}% / {performanceStats.previousMonthConversion.toFixed(0)}%
-                </div>
-                <div className="text-xs text-muted-foreground">Conversion (Curr/Prev)</div>
-              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="text-center p-3 bg-background rounded-lg shadow-sm cursor-help">
+                      <Target className="h-5 w-5 mx-auto mb-1 text-cyan-600" />
+                      <div className="text-sm font-bold text-cyan-600">
+                        {performanceStats.currentMonthConversion.toFixed(0)}% / {performanceStats.previousMonthConversion.toFixed(0)}%
+                      </div>
+                      <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                        Visit Conversion
+                        <Info size={10} className="text-muted-foreground" />
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs max-w-48">% of visits that were productive (completed with orders) - Current month vs Previous month</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <div className="text-center p-3 bg-background rounded-lg shadow-sm">
                 <TrendingUp className="h-5 w-5 mx-auto mb-1 text-emerald-600" />
                 <div className={`text-lg font-bold ${performanceStats.growthRate >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
@@ -665,6 +678,69 @@ export const BeatDetail = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* AI Insights Display */}
+        {recommendations.length > 0 && (
+          <Card className="shadow-card border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Sparkles size={20} className="text-primary" />
+                AI Insights
+                <Badge variant="secondary" className="ml-2">{recommendations.length}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {recommendations.slice(0, 3).map((rec: Recommendation) => (
+                <div key={rec.id} className="p-3 bg-background rounded-lg border shadow-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="outline" className="text-xs">
+                          {Math.round(rec.confidence_score * 100)}% confidence
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(rec.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium">{rec.reasoning}</p>
+                      {rec.recommendation_data && (
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          {rec.recommendation_data.action_items && (
+                            <ul className="list-disc list-inside space-y-1">
+                              {(rec.recommendation_data.action_items as string[]).slice(0, 3).map((item: string, idx: number) => (
+                                <li key={idx}>{item}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => provideFeedback(rec.id, 'like')}
+                        disabled={rec.feedback?.feedback_type === 'like'}
+                      >
+                        <ThumbsUp size={14} className={rec.feedback?.feedback_type === 'like' ? 'text-green-600' : ''} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => provideFeedback(rec.id, 'implemented')}
+                        disabled={rec.feedback?.feedback_type === 'implemented'}
+                      >
+                        <CheckCircle size={14} className={rec.feedback?.feedback_type === 'implemented' ? 'text-primary' : ''} />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Target vs Actual Section */}
         <TargetVsActualCard entityType="beat" entityId={beatData?.id || ''} beatTextId={beatData?.beat_id} userId={user?.id} />
@@ -712,22 +788,22 @@ export const BeatDetail = () => {
                   <p className="font-semibold">{beatData.territory_name}</p>
                 </div>
               )}
-              {beatData.travel_allowance && (
+              {beatData.travel_allowance !== undefined && beatData.travel_allowance !== null && Number(beatData.travel_allowance) > 0 && (
                 <div>
                   <p className="text-xs text-muted-foreground">Travel Allowance</p>
-                  <p className="font-semibold">Rs. {beatData.travel_allowance}</p>
+                  <p className="font-semibold">Rs. {Number(beatData.travel_allowance).toLocaleString()}</p>
                 </div>
               )}
-              {beatData.average_km && (
+              {beatData.average_km !== undefined && beatData.average_km !== null && Number(beatData.average_km) > 0 && (
                 <div>
                   <p className="text-xs text-muted-foreground">Average Distance</p>
-                  <p className="font-semibold">{beatData.average_km} km</p>
+                  <p className="font-semibold">{Number(beatData.average_km)} km</p>
                 </div>
               )}
-              {beatData.average_time_minutes && (
+              {beatData.average_time_minutes !== undefined && beatData.average_time_minutes !== null && Number(beatData.average_time_minutes) > 0 && (
                 <div>
                   <p className="text-xs text-muted-foreground">Avg Time</p>
-                  <p className="font-semibold">{beatData.average_time_minutes} mins</p>
+                  <p className="font-semibold">{Number(beatData.average_time_minutes)} mins</p>
                 </div>
               )}
             </div>
@@ -759,7 +835,7 @@ export const BeatDetail = () => {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" fontSize={12} />
                     <YAxis fontSize={12} />
-                    <Tooltip formatter={(value: number) => [`Rs. ${value.toLocaleString()}`, 'Revenue']} />
+                    <RechartsTooltip formatter={(value: number) => [`Rs. ${value.toLocaleString()}`, 'Revenue']} />
                     <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                   </RechartsBarChart>
                 </ResponsiveContainer>
@@ -794,7 +870,7 @@ export const BeatDetail = () => {
                           <Cell key={`cell-${index}`} fill={`hsl(${index * 36}, 70%, 50%)`} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value: number) => [`Rs. ${value.toLocaleString()}`, 'Value']} />
+                      <RechartsTooltip formatter={(value: number) => [`Rs. ${value.toLocaleString()}`, 'Value']} />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
@@ -822,7 +898,7 @@ export const BeatDetail = () => {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis type="number" fontSize={10} tickFormatter={(v) => `Rs.${(v/1000).toFixed(0)}K`} />
                       <YAxis type="category" dataKey="name" fontSize={10} width={80} />
-                      <Tooltip formatter={(value: number) => [`Rs. ${value.toLocaleString()}`, 'Revenue']} />
+                      <RechartsTooltip formatter={(value: number) => [`Rs. ${value.toLocaleString()}`, 'Revenue']} />
                       <Bar dataKey="revenue" fill="hsl(var(--chart-2))" radius={[0, 4, 4, 0]} />
                     </RechartsBarChart>
                   </ResponsiveContainer>
@@ -850,7 +926,7 @@ export const BeatDetail = () => {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" fontSize={12} />
                     <YAxis fontSize={12} allowDecimals={false} />
-                    <Tooltip />
+                    <RechartsTooltip />
                     <Bar dataKey="count" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} name="New Retailers" />
                   </RechartsBarChart>
                 </ResponsiveContainer>
