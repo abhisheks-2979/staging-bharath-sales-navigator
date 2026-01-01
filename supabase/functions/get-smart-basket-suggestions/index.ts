@@ -93,8 +93,6 @@ serve(async (req) => {
           id,
           product_id,
           product_name,
-          variant_id,
-          variant_name,
           quantity,
           unit,
           rate
@@ -125,14 +123,14 @@ serve(async (req) => {
 
     for (const order of retailerOrders || []) {
       for (const item of order.order_items || []) {
-        const key = item.variant_id ? `${item.product_id}_${item.variant_id}` : item.product_id;
+        const key = item.product_id;
         
         if (!repeatOrderMap.has(key)) {
           repeatOrderMap.set(key, {
             productId: item.product_id,
             productName: item.product_name,
-            variantId: item.variant_id || undefined,
-            variantName: item.variant_name || undefined,
+            variantId: undefined,
+            variantName: undefined,
             quantities: [],
             units: [],
             orderDates: []
@@ -225,8 +223,6 @@ serve(async (req) => {
             order_items (
               product_id,
               product_name,
-              variant_id,
-              variant_name,
               quantity,
               unit
             )
@@ -249,14 +245,14 @@ serve(async (req) => {
 
           for (const order of beatOrders) {
             for (const item of order.order_items || []) {
-              const key = item.variant_id ? `${item.product_id}_${item.variant_id}` : item.product_id;
+              const key = item.product_id;
               
               if (!beatProductMap.has(key)) {
                 beatProductMap.set(key, {
                   productId: item.product_id,
                   productName: item.product_name,
-                  variantId: item.variant_id || undefined,
-                  variantName: item.variant_name || undefined,
+                  variantId: undefined,
+                  variantName: undefined,
                   retailerIds: new Set(),
                   quantities: [],
                   units: []
