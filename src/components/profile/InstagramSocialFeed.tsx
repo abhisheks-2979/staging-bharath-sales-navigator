@@ -167,14 +167,17 @@ export function InstagramSocialFeed() {
     setPostsLoading(true);
     try {
       // Get all posts - visible to all team members
+      // NOTE: We fetch attachments in a second query because the DB currently has
+      // no FK relationship for PostgREST to embed `social_post_attachments`.
       const { data, error } = await supabase
         .from("social_posts")
-        .select(`
+        .select(
+          `
           *,
           social_likes(count),
-          social_comments(count),
-          social_post_attachments(id, file_url, file_type, file_name)
-        `)
+          social_comments(count)
+        `
+        )
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -187,6 +190,35 @@ export function InstagramSocialFeed() {
       if (data) {
         const profilesMap = await fetchProfilesMap(data.map((p: any) => p.user_id));
 
+        const postIds = data.map((p: any) => p.id).filter(Boolean);
+        let attachmentsByPostId: Record<string, PostAttachment[]> = {};
+
+        if (postIds.length > 0) {
+          const { data: attachmentsData, error: attachmentsError } = await supabase
+            .from("social_post_attachments")
+            .select("id, post_id, file_url, file_type, file_name")
+            .in("post_id", postIds);
+
+          if (attachmentsError) {
+            console.error("Error fetching post attachments:", attachmentsError);
+          }
+
+          attachmentsByPostId = (attachmentsData || []).reduce<Record<string, PostAttachment[]>>(
+            (acc, a: any) => {
+              const key = a.post_id as string;
+              if (!key) return acc;
+              (acc[key] ||= []).push({
+                id: a.id,
+                file_url: a.file_url,
+                file_type: a.file_type,
+                file_name: a.file_name,
+              });
+              return acc;
+            },
+            {}
+          );
+        }
+
         const formattedPosts: Post[] = await Promise.all(
           data.map(async (post: any) => {
             // Check if current user liked
@@ -195,7 +227,7 @@ export function InstagramSocialFeed() {
               .select("id")
               .eq("post_id", post.id)
               .eq("user_id", user.id)
-              .single();
+              .maybeSingle();
 
             // Fetch reactions for this post
             const { data: reactionsData } = await supabase
@@ -229,7 +261,7 @@ export function InstagramSocialFeed() {
               likes_count: post.social_likes?.[0]?.count || 0,
               comments_count: post.social_comments?.[0]?.count || 0,
               has_liked: !!likeData,
-              attachments: post.social_post_attachments || [],
+              attachments: attachmentsByPostId[post.id] || [],
               reactions,
             };
           })
