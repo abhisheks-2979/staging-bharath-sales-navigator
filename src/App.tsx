@@ -107,6 +107,7 @@ import PriceBookDetail from "./pages/admin/PriceBookDetail";
 import RecycleBin from "./pages/RecycleBin";
 import RecycleBinAdmin from "./pages/admin/RecycleBinAdmin";
 import MyTargets from "./pages/MyTargets";
+import MyTarget from "./pages/MyTarget";
 import TeamTargets from "./pages/TeamTargets";
 import PendingPaymentsAll from "./pages/PendingPaymentsAll";
 import JointSalesAnalytics from "./pages/JointSalesAnalytics";
@@ -305,6 +306,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         <Route path="/add-retailer" element={<ProtectedRoute><AddRetailer /></ProtectedRoute>} />
         <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
         <Route path="/my-retailers" element={<ProtectedRoute><MyRetailers /></ProtectedRoute>} />
+        <Route path="/my-target" element={<ProtectedRoute><MyTarget /></ProtectedRoute>} />
         
         <Route path="/create-beat" element={<ProtectedRoute><CreateBeat /></ProtectedRoute>} />
         <Route path="/beat/:id" element={<ProtectedRoute><BeatDetail /></ProtectedRoute>} />

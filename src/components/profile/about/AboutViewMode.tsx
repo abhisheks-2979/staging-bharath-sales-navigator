@@ -9,6 +9,8 @@ import {
   GraduationCap, Heart, Target, ClipboardCheck, Users, Shield
 } from "lucide-react";
 import { format } from "date-fns";
+import { ProfilePictureUpload } from "@/components/ProfilePictureUpload";
+import { useAuth } from "@/hooks/useAuth";
 
 interface AboutViewModeProps {
   userProfile: any;
@@ -25,6 +27,8 @@ export function AboutViewMode({
   managers, 
   onEdit 
 }: AboutViewModeProps) {
+  const { user } = useAuth();
+
   const getManagerName = () => {
     const manager = managers.find(m => m.id === formData.manager_id);
     return manager?.full_name || "-";
@@ -35,21 +39,24 @@ export function AboutViewMode({
     return territory?.name || formData.hq || "-";
   };
 
+  const handlePhotoUpdate = (newUrl: string) => {
+    // Photo update triggers a refetch through query invalidation in ProfilePictureUpload
+    window.location.reload();
+  };
+
   return (
     <Card>
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            {userProfile?.profile_picture_url ? (
-              <img 
-                src={userProfile.profile_picture_url} 
-                alt={userProfile?.full_name || "Profile"} 
-                className="h-16 w-16 rounded-full object-cover border-2 border-primary/20"
+            {user && (
+              <ProfilePictureUpload
+                userId={user.id}
+                currentPhotoUrl={userProfile?.profile_picture_url}
+                fullName={userProfile?.full_name || 'User'}
+                onPhotoUpdate={handlePhotoUpdate}
+                size="lg"
               />
-            ) : (
-              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                <User className="h-8 w-8 text-primary" />
-              </div>
             )}
             <div>
               <CardTitle className="text-xl">{userProfile?.full_name || 'User'}</CardTitle>
