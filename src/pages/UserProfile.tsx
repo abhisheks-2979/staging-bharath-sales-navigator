@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, User, Users, Target } from 'lucide-react';
+import { Loader2, User, Users } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { InstagramSocialFeed } from '@/components/profile/InstagramSocialFeed';
 import { ProfileAttachments } from '@/components/profile/ProfileAttachments';
-import { UserFYPlanTarget } from '@/components/profile/UserFYPlanTarget';
 import { Layout } from '@/components/Layout';
 import { FollowersFollowingCard } from '@/components/profile/FollowersFollowingCard';
 import { WorkExperienceSection } from '@/components/profile/about/WorkExperienceSection';
@@ -228,10 +227,6 @@ const UserProfile = () => {
               <Users className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Social</span>
             </TabsTrigger>
-            <TabsTrigger value="target" className="flex-1 min-w-[80px] text-xs sm:text-sm py-2">
-              <Target className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Target</span>
-            </TabsTrigger>
           </TabsList>
 
           {/* About Tab */}
@@ -270,11 +265,6 @@ const UserProfile = () => {
           {/* Social/Collaboration Tab */}
           <TabsContent value="social">
             <InstagramSocialFeed />
-          </TabsContent>
-
-          {/* Target Tab */}
-          <TabsContent value="target">
-            <UserFYPlanTarget />
           </TabsContent>
         </Tabs>
       </div>
