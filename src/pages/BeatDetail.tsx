@@ -39,6 +39,7 @@ interface BeatDetailData {
     priority?: string;
     last_visit_date?: string;
     order_value?: number;
+    fyOrderValue?: number;
   }>;
 }
 
@@ -160,11 +161,43 @@ export const BeatDetail = () => {
           throw retailersError;
         }
 
+        // Calculate FY order value for each retailer
+        const retailerIds = retailers?.map(r => r.id) || [];
+        let retailersWithFY = retailers || [];
+        
+        if (retailerIds.length > 0) {
+          // Determine current FY (April to March)
+          const now = new Date();
+          const currentYear = now.getFullYear();
+          const currentMonth = now.getMonth(); // 0-indexed
+          const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1; // April is month 3
+          const fyStart = new Date(fyStartYear, 3, 1); // April 1st
+          
+          const { data: fyOrders } = await supabase
+            .from('orders')
+            .select('retailer_id, total_amount')
+            .in('retailer_id', retailerIds)
+            .eq('status', 'confirmed')
+            .gte('created_at', fyStart.toISOString());
+          
+          // Aggregate FY order value per retailer
+          const fyOrderMap = new Map<string, number>();
+          fyOrders?.forEach(order => {
+            const current = fyOrderMap.get(order.retailer_id) || 0;
+            fyOrderMap.set(order.retailer_id, current + (order.total_amount || 0));
+          });
+          
+          retailersWithFY = (retailers || []).map(r => ({
+            ...r,
+            fyOrderValue: fyOrderMap.get(r.id) || 0
+          }));
+        }
+
         // Calculate performance stats
-        await calculatePerformanceStats(id, user.id, retailers || []);
+        await calculatePerformanceStats(id, user.id, retailersWithFY);
 
         // Generate SWOT analysis
-        generateSWOT(retailers || [], metrics);
+        generateSWOT(retailersWithFY, metrics);
 
         setBeatData({
           id: beat?.id, // Database UUID
@@ -177,7 +210,7 @@ export const BeatDetail = () => {
           average_time_minutes: beat?.average_time_minutes,
           territory_id: beat?.territory_id,
           territory_name: territoryName,
-          retailers: retailers || []
+          retailers: retailersWithFY
         });
 
       } catch (error) {
@@ -227,10 +260,10 @@ export const BeatDetail = () => {
 
       const lastVisitedDate = lastBeatPlan?.[0]?.plan_date || null;
 
-      // Fetch all orders for lifetime value
+      // Fetch all orders for lifetime value (include id for order_items query)
       const { data: allOrders } = await supabase
         .from('orders')
-        .select('total_amount, created_at, retailer_id')
+        .select('id, total_amount, created_at, retailer_id')
         .in('retailer_id', retailerIds.length > 0 ? retailerIds : ['none'])
         .eq('status', 'confirmed');
 
@@ -563,15 +596,6 @@ export const BeatDetail = () => {
             >
               <Edit2 size={16} />
               Edit
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAnalytics(true)}
-              className="flex items-center gap-2"
-            >
-              <BarChart size={16} />
-              Analytics
             </Button>
             <Button
               variant="outline"
@@ -1015,12 +1039,20 @@ export const BeatDetail = () => {
                               )}
                             </div>
                           </div>
-                          {retailer.order_value && (
-                            <div className="text-right">
-                              <p className="text-xs text-muted-foreground">Order Value</p>
-                              <p className="font-semibold text-primary">₹{retailer.order_value.toLocaleString()}</p>
-                            </div>
-                          )}
+                          <div className="text-right space-y-1">
+                            {retailer.order_value && (
+                              <div>
+                                <p className="text-xs text-muted-foreground">Last order value</p>
+                                <p className="font-semibold text-primary">₹{retailer.order_value.toLocaleString()}</p>
+                              </div>
+                            )}
+                            {retailer.fyOrderValue !== undefined && retailer.fyOrderValue > 0 && (
+                              <div>
+                                <p className="text-xs text-muted-foreground">Order value this FY</p>
+                                <p className="font-semibold text-green-600">₹{retailer.fyOrderValue.toLocaleString()}</p>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         <div className="space-y-1">
