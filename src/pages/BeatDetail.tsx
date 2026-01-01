@@ -17,8 +17,10 @@ import { BeatAnalyticsModal } from "@/components/BeatAnalyticsModal";
 import { useRecommendations } from "@/hooks/useRecommendations";
 import { RetailerDetailModal } from "@/components/RetailerDetailModal";
 import { BeatRetailerExport } from "@/components/BeatRetailerExport";
+import { TargetVsActualCard } from "@/components/performance/TargetVsActualCard";
 
 interface BeatDetailData {
+  id?: string; // Database UUID
   beat_id: string;
   beat_name: string;
   category?: string;
@@ -165,6 +167,7 @@ export const BeatDetail = () => {
         generateSWOT(retailers || [], metrics);
 
         setBeatData({
+          id: beat?.id, // Database UUID
           beat_id: id,
           beat_name: beatInfo?.beat_name || id,
           category: beatInfo?.category || 'General',
@@ -638,6 +641,9 @@ export const BeatDetail = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Target vs Actual Section */}
+        <TargetVsActualCard entityType="beat" entityId={beatData?.id || ''} userId={user?.id} />
 
         {/* Beat Info Card */}
         <Card className="shadow-card">
