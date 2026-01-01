@@ -44,11 +44,10 @@ serve(async (req) => {
     
     console.log('🗓️ Starting auto-generate-beat-plan', { userId, forceRegenerate });
 
-    // Get all active users or specific user
+    // Get users (specific user if provided)
     let usersQuery = supabaseClient
       .from('profiles')
-      .select('id, full_name')
-      .eq('is_active', true);
+      .select('id, full_name');
     
     if (userId) {
       usersQuery = usersQuery.eq('id', userId);
