@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, User, Trophy, Award, Users, Bell, Target } from 'lucide-react';
+import { Loader2, User, Trophy, Award, Users, Bell, Target, Linkedin, Twitter, Instagram, Facebook } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { CompactProfilePhoto } from '@/components/profile/CompactProfilePhoto';
 import { BadgesDisplay } from '@/components/BadgesDisplay';
@@ -22,6 +22,16 @@ import { UserFYPlanTarget } from '@/components/profile/UserFYPlanTarget';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { Layout } from '@/components/Layout';
 import { FollowersFollowingCard } from '@/components/profile/FollowersFollowingCard';
+import { WorkExperienceSection } from '@/components/profile/about/WorkExperienceSection';
+import { EducationHistorySection } from '@/components/profile/about/EducationHistorySection';
+import { EmergencyContactsSection } from '@/components/profile/about/EmergencyContactsSection';
+import { AspirationsSection } from '@/components/profile/about/AspirationsSection';
+import { OnboardingChecklistSection } from '@/components/profile/about/OnboardingChecklistSection';
+
+interface Territory {
+  id: string;
+  name: string;
+}
 
 interface Manager {
   id: string;
@@ -33,6 +43,7 @@ const UserProfile = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [managers, setManagers] = useState<Manager[]>([]);
+  const [territories, setTerritories] = useState<Territory[]>([]);
   const [pointsModalOpen, setPointsModalOpen] = useState(false);
   const [totalPoints, setTotalPoints] = useState(0);
   
@@ -46,22 +57,37 @@ const UserProfile = () => {
     daily_da_allowance: '',
     manager_id: '',
     hq: '',
+    hq_territory_id: '',
     date_of_joining: '',
     date_of_exit: '',
-    alternate_email: '',
     address: '',
-    education: '',
-    emergency_contact_number: '',
-    band: ''
+    band: '',
+    designation: '',
+    linkedin_url: '',
+    twitter_url: '',
+    instagram_url: '',
+    facebook_url: ''
   });
 
   useEffect(() => {
     if (userProfile && user) {
       fetchManagers();
+      fetchTerritories();
       fetchEmployeeData();
       fetchTotalPoints();
     }
   }, [userProfile, user]);
+
+  const fetchTerritories = async () => {
+    const { data } = await supabase
+      .from('territories')
+      .select('id, name')
+      .order('name');
+
+    if (data) {
+      setTerritories(data);
+    }
+  };
 
   const fetchManagers = async () => {
     const { data } = await supabase
@@ -83,26 +109,34 @@ const UserProfile = () => {
       .eq('user_id', user.id)
       .single();
 
-    if (employeeData) {
-      setFormData({
-        username: userProfile?.username || '',
-        full_name: userProfile?.full_name || '',
-        phone_number: userProfile?.phone_number || '',
-        recovery_email: userProfile?.recovery_email || '',
-        email: user.email || '',
-        monthly_salary: employeeData.monthly_salary?.toString() || '',
-        daily_da_allowance: employeeData.daily_da_allowance?.toString() || '',
-        manager_id: employeeData.manager_id || '',
-        hq: employeeData.hq || '',
-        date_of_joining: employeeData.date_of_joining || '',
-        date_of_exit: employeeData.date_of_exit || '',
-        alternate_email: employeeData.alternate_email || '',
-        address: employeeData.address || '',
-        education: employeeData.education || '',
-        emergency_contact_number: employeeData.emergency_contact_number || '',
-        band: employeeData.band?.toString() || ''
-      });
-    }
+    // Also fetch profile social links
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('designation, linkedin_url, twitter_url, instagram_url, facebook_url')
+      .eq('id', user.id)
+      .single();
+
+    setFormData({
+      username: userProfile?.username || '',
+      full_name: userProfile?.full_name || '',
+      phone_number: userProfile?.phone_number || '',
+      recovery_email: userProfile?.recovery_email || '',
+      email: user.email || '',
+      monthly_salary: employeeData?.monthly_salary?.toString() || '',
+      daily_da_allowance: employeeData?.daily_da_allowance?.toString() || '',
+      manager_id: employeeData?.manager_id || '',
+      hq: employeeData?.hq || '',
+      hq_territory_id: employeeData?.hq_territory_id || '',
+      date_of_joining: employeeData?.date_of_joining || '',
+      date_of_exit: employeeData?.date_of_exit || '',
+      address: employeeData?.address || '',
+      band: employeeData?.band?.toString() || '',
+      designation: profileData?.designation || '',
+      linkedin_url: profileData?.linkedin_url || '',
+      twitter_url: profileData?.twitter_url || '',
+      instagram_url: profileData?.instagram_url || '',
+      facebook_url: profileData?.facebook_url || ''
+    });
   };
 
   const fetchTotalPoints = async () => {
@@ -146,13 +180,25 @@ const UserProfile = () => {
           daily_da_allowance: parseFloat(formData.daily_da_allowance) || 0,
           manager_id: formData.manager_id || null,
           hq: formData.hq,
+          hq_territory_id: formData.hq_territory_id || null,
           date_of_joining: formData.date_of_joining || null,
           date_of_exit: formData.date_of_exit || null,
-          alternate_email: formData.alternate_email,
-          address: formData.address,
-          education: formData.education,
-          emergency_contact_number: formData.emergency_contact_number
+          address: formData.address
         });
+
+      // Update profile with designation and social links
+      const { error: profileUpdateError } = await supabase
+        .from('profiles')
+        .update({
+          designation: formData.designation || null,
+          linkedin_url: formData.linkedin_url || null,
+          twitter_url: formData.twitter_url || null,
+          instagram_url: formData.instagram_url || null,
+          facebook_url: formData.facebook_url || null
+        })
+        .eq('id', user.id);
+
+      if (profileUpdateError) throw profileUpdateError;
 
       if (employeeError) throw employeeError;
 
@@ -266,12 +312,61 @@ const UserProfile = () => {
                       onChange={(e) => setFormData(prev => ({ ...prev, recovery_email: e.target.value }))}
                     />
                   </div>
+                </div>
+
+                <h3 className="text-lg font-medium mt-6">Designation & Social Links</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="emergency_contact_number">Emergency Contact</Label>
+                    <Label htmlFor="designation">Designation</Label>
                     <Input
-                      id="emergency_contact_number"
-                      value={formData.emergency_contact_number}
-                      onChange={(e) => setFormData(prev => ({ ...prev, emergency_contact_number: e.target.value }))}
+                      id="designation"
+                      value={formData.designation}
+                      onChange={(e) => setFormData(prev => ({ ...prev, designation: e.target.value }))}
+                      placeholder="e.g. Sales Executive, Area Manager"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="linkedin_url" className="flex items-center gap-1">
+                      <Linkedin className="h-4 w-4" /> LinkedIn
+                    </Label>
+                    <Input
+                      id="linkedin_url"
+                      value={formData.linkedin_url}
+                      onChange={(e) => setFormData(prev => ({ ...prev, linkedin_url: e.target.value }))}
+                      placeholder="https://linkedin.com/in/username"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="twitter_url" className="flex items-center gap-1">
+                      <Twitter className="h-4 w-4" /> Twitter
+                    </Label>
+                    <Input
+                      id="twitter_url"
+                      value={formData.twitter_url}
+                      onChange={(e) => setFormData(prev => ({ ...prev, twitter_url: e.target.value }))}
+                      placeholder="https://twitter.com/username"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="instagram_url" className="flex items-center gap-1">
+                      <Instagram className="h-4 w-4" /> Instagram
+                    </Label>
+                    <Input
+                      id="instagram_url"
+                      value={formData.instagram_url}
+                      onChange={(e) => setFormData(prev => ({ ...prev, instagram_url: e.target.value }))}
+                      placeholder="https://instagram.com/username"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="facebook_url" className="flex items-center gap-1">
+                      <Facebook className="h-4 w-4" /> Facebook
+                    </Label>
+                    <Input
+                      id="facebook_url"
+                      value={formData.facebook_url}
+                      onChange={(e) => setFormData(prev => ({ ...prev, facebook_url: e.target.value }))}
+                      placeholder="https://facebook.com/username"
                     />
                   </div>
                 </div>
@@ -323,12 +418,29 @@ const UserProfile = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="hq">Headquarters (HQ)</Label>
-                    <Input
-                      id="hq"
-                      value={formData.hq}
-                      onChange={(e) => setFormData(prev => ({ ...prev, hq: e.target.value }))}
-                    />
+                    <Label htmlFor="hq_territory_id">Headquarters (HQ)</Label>
+                    <Select 
+                      value={formData.hq_territory_id} 
+                      onValueChange={(value) => {
+                        const territory = territories.find(t => t.id === value);
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          hq_territory_id: value,
+                          hq: territory?.name || ''
+                        }));
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select HQ territory" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {territories.map((territory) => (
+                          <SelectItem key={territory.id} value={territory.id}>
+                            {territory.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="date_of_joining">Date of Joining</Label>
@@ -368,19 +480,10 @@ const UserProfile = () => {
                   </div>
                 </div>
 
-                <h3 className="text-lg font-medium mt-6">Additional Information</h3>
+                <h3 className="text-lg font-medium mt-6">Address</h3>
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="alternate_email">Alternate Email</Label>
-                    <Input
-                      id="alternate_email"
-                      type="email"
-                      value={formData.alternate_email}
-                      onChange={(e) => setFormData(prev => ({ ...prev, alternate_email: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="address">Address</Label>
+                    <Label htmlFor="address">Current Address</Label>
                     <Textarea
                       id="address"
                       value={formData.address}
@@ -388,23 +491,29 @@ const UserProfile = () => {
                       rows={3}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="education">Education Background</Label>
-                    <Textarea
-                      id="education"
-                      value={formData.education}
-                      onChange={(e) => setFormData(prev => ({ ...prev, education: e.target.value }))}
-                      rows={3}
-                    />
-                  </div>
                 </div>
 
-                <Button onClick={handleProfileUpdate} disabled={loading} className="w-full">
+                <Button onClick={handleProfileUpdate} disabled={loading} className="w-full mt-6">
                   {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   Update Profile
                 </Button>
               </CardContent>
             </Card>
+
+            {/* Work Experience Section */}
+            <WorkExperienceSection />
+
+            {/* Education History Section */}
+            <EducationHistorySection />
+
+            {/* Emergency Contacts Section */}
+            <EmergencyContactsSection />
+
+            {/* Aspirations & Preferences Section */}
+            <AspirationsSection />
+
+            {/* Onboarding Checklist Section */}
+            <OnboardingChecklistSection />
 
             <ProfileAttachments />
 

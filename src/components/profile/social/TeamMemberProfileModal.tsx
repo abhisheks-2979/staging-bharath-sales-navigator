@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { 
   MapPin, Briefcase, GraduationCap, Trophy, UserPlus, UserCheck, 
-  Calendar, Mail, Phone, Linkedin, Users, Building
+  Calendar, Mail, Phone, Linkedin, Users, Building, Target, Heart,
+  Sparkles, Twitter, Instagram, Facebook
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -31,10 +32,14 @@ interface MemberProfile {
   phone_number: string | null;
   work_location: string | null;
   linkedin_url: string | null;
+  twitter_url: string | null;
+  instagram_url: string | null;
+  facebook_url: string | null;
   interests: string[] | null;
   aspirations: string | null;
   date_of_birth: string | null;
   territories_covered: string[] | null;
+  designation: string | null;
 }
 
 interface EmployeeData {
@@ -42,12 +47,35 @@ interface EmployeeData {
   education: string | null;
   date_of_joining: string | null;
   band: number | null;
+  manager_id: string | null;
+}
+
+interface ManagerInfo {
+  full_name: string | null;
+}
+
+interface AspirationData {
+  career_goal: string | null;
+  motivation_driver: string | null;
+  preferred_work_style: string | null;
+}
+
+interface EducationItem {
+  id: string;
+  institution_name: string;
+  degree: string | null;
+  field_of_study: string | null;
+  from_date: string | null;
+  to_date: string | null;
 }
 
 export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProfileModalProps) {
   const { user } = useAuth();
   const [profile, setProfile] = useState<MemberProfile | null>(null);
   const [employeeData, setEmployeeData] = useState<EmployeeData | null>(null);
+  const [managerInfo, setManagerInfo] = useState<ManagerInfo | null>(null);
+  const [aspirations, setAspirations] = useState<AspirationData | null>(null);
+  const [educationHistory, setEducationHistory] = useState<EducationItem[]>([]);
   const [totalPoints, setTotalPoints] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
@@ -73,16 +101,18 @@ export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProf
         followingResult,
         followersResult,
         followingCountResult,
-        postsResult
+        postsResult,
+        aspirationsResult,
+        educationResult
       ] = await Promise.all([
         supabase
           .from("profiles")
-          .select("id, full_name, profile_picture_url, phone_number, work_location, linkedin_url, interests, aspirations, date_of_birth, territories_covered")
+          .select("id, full_name, profile_picture_url, phone_number, work_location, linkedin_url, twitter_url, instagram_url, facebook_url, interests, aspirations, date_of_birth, territories_covered, designation")
           .eq("id", userId)
           .single(),
         supabase
           .from("employees")
-          .select("hq, education, date_of_joining, band")
+          .select("hq, education, date_of_joining, band, manager_id")
           .eq("user_id", userId)
           .maybeSingle(),
         supabase
@@ -106,7 +136,18 @@ export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProf
         supabase
           .from("social_posts")
           .select("id", { count: "exact" })
+          .eq("user_id", userId),
+        supabase
+          .from("aspirations_and_preferences")
+          .select("career_goal, motivation_driver, preferred_work_style")
           .eq("user_id", userId)
+          .maybeSingle(),
+        supabase
+          .from("education_history")
+          .select("id, institution_name, degree, field_of_study, from_date, to_date")
+          .eq("user_id", userId)
+          .order("from_date", { ascending: false })
+          .limit(3)
       ]);
 
       if (profileResult.data) {
@@ -115,6 +156,16 @@ export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProf
       
       if (employeeResult.data) {
         setEmployeeData(employeeResult.data);
+        
+        // Fetch manager info if manager_id exists
+        if (employeeResult.data.manager_id) {
+          const { data: manager } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", employeeResult.data.manager_id)
+            .single();
+          setManagerInfo(manager);
+        }
       }
 
       if (pointsResult.data) {
@@ -126,6 +177,14 @@ export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProf
       setFollowersCount(followersResult.count || 0);
       setFollowingCount(followingCountResult.count || 0);
       setPostsCount(postsResult.count || 0);
+      
+      if (aspirationsResult.data) {
+        setAspirations(aspirationsResult.data);
+      }
+      
+      if (educationResult.data) {
+        setEducationHistory(educationResult.data);
+      }
     } catch (error) {
       console.error("Error fetching member data:", error);
     } finally {
@@ -186,6 +245,9 @@ export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProf
               
               <div>
                 <h2 className="text-xl font-bold">{profile.full_name || "Team Member"}</h2>
+                {profile.designation && (
+                  <p className="text-sm text-primary font-medium">{profile.designation}</p>
+                )}
                 {employeeData?.hq && (
                   <p className="text-sm text-muted-foreground flex items-center justify-center gap-1 mt-1">
                     <MapPin className="h-3 w-3" />
@@ -234,6 +296,50 @@ export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProf
 
             <Separator />
 
+            {/* Contact Details */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Contact Details</p>
+              <div className="space-y-2 text-sm">
+                {profile.phone_number && (
+                  <div className="flex items-center gap-3">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <a href={`tel:${profile.phone_number}`} className="hover:underline text-primary">
+                      {profile.phone_number}
+                    </a>
+                  </div>
+                )}
+                {/* Social Links */}
+                <div className="flex gap-2 mt-2">
+                  {profile.linkedin_url && (
+                    <a href={profile.linkedin_url} target="_blank" rel="noopener noreferrer" 
+                       className="p-2 rounded-lg bg-muted hover:bg-primary/10">
+                      <Linkedin className="h-4 w-4" />
+                    </a>
+                  )}
+                  {profile.twitter_url && (
+                    <a href={profile.twitter_url} target="_blank" rel="noopener noreferrer"
+                       className="p-2 rounded-lg bg-muted hover:bg-primary/10">
+                      <Twitter className="h-4 w-4" />
+                    </a>
+                  )}
+                  {profile.instagram_url && (
+                    <a href={profile.instagram_url} target="_blank" rel="noopener noreferrer"
+                       className="p-2 rounded-lg bg-muted hover:bg-primary/10">
+                      <Instagram className="h-4 w-4" />
+                    </a>
+                  )}
+                  {profile.facebook_url && (
+                    <a href={profile.facebook_url} target="_blank" rel="noopener noreferrer"
+                       className="p-2 rounded-lg bg-muted hover:bg-primary/10">
+                      <Facebook className="h-4 w-4" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
             {/* Points Badge */}
             <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-lg p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -247,8 +353,10 @@ export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProf
               </div>
             </div>
 
-            {/* Details */}
+            {/* Employment Details */}
             <div className="space-y-3">
+              <p className="text-sm font-medium">Employment Info</p>
+              
               {employeeData?.band && (
                 <div className="flex items-center gap-3 text-sm">
                   <Building className="h-4 w-4 text-muted-foreground" />
@@ -263,32 +371,70 @@ export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProf
                 </div>
               )}
 
-              {employeeData?.education && (
+              {managerInfo?.full_name && (
                 <div className="flex items-center gap-3 text-sm">
-                  <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                  <span className="line-clamp-2">{employeeData.education}</span>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <span>Reports to: {managerInfo.full_name}</span>
                 </div>
-              )}
-
-              {profile.work_location && (
-                <div className="flex items-center gap-3 text-sm">
-                  <Briefcase className="h-4 w-4 text-muted-foreground" />
-                  <span>{profile.work_location}</span>
-                </div>
-              )}
-
-              {profile.linkedin_url && (
-                <a 
-                  href={profile.linkedin_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 text-sm text-primary hover:underline"
-                >
-                  <Linkedin className="h-4 w-4" />
-                  <span>LinkedIn Profile</span>
-                </a>
               )}
             </div>
+
+            {/* Education */}
+            {educationHistory.length > 0 && (
+              <>
+                <Separator />
+                <div>
+                  <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <GraduationCap className="h-4 w-4" />
+                    Education
+                  </p>
+                  <div className="space-y-2">
+                    {educationHistory.map((edu) => (
+                      <div key={edu.id} className="text-sm">
+                        <p className="font-medium">{edu.institution_name}</p>
+                        <p className="text-muted-foreground">
+                          {edu.degree}{edu.field_of_study && ` in ${edu.field_of_study}`}
+                          {edu.to_date && ` (${format(new Date(edu.to_date), "yyyy")})`}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Aspirations Highlights */}
+            {aspirations && (aspirations.career_goal || aspirations.motivation_driver) && (
+              <>
+                <Separator />
+                <div>
+                  <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Aspirations
+                  </p>
+                  <div className="space-y-2">
+                    {aspirations.career_goal && (
+                      <div className="flex items-center gap-2">
+                        <Target className="h-3 w-3 text-primary" />
+                        <span className="text-sm">{aspirations.career_goal}</span>
+                      </div>
+                    )}
+                    {aspirations.motivation_driver && (
+                      <div className="flex items-center gap-2">
+                        <Heart className="h-3 w-3 text-primary" />
+                        <span className="text-sm">Motivated by: {aspirations.motivation_driver}</span>
+                      </div>
+                    )}
+                    {aspirations.preferred_work_style && (
+                      <div className="flex items-center gap-2">
+                        <Users className="h-3 w-3 text-primary" />
+                        <span className="text-sm">{aspirations.preferred_work_style}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Interests */}
             {profile.interests && profile.interests.length > 0 && (
@@ -321,17 +467,6 @@ export function TeamMemberProfileModal({ userId, open, onClose }: TeamMemberProf
                       </Badge>
                     ))}
                   </div>
-                </div>
-              </>
-            )}
-
-            {/* Aspirations */}
-            {profile.aspirations && (
-              <>
-                <Separator />
-                <div>
-                  <p className="text-sm font-medium mb-2">Aspirations</p>
-                  <p className="text-sm text-muted-foreground">{profile.aspirations}</p>
                 </div>
               </>
             )}
