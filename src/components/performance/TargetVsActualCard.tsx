@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface TargetVsActualCardProps {
   entityType: 'beat' | 'retailer';
   entityId: string;
+  beatTextId?: string; // For beats: the text beat_id used in retailers table
   userId?: string;
 }
 
@@ -18,7 +19,7 @@ interface TargetData {
   actualQuantity: number;
 }
 
-export function TargetVsActualCard({ entityType, entityId, userId }: TargetVsActualCardProps) {
+export function TargetVsActualCard({ entityType, entityId, beatTextId, userId }: TargetVsActualCardProps) {
   const [loading, setLoading] = useState(true);
   const [targets, setTargets] = useState<TargetData>({
     revenueTarget: 0,
@@ -52,7 +53,7 @@ export function TargetVsActualCard({ entityType, entityId, userId }: TargetVsAct
 
   useEffect(() => {
     loadTargetData();
-  }, [entityId, entityType, selectedFY, userId]);
+  }, [entityId, entityType, selectedFY, userId, beatTextId]);
 
   const loadTargetData = async () => {
     if (!entityId) return;
@@ -82,10 +83,12 @@ export function TargetVsActualCard({ entityType, entityId, userId }: TargetVsAct
         }
 
         // Get actual revenue and quantity for beat
+        // Use beatTextId for retailer query since retailers.beat_id stores text beat_id
+        const retailerBeatId = beatTextId || entityId;
         const { data: retailers } = await supabase
           .from('retailers')
           .select('id')
-          .eq('beat_id', entityId);
+          .eq('beat_id', retailerBeatId);
 
         const retailerIds = retailers?.map(r => r.id) || [];
 
