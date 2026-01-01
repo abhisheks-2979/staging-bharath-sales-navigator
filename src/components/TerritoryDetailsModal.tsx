@@ -104,15 +104,17 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
   const [growthPotentialDetails, setGrowthPotentialDetails] = useState<string>('');
   const [territoryTargets, setTerritoryTargets] = useState<{ revenueTarget: number; quantityTarget: number; actualRevenue: number; actualQuantity: number }>({ revenueTarget: 0, quantityTarget: 0, actualRevenue: 0, actualQuantity: 0 });
   
-  // Financial Year state - default to current FY (April to March)
+  // Financial Year state - year stored in DB is the END year of FY (e.g., 2026 for FY 2025-26)
   const getDefaultFY = () => {
     const now = new Date();
     const currentMonth = now.getMonth(); // 0-11
     const currentYear = now.getFullYear();
-    // If current month is April (3) or later, FY starts this year, otherwise it started last year
-    return currentMonth >= 3 ? currentYear : currentYear - 1;
+    // If current month is April (3) or later, FY ends next year
+    // If current month is Jan-Mar (0-2), FY ends this year
+    return currentMonth >= 3 ? currentYear + 1 : currentYear;
   };
   const [selectedFY, setSelectedFY] = useState<number>(getDefaultFY());
+  const [quantityUnit, setQuantityUnit] = useState<string>('units');
   
   // Generate available FY options (last 5 years)
   const fyOptions = useMemo(() => {
@@ -122,7 +124,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
       const fy = currentFY - i;
       options.push({
         value: fy,
-        label: `FY ${fy}-${(fy + 1).toString().slice(-2)}`
+        label: `FY ${fy - 1}-${fy.toString().slice(-2)}`
       });
     }
     return options;
@@ -556,21 +558,28 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
       setAssignmentHistory(historyData || []);
 
       // Load territory targets for the selected Financial Year (April to March)
-      // FY 2025 means April 2025 to March 2026
-      const fyStartDate = new Date(selectedFY, 3, 1); // April 1st of selected FY year
-      const fyEndDate = new Date(selectedFY + 1, 2, 31, 23, 59, 59); // March 31st of next year
+      // selectedFY is the END year of FY (e.g., 2026 for FY 2025-26)
+      // So FY 2025-26 runs from April 2025 to March 2026
+      const fyStartDate = new Date(selectedFY - 1, 3, 1); // April 1st of previous year
+      const fyEndDate = new Date(selectedFY, 2, 31, 23, 59, 59); // March 31st of selected year
       
       // Get all territory targets for this territory (from all users' business plans)
-      // Business plans are stored by the starting year of FY (e.g., 2025 for FY 2025-26)
+      // Business plans are stored by the END year of FY (e.g., 2026 for FY 2025-26)
       const { data: targetsData } = await supabase
         .from('user_business_plan_territories')
-        .select('quantity_target, revenue_target, user_business_plans!inner(year)')
+        .select('quantity_target, revenue_target, user_business_plans!inner(year, quantity_unit)')
         .eq('territory_id', territory.id)
         .eq('user_business_plans.year', selectedFY);
       
       // Sum up all targets for this territory
       const totalRevenueTarget = targetsData?.reduce((sum, t) => sum + Number(t.revenue_target || 0), 0) || 0;
       const totalQuantityTarget = targetsData?.reduce((sum, t) => sum + Number(t.quantity_target || 0), 0) || 0;
+      
+      // Get quantity unit from business plan
+      const planQuantityUnit = targetsData && targetsData.length > 0 
+        ? (targetsData[0].user_business_plans as any)?.quantity_unit || 'units'
+        : 'units';
+      setQuantityUnit(planQuantityUnit);
       
       // Get actual revenue and quantity for the selected FY
       const fyOrders = allOrdersData?.filter(o => {
@@ -1049,11 +1058,11 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                       <div className="space-y-2">
                         <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground">Target</span>
-                          <span className="font-medium">{territoryTargets.quantityTarget.toLocaleString('en-IN')} units</span>
+                          <span className="font-medium">{territoryTargets.quantityTarget.toLocaleString('en-IN')} {quantityUnit}</span>
                         </div>
                         <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground">Actual</span>
-                          <span className="font-bold text-blue-600">{territoryTargets.actualQuantity.toLocaleString('en-IN')} units</span>
+                          <span className="font-bold text-blue-600">{territoryTargets.actualQuantity.toLocaleString('en-IN')} {quantityUnit}</span>
                         </div>
                         <div className="w-full bg-muted rounded-full h-2 mt-2">
                           <div 
@@ -1067,14 +1076,14 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                         </div>
                         <div className="flex justify-between text-xs text-muted-foreground mt-1">
                           <span>Gap: {territoryTargets.quantityTarget > territoryTargets.actualQuantity 
-                            ? `${(territoryTargets.quantityTarget - territoryTargets.actualQuantity).toLocaleString('en-IN')} units` 
+                            ? `${(territoryTargets.quantityTarget - territoryTargets.actualQuantity).toLocaleString('en-IN')} ${quantityUnit}` 
                             : 'Target Achieved!'}</span>
                         </div>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">No targets set for FY {selectedFY}-{(selectedFY + 1).toString().slice(-2)}</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">No targets set for FY {selectedFY - 1}-{selectedFY.toString().slice(-2)}</p>
                 )}
               </CardContent>
             </Card>
