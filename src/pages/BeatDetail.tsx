@@ -643,7 +643,7 @@ export const BeatDetail = () => {
         </Card>
 
         {/* Target vs Actual Section */}
-        <TargetVsActualCard entityType="beat" entityId={beatData?.id || ''} userId={user?.id} />
+        <TargetVsActualCard entityType="beat" entityId={beatData?.id || ''} beatTextId={beatData?.beat_id} userId={user?.id} />
 
         {/* Beat Info Card */}
         <Card className="shadow-card">
