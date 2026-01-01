@@ -11,7 +11,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Popover,
@@ -22,6 +22,8 @@ import { ImageLightbox } from "./social/ImageLightbox";
 import { DocumentViewer } from "./social/DocumentViewer";
 import { ReactorsModal } from "./social/ReactorsModal";
 import { PostMenu } from "./social/PostMenu";
+import { SearchBar } from "./social/SearchBar";
+import { TeamMemberProfileModal } from "./social/TeamMemberProfileModal";
 
 interface User {
   id: string;
@@ -96,6 +98,12 @@ export function InstagramSocialFeed() {
   const [reactorsModalOpen, setReactorsModalOpen] = useState(false);
   const [reactorsPostId, setReactorsPostId] = useState("");
   const [reactorsType, setReactorsType] = useState<"likes" | "reactions">("likes");
+  
+  // Search and profile modal states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchDate, setSearchDate] = useState<Date>();
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [selectedProfileUserId, setSelectedProfileUserId] = useState("");
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -122,8 +130,37 @@ export function InstagramSocialFeed() {
   }, [postsLoading, posts.length, displayedPostsCount]);
 
   const displayedPosts = useMemo(() => {
-    return posts.slice(0, displayedPostsCount);
-  }, [posts, displayedPostsCount]);
+    let filtered = posts;
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(post => 
+        post.content?.toLowerCase().includes(query) ||
+        post.user_name?.toLowerCase().includes(query)
+      );
+    }
+    
+    // Filter by date
+    if (searchDate) {
+      filtered = filtered.filter(post => 
+        isSameDay(new Date(post.created_at), searchDate)
+      );
+    }
+    
+    return filtered.slice(0, displayedPostsCount);
+  }, [posts, displayedPostsCount, searchQuery, searchDate]);
+
+  const handleSearch = (query: string, date?: Date) => {
+    setSearchQuery(query);
+    setSearchDate(date);
+    setDisplayedPostsCount(INITIAL_POSTS_COUNT);
+  };
+
+  const handleUserProfileClick = (userId: string) => {
+    setSelectedProfileUserId(userId);
+    setProfileModalOpen(true);
+  };
 
   const fetchFollowingList = async () => {
     if (!user) return;
@@ -630,6 +667,13 @@ export function InstagramSocialFeed() {
 
   return (
     <div className="space-y-4">
+      {/* Search Bar */}
+      <SearchBar 
+        onSearch={handleSearch}
+        users={users.map(u => ({ id: u.id, full_name: u.full_name }))}
+        onUserClick={handleUserProfileClick}
+      />
+
       {/* Users to Follow Header */}
       <div className="bg-card border border-border rounded-lg p-3">
         <p className="text-xs text-muted-foreground mb-2 px-1">People you may know</p>
@@ -638,16 +682,19 @@ export function InstagramSocialFeed() {
             {users.map((u) => (
               <div key={u.id} className="flex flex-col items-center gap-1 min-w-[80px]">
                 <div className="relative">
-                  <div className={`w-14 h-14 rounded-full p-[2px] ${
-                    u.is_following 
-                      ? "bg-muted" 
-                      : "bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7]"
-                  }`}>
+                  <button
+                    onClick={() => handleUserProfileClick(u.id)}
+                    className={`w-14 h-14 rounded-full p-[2px] ${
+                      u.is_following 
+                        ? "bg-muted" 
+                        : "bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7]"
+                    }`}
+                  >
                     <Avatar className="w-full h-full border-2 border-background">
                       <AvatarImage src={u.profile_picture_url || ""} />
                       <AvatarFallback className="text-xs">{u.full_name?.[0] || "?"}</AvatarFallback>
                     </Avatar>
-                  </div>
+                  </button>
                   <Button
                     size="icon"
                     variant={u.is_following ? "secondary" : "default"}
@@ -661,9 +708,12 @@ export function InstagramSocialFeed() {
                     )}
                   </Button>
                 </div>
-                <span className="text-xs text-center truncate w-full">
+                <button 
+                  onClick={() => handleUserProfileClick(u.id)}
+                  className="text-xs text-center truncate w-full hover:text-primary"
+                >
                   {u.full_name?.split(" ")[0] || "User"}
-                </span>
+                </button>
               </div>
             ))}
           </div>
@@ -810,14 +860,21 @@ export function InstagramSocialFeed() {
                   {/* Post Header */}
                   <div className="flex items-center justify-between p-3">
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={post.user_avatar || ""} />
-                        <AvatarFallback className="bg-primary text-primary-foreground">
-                          {post.user_name?.[0] || "?"}
-                        </AvatarFallback>
-                      </Avatar>
+                      <button onClick={() => handleUserProfileClick(post.user_id)}>
+                        <Avatar className="h-10 w-10 hover:ring-2 hover:ring-primary/50 transition-all">
+                          <AvatarImage src={post.user_avatar || ""} />
+                          <AvatarFallback className="bg-primary text-primary-foreground">
+                            {post.user_name?.[0] || "?"}
+                          </AvatarFallback>
+                        </Avatar>
+                      </button>
                       <div>
-                        <p className="font-semibold text-sm">{post.user_name}</p>
+                        <button 
+                          onClick={() => handleUserProfileClick(post.user_id)}
+                          className="font-semibold text-sm hover:text-primary transition-colors"
+                        >
+                          {post.user_name}
+                        </button>
                         <p className="text-xs text-muted-foreground">
                           {format(new Date(post.created_at), "MMM d, yyyy 'at' h:mm a")}
                         </p>
@@ -1097,6 +1154,12 @@ export function InstagramSocialFeed() {
         open={reactorsModalOpen}
         onClose={() => setReactorsModalOpen(false)}
         type={reactorsType}
+      />
+
+      <TeamMemberProfileModal
+        userId={selectedProfileUserId}
+        open={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
       />
     </div>
   );
