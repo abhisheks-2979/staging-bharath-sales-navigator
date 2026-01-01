@@ -176,6 +176,51 @@ export type Database = {
         }
         Relationships: []
       }
+      aspirations_and_preferences: {
+        Row: {
+          career_goal: string | null
+          created_at: string | null
+          dream_role: string | null
+          favorite_activity: string | null
+          five_year_vision: string | null
+          id: string
+          motivation_driver: string | null
+          preferred_reward: string | null
+          preferred_work_style: string | null
+          team_preference: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          career_goal?: string | null
+          created_at?: string | null
+          dream_role?: string | null
+          favorite_activity?: string | null
+          five_year_vision?: string | null
+          id?: string
+          motivation_driver?: string | null
+          preferred_reward?: string | null
+          preferred_work_style?: string | null
+          team_preference?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          career_goal?: string | null
+          created_at?: string | null
+          dream_role?: string | null
+          favorite_activity?: string | null
+          five_year_vision?: string | null
+          id?: string
+          motivation_driver?: string | null
+          preferred_reward?: string | null
+          preferred_work_style?: string | null
+          team_preference?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       attendance: {
         Row: {
           check_in_address: string | null
@@ -3002,6 +3047,87 @@ export type Database = {
           },
         ]
       }
+      education_history: {
+        Row: {
+          activities: string | null
+          created_at: string | null
+          degree: string | null
+          field_of_study: string | null
+          from_date: string | null
+          grade: string | null
+          id: string
+          institution_name: string
+          to_date: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          activities?: string | null
+          created_at?: string | null
+          degree?: string | null
+          field_of_study?: string | null
+          from_date?: string | null
+          grade?: string | null
+          id?: string
+          institution_name: string
+          to_date?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          activities?: string | null
+          created_at?: string | null
+          degree?: string | null
+          field_of_study?: string | null
+          from_date?: string | null
+          grade?: string | null
+          id?: string
+          institution_name?: string
+          to_date?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      emergency_contacts: {
+        Row: {
+          address: string | null
+          alternate_phone: string | null
+          contact_name: string
+          created_at: string | null
+          id: string
+          is_primary: boolean | null
+          phone: string | null
+          relationship: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          alternate_phone?: string | null
+          contact_name: string
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          phone?: string | null
+          relationship?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          alternate_phone?: string | null
+          contact_name?: string
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          phone?: string | null
+          relationship?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       employee_badges: {
         Row: {
           badge_description: string | null
@@ -5309,6 +5435,39 @@ export type Database = {
         }
         Relationships: []
       }
+      onboarding_tasks: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          requires_attachment: boolean | null
+          sort_order: number | null
+          task_name: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          requires_attachment?: boolean | null
+          sort_order?: number | null
+          task_name: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          requires_attachment?: boolean | null
+          sort_order?: number | null
+          task_name?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           category: string
@@ -6361,6 +6520,7 @@ export type Database = {
           created_at: string
           current_address: string | null
           date_of_birth: string | null
+          designation: string | null
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
           facebook_url: string | null
@@ -6382,6 +6542,7 @@ export type Database = {
           recovery_email: string | null
           role_id: string | null
           territories_covered: string[] | null
+          twitter_url: string | null
           updated_at: string
           user_status: Database["public"]["Enums"]["user_status"] | null
           username: string
@@ -6393,6 +6554,7 @@ export type Database = {
           created_at?: string
           current_address?: string | null
           date_of_birth?: string | null
+          designation?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           facebook_url?: string | null
@@ -6414,6 +6576,7 @@ export type Database = {
           recovery_email?: string | null
           role_id?: string | null
           territories_covered?: string[] | null
+          twitter_url?: string | null
           updated_at?: string
           user_status?: Database["public"]["Enums"]["user_status"] | null
           username: string
@@ -6425,6 +6588,7 @@ export type Database = {
           created_at?: string
           current_address?: string | null
           date_of_birth?: string | null
+          designation?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           facebook_url?: string | null
@@ -6446,6 +6610,7 @@ export type Database = {
           recovery_email?: string | null
           role_id?: string | null
           territories_covered?: string[] | null
+          twitter_url?: string | null
           updated_at?: string
           user_status?: Database["public"]["Enums"]["user_status"] | null
           username?: string
@@ -8921,6 +9086,50 @@ export type Database = {
         }
         Relationships: []
       }
+      user_onboarding_progress: {
+        Row: {
+          attachment_url: string | null
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          is_completed: boolean | null
+          notes: string | null
+          task_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          attachment_url?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          notes?: string | null
+          task_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          attachment_url?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          notes?: string | null
+          task_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_onboarding_progress_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_performance_scores: {
         Row: {
           calculated_at: string | null
@@ -10172,6 +10381,48 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      work_experiences: {
+        Row: {
+          company_name: string
+          created_at: string | null
+          description: string | null
+          designation: string | null
+          from_date: string | null
+          id: string
+          is_current: boolean | null
+          location: string | null
+          to_date: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          company_name: string
+          created_at?: string | null
+          description?: string | null
+          designation?: string | null
+          from_date?: string | null
+          id?: string
+          is_current?: boolean | null
+          location?: string | null
+          to_date?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          company_name?: string
+          created_at?: string | null
+          description?: string | null
+          designation?: string | null
+          from_date?: string | null
+          id?: string
+          is_current?: boolean | null
+          location?: string | null
+          to_date?: string | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }

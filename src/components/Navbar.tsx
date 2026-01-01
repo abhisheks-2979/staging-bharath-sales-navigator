@@ -164,23 +164,31 @@ export const Navbar = memo(() => {
           {/* User Profile Section */}
           <SheetHeader className="pb-3 border-b bg-gradient-primary text-primary-foreground rounded-lg -mx-6 -mt-6 px-6 pt-4 mb-6 pr-12">
             <div className="flex items-start justify-between gap-3">
-              <div className="flex flex-col items-start flex-1 min-w-0">
-                <SheetTitle 
-                  className="text-lg font-bold text-primary-foreground cursor-pointer hover:opacity-80 transition-opacity truncate w-full text-left" 
-                  onClick={() => {
-                    navigate('/profile');
-                    handleMenuItemClick();
-                  }}
-                >
-                  {displayName}
-                </SheetTitle>
-                {userRole === 'admin' && (
-                  <div className="flex items-center gap-1.5 text-xs opacity-90 text-primary-foreground mt-1">
-                    <Shield className="h-3.5 w-3.5" />
-                    <span className="font-medium">Admin</span>
-                  </div>
-                )}
-              </div>
+              <button 
+                onClick={() => {
+                  navigate('/profile');
+                  handleMenuItemClick();
+                }}
+                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+              >
+                <Avatar className="h-12 w-12 border-2 border-primary-foreground/30">
+                  <AvatarImage src={userProfile?.profile_picture_url || ""} />
+                  <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground">
+                    {userInitials}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col items-start flex-1 min-w-0">
+                  <SheetTitle className="text-lg font-bold text-primary-foreground truncate w-full text-left">
+                    {displayName}
+                  </SheetTitle>
+                  {userRole === 'admin' && (
+                    <div className="flex items-center gap-1.5 text-xs opacity-90 text-primary-foreground mt-1">
+                      <Shield className="h-3.5 w-3.5" />
+                      <span className="font-medium">Admin</span>
+                    </div>
+                  )}
+                </div>
+              </button>
               <div className="flex items-center flex-shrink-0">
                 <button
                   onClick={() => {
