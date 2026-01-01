@@ -48,6 +48,7 @@ interface Territory {
 }
 
 const TerritoriesManagement = () => {
+  const navigate = useNavigate();
   const [territories, setTerritories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);

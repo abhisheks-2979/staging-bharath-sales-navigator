@@ -84,6 +84,7 @@ import Employee360 from "./pages/Employee360";
 import Vendors from "./pages/Vendors";
 import { RetailerDetail } from "./pages/RetailerDetail";
 import TerritoriesAndDistributors from "./pages/TerritoriesAndDistributors";
+import TerritoryDetail from "./pages/TerritoryDetail";
 import Operations from "./pages/Operations";
 import GPSTrack from "./pages/GPSTrack";
 import GPSTrackManagement from "./pages/GPSTrackManagement";
@@ -292,7 +293,8 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         <Route path="/competition-master" element={<ProtectedRoute><CompetitionMaster /></ProtectedRoute>} />
         <Route path="/competition-master/:competitorId" element={<ProtectedRoute><CompetitorDetail /></ProtectedRoute>} />
         <Route path="/retailer/:id" element={<RetailerDetail />} />
-        <Route path="/territories-and-distributors" element={<ProtectedRoute><TerritoriesAndDistributors /></ProtectedRoute>} />
+<Route path="/territories-and-distributors" element={<ProtectedRoute><TerritoriesAndDistributors /></ProtectedRoute>} />
+        <Route path="/territory/:id" element={<ProtectedRoute><TerritoryDetail /></ProtectedRoute>} />
         <Route path="/admin-expense-management" element={<ProtectedRoute><AdminExpenseManagement /></ProtectedRoute>} />
         <Route path="/operations" element={<ProtectedRoute><Operations /></ProtectedRoute>} />
         <Route path="/visit-planner" element={<ProtectedRoute><VisitPlanner /></ProtectedRoute>} />
