@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { MapPin, Users, CheckCircle, Save, ArrowLeft, Plus, Calendar as CalendarIcon, Search, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
+import { MapPin, Users, CheckCircle, Save, ArrowLeft, Plus, Calendar as CalendarIcon, Search, ChevronLeft, ChevronRight, CalendarDays, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -77,6 +77,7 @@ export const BeatPlanning = () => {
   const [selectedUserId, setSelectedUserId] = useState<string>('self');
   const [beats, setBeats] = useState<Beat[]>([]);
   const hasLoadedFromCacheRef = useRef(false);
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
 
   // Calculate effective user ID based on selection
   const effectiveUserId = useMemo(() => {
@@ -563,6 +564,38 @@ export const BeatPlanning = () => {
     }
   };
 
+  const handleAutoGeneratePlan = async () => {
+    if (!effectiveUserId) return;
+    
+    setIsGeneratingPlan(true);
+    const loadingToast = toast.loading('Generating optimized weekly plan...');
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('auto-generate-beat-plan', {
+        body: { 
+          userId: effectiveUserId,
+          forceRegenerate: true 
+        }
+      });
+      
+      if (error) throw error;
+      
+      toast.dismiss(loadingToast);
+      const plansCreated = data?.results?.[0]?.plansCreated || 0;
+      toast.success(`Created ${plansCreated} beat plans for next week!`);
+      
+      // Refresh current view
+      loadBeatPlans(toLocalISODate(selectedDate));
+      loadBeatsFromNetwork();
+    } catch (error) {
+      console.error('Auto-generate error:', error);
+      toast.dismiss(loadingToast);
+      toast.error('Failed to generate plan. Please try again.');
+    } finally {
+      setIsGeneratingPlan(false);
+    }
+  };
+
   const getTotalPlannedDays = () => {
     return Object.keys(plannedBeats).filter(day => plannedBeats[day].length > 0).length;
   };
@@ -611,15 +644,32 @@ export const BeatPlanning = () => {
                   </p>
                 </div>
               </div>
-              <Button 
-                onClick={() => navigate('/my-beats?openCreateModal=true')}
-                variant="secondary"
-                size="sm"
-                className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm"
-              >
-                <Plus size={14} className="sm:mr-1" />
-                <span className="hidden sm:inline">Create Beat</span>
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button 
+                  onClick={handleAutoGeneratePlan}
+                  disabled={isGeneratingPlan}
+                  variant="secondary"
+                  size="sm"
+                  className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm"
+                  title="AI generates optimized weekly beat plans based on visit history, retailer priority, and pending collections"
+                >
+                  {isGeneratingPlan ? (
+                    <Loader2 size={14} className="animate-spin sm:mr-1" />
+                  ) : (
+                    <Sparkles size={14} className="sm:mr-1" />
+                  )}
+                  <span className="hidden sm:inline">{isGeneratingPlan ? 'Generating...' : 'Auto-Plan'}</span>
+                </Button>
+                <Button 
+                  onClick={() => navigate('/my-beats?openCreateModal=true')}
+                  variant="secondary"
+                  size="sm"
+                  className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm"
+                >
+                  <Plus size={14} className="sm:mr-1" />
+                  <span className="hidden sm:inline">Create Beat</span>
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
