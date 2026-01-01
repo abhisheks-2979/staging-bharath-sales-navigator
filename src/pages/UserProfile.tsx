@@ -21,6 +21,7 @@ import { ProfileAttachments } from '@/components/profile/ProfileAttachments';
 import { UserFYPlanTarget } from '@/components/profile/UserFYPlanTarget';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { Layout } from '@/components/Layout';
+import { FollowersFollowingCard } from '@/components/profile/FollowersFollowingCard';
 
 interface Manager {
   id: string;
@@ -406,6 +407,9 @@ const UserProfile = () => {
             </Card>
 
             <ProfileAttachments />
+
+            {/* Followers/Following Card - Twitter/X style */}
+            <FollowersFollowingCard />
           </TabsContent>
 
           {/* Gamification Tab */}
