@@ -168,7 +168,8 @@ export const OrderEntry = () => {
     };
   }, []);
 
-  const isActuallyOnline = connectivity === "online";
+  // Allow features to work when online OR still checking (optimistic)
+  const isActuallyOnline = connectivity === "online" || connectivity === "checking";
 
   // getLocalDateString is now imported from @/utils/dateUtils as getLocalTodayDate
   const getLocalDateString = getLocalTodayDate;
