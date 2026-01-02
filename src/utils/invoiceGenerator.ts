@@ -887,7 +887,23 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
   let order: any = dbOrder;
   
   // Also fetch from offline cache to supplement missing items
-  const offlineOrder = await offlineStorage.getById<any>(STORES.ORDERS, orderId);
+  let offlineOrder = await offlineStorage.getById<any>(STORES.ORDERS, orderId);
+  
+  // If not found by ID, search by retailer+date (handles different IDs from sync)
+  if (!offlineOrder || (!offlineOrder.items && !offlineOrder.order_items)) {
+    const allCachedOrders = await offlineStorage.getAll<any>(STORES.ORDERS);
+    const matchingOrder = allCachedOrders.find((o: any) => {
+      if (!o.retailer_id || !order?.retailer_id) return false;
+      if (o.retailer_id !== order.retailer_id) return false;
+      // Match orders from same day
+      const cachedDate = new Date(o.created_at).toDateString();
+      const orderDate = new Date(order.created_at || order.order_date).toDateString();
+      return cachedDate === orderDate && (o.items?.length > 0 || o.order_items?.length > 0);
+    });
+    if (matchingOrder) {
+      offlineOrder = matchingOrder;
+    }
+  }
 
   // If order is not in DB yet (not synced), use offline cached order
   if (!order) {

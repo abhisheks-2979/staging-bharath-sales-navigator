@@ -2157,10 +2157,21 @@ export const VisitCard = ({
         // CRITICAL FIX: If DB orders exist but have no items in DB,
         // check offline cache for items (handles slow network partial sync)
         if (dbOrderIds_arr.length > 0 && allItems.length === 0) {
-          // Try to get items from offline storage for each DB order
+          // Try to get items from offline storage - first by order ID, then by retailer+date
           for (const orderId of dbOrderIds_arr) {
             try {
-              const cachedOrder = await offlineStorage.getById<any>(STORES.ORDERS, orderId);
+              let cachedOrder = await offlineStorage.getById<any>(STORES.ORDERS, orderId);
+              
+              // If not found by ID, search by retailer+date (handles different IDs from sync)
+              if (!cachedOrder || !cachedOrder.items || cachedOrder.items.length === 0) {
+                const allCachedOrders = await offlineStorage.getAll<any>(STORES.ORDERS);
+                cachedOrder = allCachedOrders.find((o: any) => {
+                  if (o.retailer_id !== retailerId) return false;
+                  const orderDate = new Date(o.created_at);
+                  return orderDate >= dayStart && orderDate <= dayEnd && o.items && o.items.length > 0;
+                });
+              }
+              
               if (cachedOrder && cachedOrder.items && Array.isArray(cachedOrder.items)) {
                 cachedOrder.items.forEach((item: any) => {
                   allItems.push({
@@ -2173,6 +2184,7 @@ export const VisitCard = ({
                     unit: item.unit || 'piece'
                   });
                 });
+                break; // Found items, stop searching
               }
             } catch (e) {
               // Continue if cache read fails
