@@ -13,67 +13,20 @@ import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FeedbackDetailModal } from "@/components/FeedbackDetailModal";
-import { JointSalesDetailModal } from "@/components/JointSalesDetailModal";
-
-interface EnrichedFeedback {
-  id: string;
-  feedback_type: string | null;
-  comments: string | null;
-  rating: number | null;
-  created_at: string;
-  retailer_name: string;
-  submitted_by: string;
-}
-
-interface EnrichedCompetitionData {
-  id: string;
-  competitor_name: string;
-  sku_name: string;
-  selling_price: number | null;
-  stock_quantity: number | null;
-  impact_level: string | null;
-  insight: string | null;
-  created_at: string;
-  retailer_name: string;
-  submitted_by: string;
-}
-
-interface EnrichedBrandingRequest {
-  id: string;
-  title: string | null;
-  description: string | null;
-  status: string;
-  requested_assets: string | null;
-  created_at: string;
-  retailer_name: string;
-  submitted_by: string;
-}
-
-interface EnrichedJointSalesFeedback {
-  id: string;
-  retailer_name: string;
-  fse_name: string;
-  manager_name: string;
-  product_feedback_rating: number | null;
-  branding_rating: number | null;
-  competition_rating: number | null;
-  schemes_rating: number | null;
-  future_growth_rating: number | null;
-  action_items: string | null;
-  feedback_date: string;
-  created_at: string | null;
-}
+import { RetailerFeedbackDetailModal } from "@/components/admin/RetailerFeedbackDetailModal";
+import { CompetitionDetailModal } from "@/components/admin/CompetitionDetailModal";
+import { BrandingRequestDetailModal } from "@/components/admin/BrandingRequestDetailModal";
+import { JointSalesDetailModal } from "@/components/admin/JointSalesDetailModal";
 
 type DetailModalType = 'retailer' | 'branding' | 'competition' | 'jointsales' | null;
 
 export default function FeedbackManagement() {
   const navigate = useNavigate();
   const { userRole } = useAuth();
-  const [retailerFeedback, setRetailerFeedback] = useState<EnrichedFeedback[]>([]);
-  const [competitionData, setCompetitionData] = useState<EnrichedCompetitionData[]>([]);
-  const [brandingRequests, setBrandingRequests] = useState<EnrichedBrandingRequest[]>([]);
-  const [jointSalesFeedback, setJointSalesFeedback] = useState<EnrichedJointSalesFeedback[]>([]);
+  const [retailerFeedback, setRetailerFeedback] = useState<any[]>([]);
+  const [competitionData, setCompetitionData] = useState<any[]>([]);
+  const [brandingRequests, setBrandingRequests] = useState<any[]>([]);
+  const [jointSalesFeedback, setJointSalesFeedback] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Date filter state
@@ -167,7 +120,7 @@ export default function FeedbackManagement() {
     }
   };
 
-  const fetchRetailerFeedback = async (dateFilter: { gte: string; lte: string } | null): Promise<EnrichedFeedback[]> => {
+  const fetchRetailerFeedback = async (dateFilter: { gte: string; lte: string } | null): Promise<any[]> => {
     let query = supabase
       .from('retailer_feedback')
       .select('*')
@@ -179,42 +132,28 @@ export default function FeedbackManagement() {
 
     const { data: feedbackData, error } = await query;
     if (error) throw error;
-
     if (!feedbackData || feedbackData.length === 0) return [];
 
-    // Get unique retailer and user IDs
     const retailerIds = [...new Set(feedbackData.map(f => f.retailer_id).filter(Boolean))];
     const userIds = [...new Set(feedbackData.map(f => f.user_id).filter(Boolean))];
 
-    // Fetch retailer names and user profiles in parallel
     const [retailersResult, profilesResult] = await Promise.all([
-      retailerIds.length > 0 
-        ? supabase.from('retailers').select('id, name').in('id', retailerIds)
-        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-      userIds.length > 0 
-        ? supabase.from('profiles').select('id, full_name').in('id', userIds)
-        : Promise.resolve({ data: [] as { id: string; full_name: string }[] })
+      retailerIds.length > 0 ? supabase.from('retailers').select('id, name, address').in('id', retailerIds) : Promise.resolve({ data: [] }),
+      userIds.length > 0 ? supabase.from('profiles').select('id, full_name').in('id', userIds) : Promise.resolve({ data: [] })
     ]);
 
-    const retailerMap = new Map<string, string>(
-      (retailersResult.data || []).map(r => [r.id, r.name])
-    );
-    const profileMap = new Map<string, string>(
-      (profilesResult.data || []).map(p => [p.id, p.full_name])
-    );
+    const retailerMap = new Map((retailersResult.data || []).map((r: any) => [r.id, r]));
+    const profileMap = new Map((profilesResult.data || []).map((p: any) => [p.id, p.full_name]));
 
     return feedbackData.map(f => ({
-      id: f.id,
-      feedback_type: f.feedback_type,
-      comments: f.comments,
-      rating: f.rating,
-      created_at: f.created_at,
-      retailer_name: retailerMap.get(f.retailer_id) || 'Unknown',
+      ...f,
+      retailer_name: (retailerMap.get(f.retailer_id) as any)?.name || 'Unknown',
+      retailer_address: (retailerMap.get(f.retailer_id) as any)?.address || null,
       submitted_by: profileMap.get(f.user_id) || 'Unknown'
     }));
   };
 
-  const fetchCompetitionData = async (dateFilter: { gte: string; lte: string } | null): Promise<EnrichedCompetitionData[]> => {
+  const fetchCompetitionData = async (dateFilter: { gte: string; lte: string } | null): Promise<any[]> => {
     let query = supabase
       .from('competition_data')
       .select('*')
@@ -265,20 +204,15 @@ export default function FeedbackManagement() {
     );
 
     return compData.map(c => ({
-      id: c.id,
+      ...c,
       competitor_name: competitorMap.get(c.competitor_id) || 'Unknown',
       sku_name: c.sku_id ? (skuMap.get(c.sku_id) || 'N/A') : 'N/A',
-      selling_price: c.selling_price,
-      stock_quantity: c.stock_quantity,
-      impact_level: c.impact_level,
-      insight: c.insight,
-      created_at: c.created_at,
       retailer_name: retailerMap.get(c.retailer_id) || 'Unknown',
       submitted_by: profileMap.get(c.user_id) || 'Unknown'
     }));
   };
 
-  const fetchBrandingRequests = async (dateFilter: { gte: string; lte: string } | null): Promise<EnrichedBrandingRequest[]> => {
+  const fetchBrandingRequests = async (dateFilter: { gte: string; lte: string } | null): Promise<any[]> => {
     let query = supabase
       .from('branding_requests')
       .select('*')
@@ -290,43 +224,28 @@ export default function FeedbackManagement() {
 
     const { data: brandingData, error } = await query;
     if (error) throw error;
-
     if (!brandingData || brandingData.length === 0) return [];
 
-    // Get unique IDs
     const retailerIds = [...new Set(brandingData.map(b => b.retailer_id).filter(Boolean))];
     const userIds = [...new Set(brandingData.map(b => b.user_id).filter(Boolean))];
 
-    // Fetch related data in parallel
     const [retailersResult, profilesResult] = await Promise.all([
-      retailerIds.length > 0 
-        ? supabase.from('retailers').select('id, name').in('id', retailerIds)
-        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-      userIds.length > 0 
-        ? supabase.from('profiles').select('id, full_name').in('id', userIds)
-        : Promise.resolve({ data: [] as { id: string; full_name: string }[] })
+      retailerIds.length > 0 ? supabase.from('retailers').select('id, name, address').in('id', retailerIds) : Promise.resolve({ data: [] }),
+      userIds.length > 0 ? supabase.from('profiles').select('id, full_name').in('id', userIds) : Promise.resolve({ data: [] })
     ]);
 
-    const retailerMap = new Map<string, string>(
-      (retailersResult.data || []).map(r => [r.id, r.name])
-    );
-    const profileMap = new Map<string, string>(
-      (profilesResult.data || []).map(p => [p.id, p.full_name])
-    );
+    const retailerMap = new Map((retailersResult.data || []).map((r: any) => [r.id, r]));
+    const profileMap = new Map((profilesResult.data || []).map((p: any) => [p.id, p.full_name]));
 
     return brandingData.map(b => ({
-      id: b.id,
-      title: b.title,
-      description: b.description,
-      status: b.status,
-      requested_assets: b.requested_assets,
-      created_at: b.created_at,
-      retailer_name: retailerMap.get(b.retailer_id) || 'Unknown',
+      ...b,
+      retailer_name: (retailerMap.get(b.retailer_id) as any)?.name || 'Unknown',
+      retailer_address: (retailerMap.get(b.retailer_id) as any)?.address || null,
       submitted_by: profileMap.get(b.user_id) || 'Unknown'
     }));
   };
 
-  const fetchJointSalesFeedback = async (dateFilter: { gte: string; lte: string } | null): Promise<EnrichedJointSalesFeedback[]> => {
+  const fetchJointSalesFeedback = async (dateFilter: { gte: string; lte: string } | null): Promise<any[]> => {
     let query = supabase
       .from('joint_sales_feedback')
       .select('*')
@@ -808,22 +727,27 @@ export default function FeedbackManagement() {
       </div>
 
       {/* Detail Modals */}
-      {detailModalType && detailModalType !== 'jointsales' && (
-        <FeedbackDetailModal
-          open={!!selectedDetail}
-          onClose={handleCloseDetail}
-          type={detailModalType as 'retailer' | 'branding' | 'competition'}
-          data={selectedDetail}
-        />
-      )}
-
-      {detailModalType === 'jointsales' && (
-        <JointSalesDetailModal
-          open={!!selectedDetail}
-          onClose={handleCloseDetail}
-          data={selectedDetail}
-        />
-      )}
+      <RetailerFeedbackDetailModal
+        open={detailModalType === 'retailer'}
+        onClose={handleCloseDetail}
+        data={selectedDetail}
+      />
+      <CompetitionDetailModal
+        open={detailModalType === 'competition'}
+        onClose={handleCloseDetail}
+        data={selectedDetail}
+      />
+      <BrandingRequestDetailModal
+        open={detailModalType === 'branding'}
+        onClose={handleCloseDetail}
+        data={selectedDetail}
+        onUpdate={fetchAllFeedback}
+      />
+      <JointSalesDetailModal
+        open={detailModalType === 'jointsales'}
+        onClose={handleCloseDetail}
+        data={selectedDetail}
+      />
     </div>
   );
 }
