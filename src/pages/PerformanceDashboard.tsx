@@ -102,7 +102,7 @@ const PerformanceDashboard = () => {
           />
 
           {/* Overall Performance */}
-          <OverallPerformanceHeader performance={overall} isLoading={isLoading} />
+          <OverallPerformanceHeader performance={overall} isLoading={isLoading} period={selectedPeriod} />
 
           {/* Quick Stats */}
           {!isLoading && (
