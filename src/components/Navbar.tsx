@@ -38,6 +38,7 @@ import {
   Building2,
   Trash2,
   ShoppingCart,
+  BarChart3,
 } from "lucide-react";
 
 // Memoized Navbar component for better performance
@@ -61,6 +62,7 @@ export const Navbar = memo(() => {
       { icon: Store, label: t('nav.allRetailers'), href: "/my-retailers", color: "from-emerald-500 to-emerald-600" },
       { icon: Target, label: "My Target", href: "/my-target", color: "from-cyan-500 to-cyan-600" },
       { icon: TrendingUp, label: "Performance", href: "/performance-dashboard", color: "from-emerald-500 to-emerald-600" },
+      { icon: BarChart3, label: t('nav.analytics'), href: "/analytics", color: "from-violet-500 to-violet-600" },
       { icon: Building2, label: "Institutional Sales", href: "/institutional-sales", color: "from-indigo-500 to-indigo-600" },
       { icon: Factory, label: "Distributor Master", href: "/distributor-master", color: "from-cyan-500 to-cyan-600" },
       { icon: ShoppingCart, label: "Primary Orders", href: "/primary-orders", color: "from-rose-500 to-rose-600" },
