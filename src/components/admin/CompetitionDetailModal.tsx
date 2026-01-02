@@ -29,8 +29,7 @@ interface CompetitionDetailModalProps {
 }
 
 export function CompetitionDetailModal({ open, onClose, data }: CompetitionDetailModalProps) {
-  if (!data) return null;
-
+  if (!open || !data) return null;
   const getImpactColor = (level: string | null) => {
     switch (level?.toLowerCase()) {
       case 'high': return 'bg-destructive/10 text-destructive';
@@ -115,14 +114,14 @@ export function CompetitionDetailModal({ open, onClose, data }: CompetitionDetai
                   <span className="text-sm text-muted-foreground">Selling Price</span>
                   <span className="font-medium flex items-center gap-1">
                     <IndianRupee className="h-3 w-3" />
-                    {data.selling_price !== null ? data.selling_price.toLocaleString() : 'N/A'}
+                    {typeof data.selling_price === 'number' ? data.selling_price.toLocaleString() : 'N/A'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Stock Quantity</span>
                   <span className="font-medium flex items-center gap-1">
                     <Boxes className="h-3 w-3" />
-                    {data.stock_quantity !== null ? `${data.stock_quantity} ${data.unit || 'units'}` : 'N/A'}
+                    {typeof data.stock_quantity === 'number' ? `${data.stock_quantity} ${data.unit || 'units'}` : 'N/A'}
                   </span>
                 </div>
               </div>

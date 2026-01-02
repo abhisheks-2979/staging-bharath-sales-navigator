@@ -32,8 +32,7 @@ interface RetailerFeedbackDetailModalProps {
 }
 
 export function RetailerFeedbackDetailModal({ open, onClose, data }: RetailerFeedbackDetailModalProps) {
-  if (!data) return null;
-
+  if (!open || !data) return null;
   const renderStars = (rating: number | null) => {
     if (rating === null) return <span className="text-muted-foreground text-sm">Not rated</span>;
     return (

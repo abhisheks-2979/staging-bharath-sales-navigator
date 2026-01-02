@@ -64,8 +64,7 @@ interface JointSalesDetailModalProps {
 }
 
 export function JointSalesDetailModal({ open, onClose, data }: JointSalesDetailModalProps) {
-  if (!data) return null;
-
+  if (!open || !data) return null;
   const renderStars = (rating: number | null) => {
     if (rating === null) return <span className="text-muted-foreground text-sm">N/A</span>;
     return (
@@ -315,7 +314,7 @@ export function JointSalesDetailModal({ open, onClose, data }: JointSalesDetailM
                   Business Impact
                 </div>
                 <div className="bg-muted/30 rounded-lg p-3 space-y-2">
-                  {data.order_increase_amount !== null && (
+                  {typeof data.order_increase_amount === 'number' && (
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">Order Increase</span>
                       <span className="font-medium flex items-center gap-1">
@@ -324,7 +323,7 @@ export function JointSalesDetailModal({ open, onClose, data }: JointSalesDetailM
                       </span>
                     </div>
                   )}
-                  {data.monthly_potential_6months !== null && (
+                  {typeof data.monthly_potential_6months === 'number' && (
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">6-Month Potential</span>
                       <span className="font-medium flex items-center gap-1">
