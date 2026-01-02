@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.get-smart-basket-suggestions]
 verify_jwt = true
+
+[functions.generate-target-advice]
+verify_jwt = true

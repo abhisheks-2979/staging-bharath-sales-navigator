@@ -1,12 +1,14 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { TrendingUp, TrendingDown, Target, Package, IndianRupee } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { TrendingUp, TrendingDown, Package, IndianRupee, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { OverallPerformance } from '@/hooks/usePerformanceSummary';
 
 interface OverallPerformanceHeaderProps {
   performance: OverallPerformance;
   isLoading?: boolean;
+  period?: string;
 }
 
 const formatCurrency = (amount: number): string => {
@@ -33,24 +35,40 @@ const getProgressBg = (progress: number): string => {
   return 'bg-red-100';
 };
 
-export function OverallPerformanceHeader({ performance, isLoading }: OverallPerformanceHeaderProps) {
+export function OverallPerformanceHeader({ performance, isLoading, period = 'this_month' }: OverallPerformanceHeaderProps) {
+  const navigate = useNavigate();
+
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="animate-pulse">
-          <CardContent className="p-6 h-40 bg-muted/50" />
-        </Card>
-        <Card className="animate-pulse">
-          <CardContent className="p-6 h-40 bg-muted/50" />
-        </Card>
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card className="animate-pulse">
+            <CardContent className="p-6 h-40 bg-muted/50" />
+          </Card>
+          <Card className="animate-pulse">
+            <CardContent className="p-6 h-40 bg-muted/50" />
+          </Card>
+        </div>
       </div>
     );
   }
 
   const revenueOnTrack = performance.revenueProgress >= 80;
   const quantityOnTrack = performance.quantityProgress >= 80;
+  const hasGap = performance.revenueGap > 0 || performance.quantityGap > 0;
 
   return (
+    <div className="space-y-4">
+      {/* AI Advisor Button */}
+      {hasGap && (
+        <Button
+          onClick={() => navigate(`/target-advisor?period=${period}`)}
+          className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 gap-2"
+        >
+          <Sparkles className="h-4 w-4" />
+          Get AI Recommendations to Achieve Target
+        </Button>
+      )}
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* Revenue Card */}
       <Card className="overflow-hidden">
@@ -133,6 +151,7 @@ export function OverallPerformanceHeader({ performance, isLoading }: OverallPerf
           </div>
         </CardContent>
       </Card>
+    </div>
     </div>
   );
 }
