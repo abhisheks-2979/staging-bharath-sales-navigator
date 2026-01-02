@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,9 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, MessageSquare, Paintbrush, Users, Target, Calendar, Loader2, Eye, Star, X } from "lucide-react";
+import { Plus, Edit, Trash2, MessageSquare, Paintbrush, Users, Target, Calendar, Loader2, Eye, Star, X, WifiOff } from "lucide-react";
 import { format } from "date-fns";
 import { moveToRecycleBin } from "@/utils/recycleBinUtils";
+import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -84,113 +85,178 @@ export const FeedbackListView = ({
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [viewItem, setViewItem] = useState<FeedbackItem | null>(null);
+  const [isOfflineData, setIsOfflineData] = useState(false);
+  const fetchAbortRef = useRef<AbortController | null>(null);
 
   const config = feedbackConfig[feedbackType];
   const Icon = config.icon;
 
+  // Generate a cache key for this feedback query
+  const getCacheKey = () => `feedback_${feedbackType}_${retailerId}_${selectedDate || 'today'}`;
+
   useEffect(() => {
     if (isOpen) {
-      fetchFeedback();
+      fetchFeedbackFast();
     }
+    return () => {
+      // Cleanup abort controller on unmount
+      if (fetchAbortRef.current) {
+        fetchAbortRef.current.abort();
+      }
+    };
   }, [isOpen, feedbackType, retailerId, selectedDate]);
 
-  const fetchFeedback = async () => {
-    setLoading(true);
+  // CACHE-FIRST: Load from cache instantly, then try network with timeout
+  const fetchFeedbackFast = async () => {
+    const cacheKey = getCacheKey();
+    
+    // STEP 1: Try to load from cache IMMEDIATELY (no loading state blocking)
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      await offlineStorage.init();
+      const cached = await offlineStorage.getById<{ items: FeedbackItem[], timestamp: number }>(STORES.VISITS, cacheKey);
+      if (cached && cached.items && cached.items.length > 0) {
+        setItems(cached.items);
+        setLoading(false);
+        setIsOfflineData(true);
+        console.log(`[FeedbackListView] Loaded ${cached.items.length} items from cache instantly`);
+      }
+    } catch (e) {
+      console.log('[FeedbackListView] Cache read failed:', e);
+    }
 
-      const targetDate = selectedDate || new Date().toISOString().split('T')[0];
-      let data: any[] = [];
+    // STEP 2: Try network with 5-second timeout (non-blocking if cache loaded)
+    fetchAbortRef.current = new AbortController();
+    
+    const timeoutId = setTimeout(() => {
+      if (fetchAbortRef.current) {
+        fetchAbortRef.current.abort();
+      }
+    }, 5000); // 5 second timeout
 
-      switch (feedbackType) {
-        case "retailer": {
-          const { data: feedbackData, error } = await supabase
-            .from('retailer_feedback')
-            .select('*')
-            .eq('retailer_id', retailerId)
-            .eq('user_id', user.id)
-            .gte('created_at', targetDate + 'T00:00:00')
-            .lte('created_at', targetDate + 'T23:59:59')
-            .order('created_at', { ascending: false });
-          
-          if (!error && feedbackData) {
-            data = feedbackData.map((item: any) => ({
-              id: item.id,
-              created_at: item.created_at,
-              summary: `${item.feedback_type || 'Feedback'} - Rating: ${item.rating || item.score || 'N/A'}`,
-              details: item,
-            }));
-          }
-          break;
-        }
-        case "branding": {
-          const { data: brandingData, error } = await supabase
-            .from('branding_requests')
-            .select('*')
-            .eq('retailer_id', retailerId)
-            .eq('user_id', user.id)
-            .gte('created_at', targetDate + 'T00:00:00')
-            .lte('created_at', targetDate + 'T23:59:59')
-            .order('created_at', { ascending: false });
-          
-          if (!error && brandingData) {
-            data = brandingData.map((item: any) => ({
-              id: item.id,
-              created_at: item.created_at,
-              summary: `${item.title || item.requested_assets || 'Request'} - ${item.status}`,
-              details: item,
-            }));
-          }
-          break;
-        }
-        case "competition": {
-          const { data: compData, error } = await supabase
-            .from('competition_data')
-            .select('*, competition_master(competitor_name), competition_skus(sku_name)')
-            .eq('retailer_id', retailerId)
-            .eq('user_id', user.id)
-            .gte('created_at', targetDate + 'T00:00:00')
-            .lte('created_at', targetDate + 'T23:59:59')
-            .order('created_at', { ascending: false });
-          
-          if (!error && compData) {
-            data = compData.map((item: any) => ({
-              id: item.id,
-              created_at: item.created_at,
-              summary: `${item.competition_master?.competitor_name || 'Competitor'} - ${item.competition_skus?.sku_name || 'SKU'}`,
-              details: item,
-            }));
-          }
-          break;
-        }
-        case "joint-sales": {
-          const { data: jointData, error } = await supabase
-            .from('joint_sales_feedback')
-            .select('*, profiles:manager_id(full_name)')
-            .eq('retailer_id', retailerId)
-            .eq('fse_user_id', user.id)
-            .eq('feedback_date', targetDate)
-            .order('created_at', { ascending: false });
-          
-          if (!error && jointData) {
-            data = jointData.map((item: any) => ({
-              id: item.id,
-              created_at: item.created_at || '',
-              summary: `Joint visit with ${item.profiles?.full_name || 'Manager'}`,
-              details: item,
-            }));
-          }
-          break;
+    try {
+      const networkData = await fetchFeedbackFromNetwork();
+      clearTimeout(timeoutId);
+      
+      if (networkData && networkData.length >= 0) {
+        setItems(networkData);
+        setIsOfflineData(false);
+        setLoading(false);
+        
+        // Cache the data for offline use
+        try {
+          await offlineStorage.save(STORES.VISITS, {
+            id: cacheKey,
+            items: networkData,
+            timestamp: Date.now()
+          });
+        } catch (e) {
+          console.log('[FeedbackListView] Cache save failed:', e);
         }
       }
-
-      setItems(data);
-    } catch (error) {
-      console.error('Error fetching feedback:', error);
-    } finally {
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        console.log('[FeedbackListView] Network request timed out, using cache');
+      } else {
+        console.error('[FeedbackListView] Network error:', error);
+      }
+      // Keep showing cached data if available
       setLoading(false);
     }
+  };
+
+  // Fetch from network (extracted for timeout handling)
+  const fetchFeedbackFromNetwork = async (): Promise<FeedbackItem[]> => {
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const targetDate = selectedDate || new Date().toISOString().split('T')[0];
+    let data: FeedbackItem[] = [];
+
+    switch (feedbackType) {
+      case "retailer": {
+        const { data: feedbackData, error } = await supabase
+          .from('retailer_feedback')
+          .select('*')
+          .eq('retailer_id', retailerId)
+          .eq('user_id', user.id)
+          .gte('created_at', targetDate + 'T00:00:00')
+          .lte('created_at', targetDate + 'T23:59:59')
+          .order('created_at', { ascending: false });
+        
+        if (!error && feedbackData) {
+          data = feedbackData.map((item: any) => ({
+            id: item.id,
+            created_at: item.created_at,
+            summary: `${item.feedback_type || 'Feedback'} - Rating: ${item.rating || item.score || 'N/A'}`,
+            details: item,
+          }));
+        }
+        break;
+      }
+      case "branding": {
+        const { data: brandingData, error } = await supabase
+          .from('branding_requests')
+          .select('*')
+          .eq('retailer_id', retailerId)
+          .eq('user_id', user.id)
+          .gte('created_at', targetDate + 'T00:00:00')
+          .lte('created_at', targetDate + 'T23:59:59')
+          .order('created_at', { ascending: false });
+        
+        if (!error && brandingData) {
+          data = brandingData.map((item: any) => ({
+            id: item.id,
+            created_at: item.created_at,
+            summary: `${item.title || item.requested_assets || 'Request'} - ${item.status}`,
+            details: item,
+          }));
+        }
+        break;
+      }
+      case "competition": {
+        const { data: compData, error } = await supabase
+          .from('competition_data')
+          .select('*, competition_master(competitor_name), competition_skus(sku_name)')
+          .eq('retailer_id', retailerId)
+          .eq('user_id', user.id)
+          .gte('created_at', targetDate + 'T00:00:00')
+          .lte('created_at', targetDate + 'T23:59:59')
+          .order('created_at', { ascending: false });
+        
+        if (!error && compData) {
+          data = compData.map((item: any) => ({
+            id: item.id,
+            created_at: item.created_at,
+            summary: `${item.competition_master?.competitor_name || 'Competitor'} - ${item.competition_skus?.sku_name || 'SKU'}`,
+            details: item,
+          }));
+        }
+        break;
+      }
+      case "joint-sales": {
+        const { data: jointData, error } = await supabase
+          .from('joint_sales_feedback')
+          .select('*, profiles:manager_id(full_name)')
+          .eq('retailer_id', retailerId)
+          .eq('fse_user_id', user.id)
+          .eq('feedback_date', targetDate)
+          .order('created_at', { ascending: false });
+        
+        if (!error && jointData) {
+          data = jointData.map((item: any) => ({
+            id: item.id,
+            created_at: item.created_at || '',
+            summary: `Joint visit with ${item.profiles?.full_name || 'Manager'}`,
+            details: item,
+          }));
+        }
+        break;
+      }
+    }
+
+    return data;
   };
 
   const handleDelete = async () => {
@@ -229,7 +295,20 @@ export const FeedbackListView = ({
       if (error) throw error;
 
       toast({ title: "Deleted", description: "Moved to recycle bin. You can restore it if needed." });
-      setItems(prev => prev.filter(item => item.id !== deleteId));
+      const updatedItems = items.filter(item => item.id !== deleteId);
+      setItems(updatedItems);
+      
+      // Update cache after deletion
+      try {
+        const cacheKey = getCacheKey();
+        await offlineStorage.save(STORES.VISITS, {
+          id: cacheKey,
+          items: updatedItems,
+          timestamp: Date.now()
+        });
+      } catch (e) {
+        console.log('[FeedbackListView] Cache update after delete failed:', e);
+      }
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
@@ -550,6 +629,12 @@ export const FeedbackListView = ({
             <DialogTitle className="flex items-center gap-2">
               <Icon className={`h-5 w-5 ${config.color}`} />
               {config.title}
+              {isOfflineData && (
+                <Badge variant="outline" className="ml-2 text-xs font-normal">
+                  <WifiOff className="h-3 w-3 mr-1" />
+                  Cached
+                </Badge>
+              )}
             </DialogTitle>
             <p className="text-sm text-muted-foreground">{retailerName}</p>
           </DialogHeader>
@@ -558,6 +643,7 @@ export const FeedbackListView = ({
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-sm text-muted-foreground">Loading...</span>
               </div>
             ) : items.length === 0 ? (
               <div className="text-center py-8">
