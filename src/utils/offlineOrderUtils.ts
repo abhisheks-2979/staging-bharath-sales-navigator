@@ -40,8 +40,17 @@ export async function submitOrderWithOfflineSupport(
     order_id: orderId
   }));
 
-  // STEP 2: FIRE-AND-FORGET local cache updates (don't await - makes response instant)
+  // STEP 2: Save to local cache FIRST (await this for instant local display)
+  // This ensures "Today's Order" section can show items immediately
   if (orderData.retailer_id && orderData.user_id) {
+    try {
+      // Save order with items to local storage (critical for immediate display)
+      await offlineStorage.save(STORES.ORDERS, { ...normalizedOrder, items: normalizedItems });
+    } catch (e) {
+      // Non-critical - continue even if local save fails
+    }
+    
+    // Fire-and-forget cache updates (these are secondary)
     Promise.allSettled([
       visitStatusCache.set(
         orderData.visit_id || orderId,
@@ -51,7 +60,6 @@ export async function submitOrderWithOfflineSupport(
         'productive',
         orderValue
       ),
-      offlineStorage.save(STORES.ORDERS, { ...normalizedOrder, items: normalizedItems }),
       addOrderToSnapshot(orderData.user_id, orderDate, {
         id: orderId,
         retailer_id: orderData.retailer_id,
@@ -90,22 +98,42 @@ export async function submitOrderWithOfflineSupport(
 
     try {
       const submitPromise = (async () => {
-        const { error: orderError } = await supabase
+        // Check if order already exists (could be from previous partial sync)
+        const { data: existingOrder } = await supabase
           .from('orders')
-          .insert({ ...normalizedOrder, id: orderId })
-          .select()
-          .single();
+          .select('id')
+          .eq('id', orderId)
+          .maybeSingle();
 
-        if (orderError) {
-          if (orderError.code === '23505') return; // Already synced
-          throw orderError;
+        if (!existingOrder) {
+          // Insert order header first
+          const { error: orderError } = await supabase
+            .from('orders')
+            .insert({ ...normalizedOrder, id: orderId });
+
+          if (orderError && orderError.code !== '23505') {
+            throw orderError;
+          }
         }
 
-        const { error: itemsError } = await supabase
+        // ALWAYS ensure order items are inserted (even if order existed)
+        // First check if items already exist
+        const { data: existingItems } = await supabase
           .from('order_items')
-          .insert(normalizedItems);
+          .select('id')
+          .eq('order_id', orderId)
+          .limit(1);
 
-        if (itemsError) throw itemsError;
+        if (!existingItems || existingItems.length === 0) {
+          // Insert items only if they don't exist
+          const { error: itemsError } = await supabase
+            .from('order_items')
+            .insert(normalizedItems);
+
+          if (itemsError && itemsError.code !== '23505') {
+            throw itemsError;
+          }
+        }
       })();
       
       const timeoutPromise = new Promise<never>((_, reject) => 
@@ -115,6 +143,8 @@ export async function submitOrderWithOfflineSupport(
       await Promise.race([submitPromise, timeoutPromise]);
       options.onOnline?.();
     } catch {
+      // On any error/timeout, queue BOTH order and items for sync
+      // The sync handler will handle idempotent upserts
       offlineStorage.addToSyncQueue('CREATE_ORDER', {
         order: normalizedOrder,
         items: normalizedItems,
