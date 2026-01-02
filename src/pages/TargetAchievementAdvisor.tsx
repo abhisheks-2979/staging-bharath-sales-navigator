@@ -3,12 +3,22 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, RefreshCw, Sparkles, Target, MapPin, Store, Gift, Calendar, Loader2, Quote, TrendingUp, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { usePerformanceSummary, type PerformancePeriod } from '@/hooks/usePerformanceSummary';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+
+const periodOptions: { value: PerformancePeriod; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'this_week', label: 'This Week' },
+  { value: 'this_month', label: 'This Month' },
+  { value: 'this_quarter', label: 'This Quarter' },
+  { value: 'this_year', label: 'This FY' },
+];
 
 interface PriorityAction {
   title: string;
@@ -64,14 +74,24 @@ const typeIcons = {
 
 const TargetAchievementAdvisor = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const period = (searchParams.get('period') || 'this_month') as PerformancePeriod;
+  const initialPeriod = (searchParams.get('period') || 'this_month') as PerformancePeriod;
+  const [selectedPeriod, setSelectedPeriod] = useState<PerformancePeriod>(initialPeriod);
   
   const { overall, territories, beats, retailers, isLoading: dataLoading } = usePerformanceSummary(
     user?.id,
-    period
+    selectedPeriod
   );
+
+  // Update URL when period changes
+  const handlePeriodChange = (newPeriod: PerformancePeriod) => {
+    setSelectedPeriod(newPeriod);
+    setSearchParams({ period: newPeriod });
+    // Clear previous recommendations to trigger new generation
+    setRecommendations(null);
+    setQuote('');
+  };
 
   const [quote, setQuote] = useState<string>('');
   const [recommendations, setRecommendations] = useState<Recommendations | null>(null);
@@ -87,7 +107,7 @@ const TargetAchievementAdvisor = () => {
     try {
       const { data, error: fnError } = await supabase.functions.invoke('generate-target-advice', {
         body: {
-          period,
+          period: selectedPeriod,
           overall,
           territories,
           beats,
@@ -119,7 +139,7 @@ const TargetAchievementAdvisor = () => {
     if (!dataLoading && user?.id && !recommendations) {
       generateAdvice();
     }
-  }, [dataLoading, user?.id]);
+  }, [dataLoading, user?.id, selectedPeriod]);
 
   const formatPeriodLabel = (p: string) => {
     const labels: Record<string, string> = {
@@ -153,7 +173,7 @@ const TargetAchievementAdvisor = () => {
                 <h1 className="text-xl font-bold text-foreground">Target Achievement Advisor</h1>
               </div>
               <p className="text-sm text-muted-foreground">
-                AI-powered recommendations for {formatPeriodLabel(period)}
+                AI-powered recommendations for {formatPeriodLabel(selectedPeriod)}
               </p>
             </div>
             <Button
@@ -165,6 +185,24 @@ const TargetAchievementAdvisor = () => {
               <RefreshCw className={cn("h-4 w-4 mr-2", isGenerating && "animate-spin")} />
               Refresh
             </Button>
+          </div>
+
+          {/* Period Selector */}
+          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Period:</span>
+            <Select value={selectedPeriod} onValueChange={(v) => handlePeriodChange(v as PerformancePeriod)}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {periodOptions.map(option => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Motivational Quote */}
