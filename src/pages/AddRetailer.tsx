@@ -56,6 +56,7 @@ export const AddRetailer = () => {
   });
 
   const [isSaving, setIsSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [beatDialogOpen, setBeatDialogOpen] = useState(false);
   const [existingBeat, setExistingBeat] = useState<string | undefined>();
   const [newBeat, setNewBeat] = useState("");
@@ -343,6 +344,10 @@ export const AddRetailer = () => {
 
   const handleInputChange = (field: string, value: string | string[]) => {
     setRetailerData(prev => ({ ...prev, [field]: value }));
+    // Clear validation error when user fills the field
+    if (validationErrors[field]) {
+      setValidationErrors(prev => ({ ...prev, [field]: '' }));
+    }
   };
 
   const handleDistributorToggle = (distributorId: string, distributorName: string) => {
@@ -706,48 +711,41 @@ export const AddRetailer = () => {
     setBeatDialogOpen(false);
   };
 
+  // Validate form and return errors object
+  const validateForm = () => {
+    const errors: {[key: string]: string} = {};
+    
+    if (!retailerData.name) errors.name = "Retailer name is required";
+    if (!retailerData.phone) errors.phone = "Phone number is required";
+    if (!retailerData.address) errors.address = "Address is required";
+    if (!retailerData.retailType) errors.retailType = "Retailer type is required";
+    if (!retailerData.category) errors.category = "Category is required";
+    if (!selectedBeat || selectedBeat === 'unassigned') errors.beat = "Beat selection is required";
+    if (!retailerData.parentType) errors.parentType = "Parent type is required";
+    if (retailerData.parentType === "Distributor" && (!retailerData.selectedDistributors || retailerData.selectedDistributors.length === 0)) {
+      errors.distributor = "Distributor selection is required";
+    }
+    
+    return errors;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!retailerData.name || !retailerData.phone || !retailerData.address) {
+    
+    // Validate form and show inline errors immediately (works offline)
+    const errors = validateForm();
+    setValidationErrors(errors);
+    
+    if (Object.keys(errors).length > 0) {
+      // Show toast as backup, but inline errors will always show
       toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields (Name, Phone, Address)",
+        title: "Missing Required Fields",
+        description: "Please fill in all fields marked with *",
         variant: "destructive"
       });
       return;
     }
-    if (!retailerData.retailType) {
-      toast({
-        title: "Retailer Type Required",
-        description: "Please select a retailer type",
-        variant: "destructive"
-      });
-      return;
-    }
-    if (!retailerData.category) {
-      toast({
-        title: "Category Required",
-        description: "Please select a category",
-        variant: "destructive"
-      });
-      return;
-    }
-    if (!selectedBeat || selectedBeat === 'unassigned') {
-      toast({
-        title: "Beat Required",
-        description: "Please select a beat for this retailer",
-        variant: "destructive"
-      });
-      return;
-    }
-    if (retailerData.parentType === "Distributor" && (!retailerData.selectedDistributors || retailerData.selectedDistributors.length === 0)) {
-      toast({
-        title: "Distributor Required",
-        description: "Please select a distributor for this retailer",
-        variant: "destructive"
-      });
-      return;
-    }
+    
     // Save with selected beat
     await performInsert(selectedBeat);
   };
@@ -1368,8 +1366,16 @@ export const AddRetailer = () => {
                       {connectivityStatus === 'offline' ? '📴 Offline' : '🌐 Online'} • {beats.length} beats
                     </Badge>
                   </div>
-                  <Select value={selectedBeat} onValueChange={(value) => setSelectedBeat(value)}>
-                    <SelectTrigger className="bg-background border-primary/30">
+                  <Select 
+                    value={selectedBeat} 
+                    onValueChange={(value) => {
+                      setSelectedBeat(value);
+                      if (validationErrors.beat) {
+                        setValidationErrors(prev => ({ ...prev, beat: '' }));
+                      }
+                    }}
+                  >
+                    <SelectTrigger className={cn("bg-background border-primary/30", validationErrors.beat && "border-destructive")}>
                       <SelectValue placeholder="Select a beat" />
                     </SelectTrigger>
                     <SelectContent className="bg-background border z-50">
@@ -1384,6 +1390,9 @@ export const AddRetailer = () => {
                       )}
                     </SelectContent>
                   </Select>
+                  {validationErrors.beat && (
+                    <p className="text-sm text-destructive">{validationErrors.beat}</p>
+                  )}
                   <p className="text-xs text-muted-foreground">Select which beat this retailer belongs to</p>
                 </div>
 
@@ -1456,9 +1465,17 @@ export const AddRetailer = () => {
               {/* Distributor Selection */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="font-semibold">Parent Type</Label>
-                  <Select value={retailerData.parentType} onValueChange={(value) => handleInputChange("parentType", value)}>
-                    <SelectTrigger className="bg-background">
+                  <Label className="font-semibold">Parent Type *</Label>
+                  <Select 
+                    value={retailerData.parentType} 
+                    onValueChange={(value) => {
+                      handleInputChange("parentType", value);
+                      if (validationErrors.parentType) {
+                        setValidationErrors(prev => ({ ...prev, parentType: '' }));
+                      }
+                    }}
+                  >
+                    <SelectTrigger className={cn("bg-background", validationErrors.parentType && "border-destructive")}>
                       <SelectValue placeholder="Select parent" />
                     </SelectTrigger>
                     <SelectContent className="bg-background border z-50">
@@ -1467,10 +1484,13 @@ export const AddRetailer = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {validationErrors.parentType && (
+                    <p className="text-sm text-destructive">{validationErrors.parentType}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="font-semibold">Select Distributor</Label>
+                  <Label className="font-semibold">Select Distributor {retailerData.parentType === "Distributor" && "*"}</Label>
                   {retailerData.parentType === "Distributor" ? (
                     <Select 
                       value={retailerData.selectedDistributors[0] || ""} 
@@ -1479,9 +1499,12 @@ export const AddRetailer = () => {
                         const distributor = allDistributors.find(d => d.id === value);
                         handleInputChange("selectedDistributors", [value]);
                         handleInputChange("parentName", distributor?.name || "");
+                        if (validationErrors.distributor) {
+                          setValidationErrors(prev => ({ ...prev, distributor: '' }));
+                        }
                       }}
                     >
-                      <SelectTrigger className="bg-background">
+                      <SelectTrigger className={cn("bg-background", validationErrors.distributor && "border-destructive")}>
                         <SelectValue placeholder="Select distributor" className="truncate" />
                       </SelectTrigger>
                       <SelectContent className="bg-background border z-50">
@@ -1518,6 +1541,9 @@ export const AddRetailer = () => {
                       onChange={(e) => handleInputChange("parentName", e.target.value)}
                       className="bg-background text-sm"
                     />
+                  )}
+                  {validationErrors.distributor && (
+                    <p className="text-sm text-destructive">{validationErrors.distributor}</p>
                   )}
                 </div>
               </div>
