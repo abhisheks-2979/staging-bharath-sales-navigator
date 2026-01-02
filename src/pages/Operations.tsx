@@ -337,6 +337,7 @@ const Operations = () => {
         }
         
         // Fetch visit log data for time spent and location status
+        // Join by retailer_id, user_id, and visit_date since visit_id may be NULL
         let timeSpentSeconds: number | null = null;
         let locationStatus: string | null = null;
         
@@ -344,7 +345,9 @@ const Operations = () => {
           const { data: visitLogData } = await supabase
             .from('retailer_visit_logs')
             .select('time_spent_seconds, location_status')
-            .eq('visit_id', visit.id)
+            .eq('retailer_id', visit.retailer_id)
+            .eq('user_id', visit.user_id)
+            .eq('visit_date', visit.planned_date)
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
