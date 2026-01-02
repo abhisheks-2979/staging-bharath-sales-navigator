@@ -378,6 +378,9 @@ export function useOfflineSync() {
           }
           
           // New format with separate order and items
+          let actualOrderId = offlineOrderId; // Use offline ID as fallback
+          
+          // Try to insert order
           const { data: insertedOrder, error: orderError } = await supabase
             .from('orders')
             .insert(orderToInsert)
@@ -387,27 +390,75 @@ export function useOfflineSync() {
           // Handle duplicate key error gracefully
           if (orderError) {
             if (orderError.code === '23505') {
-              // Duplicate key error - order already exists, treat as success
-              console.log('⚠️ Duplicate order detected via DB constraint, treating as success');
-              return;
+              // Duplicate key error - order already exists
+              // Find the existing order to get its ID for items
+              console.log('⚠️ Duplicate order detected, checking for missing items...');
+              
+              // Try to find existing order by idempotency_key or retailer+date
+              let existingOrderId = null;
+              if (orderToInsert.idempotency_key) {
+                const { data: existing } = await supabase
+                  .from('orders')
+                  .select('id')
+                  .eq('idempotency_key', orderToInsert.idempotency_key)
+                  .single();
+                existingOrderId = existing?.id;
+              }
+              
+              if (!existingOrderId && orderToInsert.retailer_id) {
+                // Fallback: find by retailer and approximate time
+                const { data: existing } = await supabase
+                  .from('orders')
+                  .select('id')
+                  .eq('retailer_id', orderToInsert.retailer_id)
+                  .gte('created_at', new Date(Date.now() - 3600000).toISOString()) // Last hour
+                  .order('created_at', { ascending: false })
+                  .limit(1)
+                  .single();
+                existingOrderId = existing?.id;
+              }
+              
+              if (existingOrderId) {
+                actualOrderId = existingOrderId;
+              }
+              // Don't return here - continue to ensure items exist
+            } else {
+              throw orderError;
             }
-            throw orderError;
+          } else {
+            actualOrderId = insertedOrder.id;
           }
           
-          // Use the new database-generated order ID for items
-          const itemsWithCorrectOrderId = data.items.map((item: any) => {
-            // Strip variant_id if the column doesn't exist
-            const { variant_id, ...itemWithoutVariant } = item;
-            return {
-              ...itemWithoutVariant,
-              order_id: insertedOrder.id
-            };
-          });
-          
-          const { error: itemsError } = await supabase
+          // ALWAYS check and insert items (even if order existed)
+          // First check if items already exist for this order
+          const { data: existingItems } = await supabase
             .from('order_items')
-            .insert(itemsWithCorrectOrderId);
-          if (itemsError) throw itemsError;
+            .select('id')
+            .eq('order_id', actualOrderId)
+            .limit(1);
+          
+          if (!existingItems || existingItems.length === 0) {
+            // Items don't exist - insert them
+            const itemsWithCorrectOrderId = data.items.map((item: any) => {
+              // Strip variant_id if the column doesn't exist
+              const { variant_id, ...itemWithoutVariant } = item;
+              return {
+                ...itemWithoutVariant,
+                order_id: actualOrderId
+              };
+            });
+            
+            const { error: itemsError } = await supabase
+              .from('order_items')
+              .insert(itemsWithCorrectOrderId);
+            
+            // Ignore duplicate errors for items
+            if (itemsError && itemsError.code !== '23505') {
+              throw itemsError;
+            }
+            
+            console.log('✅ Order items synced for order:', actualOrderId);
+          }
 
           // Update retailer's pending_amount and last_order_date
           const orderRetailerId = data.order?.retailer_id;

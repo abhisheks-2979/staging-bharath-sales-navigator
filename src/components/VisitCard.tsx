@@ -2154,6 +2154,32 @@ export const VisitCard = ({
           allItems = items || [];
         }
         
+        // CRITICAL FIX: If DB orders exist but have no items in DB,
+        // check offline cache for items (handles slow network partial sync)
+        if (dbOrderIds_arr.length > 0 && allItems.length === 0) {
+          // Try to get items from offline storage for each DB order
+          for (const orderId of dbOrderIds_arr) {
+            try {
+              const cachedOrder = await offlineStorage.getById<any>(STORES.ORDERS, orderId);
+              if (cachedOrder && cachedOrder.items && Array.isArray(cachedOrder.items)) {
+                cachedOrder.items.forEach((item: any) => {
+                  allItems.push({
+                    product_name: item.product_name || item.name,
+                    quantity: item.quantity,
+                    rate: item.rate,
+                    original_rate: item.original_rate || item.rate,
+                    total: item.total || (item.quantity * item.rate),
+                    order_id: orderId,
+                    unit: item.unit || 'piece'
+                  });
+                });
+              }
+            } catch (e) {
+              // Continue if cache read fails
+            }
+          }
+        }
+        
         // For offline orders, get items from order.items property (stored with order)
         uniqueOfflineOrders.forEach((order: any) => {
           if (order.items && Array.isArray(order.items)) {

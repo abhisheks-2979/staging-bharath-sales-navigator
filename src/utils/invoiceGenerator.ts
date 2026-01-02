@@ -885,16 +885,25 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
   if (orderError) throw orderError;
 
   let order: any = dbOrder;
+  
+  // Also fetch from offline cache to supplement missing items
+  const offlineOrder = await offlineStorage.getById<any>(STORES.ORDERS, orderId);
 
   // If order is not in DB yet (not synced), use offline cached order
   if (!order) {
-    const offlineOrder = await offlineStorage.getById<any>(STORES.ORDERS, orderId);
     if (offlineOrder) {
       console.log("💾 Using offline cached order for invoice generation");
       order = {
         ...offlineOrder,
         order_items: offlineOrder.order_items || offlineOrder.items || [],
       };
+    }
+  } else if (order && (!order.order_items || order.order_items.length === 0)) {
+    // CRITICAL FIX: Order exists in DB but items didn't sync yet
+    // Use items from offline cache
+    if (offlineOrder && (offlineOrder.items || offlineOrder.order_items)) {
+      console.log("💾 Order in DB but items missing - using offline cached items");
+      order.order_items = offlineOrder.order_items || offlineOrder.items || [];
     }
   }
 
