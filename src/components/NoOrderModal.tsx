@@ -88,10 +88,14 @@ export const NoOrderModal = ({ isOpen, onClose, onReasonSelect, currentReason, i
     }
 
     const finalReason = selectedReason === "other" ? otherReason.trim() : selectedReason;
-    onReasonSelect(finalReason);
+    
+    // Close modal and reset state IMMEDIATELY (before any async)
     onClose();
     setSelectedReason("");
     setOtherReason("");
+    
+    // Fire reason select non-blocking (caller handles async)
+    onReasonSelect(finalReason);
   };
 
   return (
