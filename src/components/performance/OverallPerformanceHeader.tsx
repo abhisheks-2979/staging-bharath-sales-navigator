@@ -59,16 +59,6 @@ export function OverallPerformanceHeader({ performance, isLoading, period = 'thi
 
   return (
     <div className="space-y-4">
-      {/* AI Advisor Button */}
-      {hasGap && (
-        <Button
-          onClick={() => navigate(`/target-advisor?period=${period}`)}
-          className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 gap-2"
-        >
-          <Sparkles className="h-4 w-4" />
-          Get AI Recommendations to Achieve Target
-        </Button>
-      )}
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* Revenue Card */}
       <Card className="overflow-hidden">
@@ -152,6 +142,15 @@ export function OverallPerformanceHeader({ performance, isLoading, period = 'thi
         </CardContent>
       </Card>
     </div>
+    
+    {/* Target Advisor Button - Always visible below progress bars */}
+    <Button
+      onClick={() => navigate(`/target-advisor?period=${period}`)}
+      className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 gap-2"
+    >
+      <Sparkles className="h-4 w-4" />
+      Target Advisor - Get AI Recommendations
+    </Button>
     </div>
   );
 }
