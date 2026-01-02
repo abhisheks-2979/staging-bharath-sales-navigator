@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Plus, Edit, Trash2, MessageSquare, Paintbrush, Users, Target, Calendar,
 import { format } from "date-fns";
 import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
+import { withTimeout } from "@/utils/supabaseWithTimeout";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -86,7 +87,6 @@ export const FeedbackListView = ({
   const [deleting, setDeleting] = useState(false);
   const [viewItem, setViewItem] = useState<FeedbackItem | null>(null);
   const [isOfflineData, setIsOfflineData] = useState(false);
-  const fetchAbortRef = useRef<AbortController | null>(null);
 
   const config = feedbackConfig[feedbackType];
   const Icon = config.icon;
@@ -98,78 +98,75 @@ export const FeedbackListView = ({
     if (isOpen) {
       fetchFeedbackFast();
     }
-    return () => {
-      // Cleanup abort controller on unmount
-      if (fetchAbortRef.current) {
-        fetchAbortRef.current.abort();
-      }
-    };
   }, [isOpen, feedbackType, retailerId, selectedDate]);
 
-  // CACHE-FIRST: Load from cache instantly, then try network with timeout
+  // CACHE-FIRST: Load from cache instantly, then try network with a hard 5s wait limit
   const fetchFeedbackFast = async () => {
     const cacheKey = getCacheKey();
-    
-    // STEP 1: Try to load from cache IMMEDIATELY (no loading state blocking)
+    let hasShownCache = false;
+
+    setLoading(true);
+
+    // STEP 1: Try to load from cache IMMEDIATELY (no network dependency)
     try {
       await offlineStorage.init();
-      const cached = await offlineStorage.getById<{ items: FeedbackItem[], timestamp: number }>(STORES.VISITS, cacheKey);
-      if (cached && cached.items && cached.items.length > 0) {
+      const cached = await offlineStorage.getById<{ items: FeedbackItem[]; timestamp: number }>(STORES.VISITS, cacheKey);
+      if (cached && Array.isArray(cached.items)) {
         setItems(cached.items);
         setLoading(false);
-        setIsOfflineData(true);
-        console.log(`[FeedbackListView] Loaded ${cached.items.length} items from cache instantly`);
+
+        if (cached.items.length > 0) {
+          setIsOfflineData(true);
+          hasShownCache = true;
+          console.log(`[FeedbackListView] Loaded ${cached.items.length} items from cache instantly`);
+        } else {
+          setIsOfflineData(false);
+        }
       }
     } catch (e) {
       console.log('[FeedbackListView] Cache read failed:', e);
     }
 
-    // STEP 2: Try network with 5-second timeout (non-blocking if cache loaded)
-    fetchAbortRef.current = new AbortController();
-    
-    const timeoutId = setTimeout(() => {
-      if (fetchAbortRef.current) {
-        fetchAbortRef.current.abort();
-      }
-    }, 5000); // 5 second timeout
-
+    // STEP 2: Try network but never wait more than 5 seconds
     try {
-      const networkData = await fetchFeedbackFromNetwork();
-      clearTimeout(timeoutId);
-      
-      if (networkData && networkData.length >= 0) {
-        setItems(networkData);
-        setIsOfflineData(false);
-        setLoading(false);
-        
-        // Cache the data for offline use
-        try {
-          await offlineStorage.save(STORES.VISITS, {
-            id: cacheKey,
-            items: networkData,
-            timestamp: Date.now()
-          });
-        } catch (e) {
-          console.log('[FeedbackListView] Cache save failed:', e);
-        }
+      const networkData = await withTimeout(fetchFeedbackFromNetwork(), { timeoutMs: 5000 });
+
+      setItems(networkData);
+      setIsOfflineData(false);
+      setLoading(false);
+
+      // Cache the data for offline use
+      try {
+        await offlineStorage.save(STORES.VISITS, {
+          id: cacheKey,
+          items: networkData,
+          timestamp: Date.now(),
+        });
+      } catch (e) {
+        console.log('[FeedbackListView] Cache save failed:', e);
       }
     } catch (error: any) {
-      clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        console.log('[FeedbackListView] Network request timed out, using cache');
+      const msg = String(error?.message || '');
+      if (msg.includes('timeout')) {
+        console.log('[FeedbackListView] Network request timed out (>5s), using cache');
       } else {
         console.error('[FeedbackListView] Network error:', error);
       }
-      // Keep showing cached data if available
+
+      // Keep showing cached data if available, but never keep spinner stuck
       setLoading(false);
+      if (!hasShownCache) {
+        setIsOfflineData(false);
+      }
     }
   };
 
-  // Fetch from network (extracted for timeout handling)
+  // Fetch from network
   const fetchFeedbackFromNetwork = async (): Promise<FeedbackItem[]> => {
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+    // Use getSession (local) instead of getUser (can hang on slow/offline)
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id || localStorage.getItem('cached_user_id');
+    if (!userId) return [];
 
     const targetDate = selectedDate || new Date().toISOString().split('T')[0];
     let data: FeedbackItem[] = [];
@@ -180,11 +177,11 @@ export const FeedbackListView = ({
           .from('retailer_feedback')
           .select('*')
           .eq('retailer_id', retailerId)
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .gte('created_at', targetDate + 'T00:00:00')
           .lte('created_at', targetDate + 'T23:59:59')
           .order('created_at', { ascending: false });
-        
+
         if (!error && feedbackData) {
           data = feedbackData.map((item: any) => ({
             id: item.id,
@@ -200,11 +197,11 @@ export const FeedbackListView = ({
           .from('branding_requests')
           .select('*')
           .eq('retailer_id', retailerId)
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .gte('created_at', targetDate + 'T00:00:00')
           .lte('created_at', targetDate + 'T23:59:59')
           .order('created_at', { ascending: false });
-        
+
         if (!error && brandingData) {
           data = brandingData.map((item: any) => ({
             id: item.id,
@@ -220,11 +217,11 @@ export const FeedbackListView = ({
           .from('competition_data')
           .select('*, competition_master(competitor_name), competition_skus(sku_name)')
           .eq('retailer_id', retailerId)
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .gte('created_at', targetDate + 'T00:00:00')
           .lte('created_at', targetDate + 'T23:59:59')
           .order('created_at', { ascending: false });
-        
+
         if (!error && compData) {
           data = compData.map((item: any) => ({
             id: item.id,
@@ -240,10 +237,10 @@ export const FeedbackListView = ({
           .from('joint_sales_feedback')
           .select('*, profiles:manager_id(full_name)')
           .eq('retailer_id', retailerId)
-          .eq('fse_user_id', user.id)
+          .eq('fse_user_id', userId)
           .eq('feedback_date', targetDate)
           .order('created_at', { ascending: false });
-        
+
         if (!error && jointData) {
           data = jointData.map((item: any) => ({
             id: item.id,

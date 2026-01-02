@@ -2503,11 +2503,17 @@ export const VisitCard = ({
               className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
                 (hasRetailerFeedback || hasCompetitionData) ? "bg-success text-success-foreground" : ""
               }`}
-              onClick={async () => {
-            // Start tracking visit time and location
-            await startTracking('feedback', skipCheckInReason === 'phone-order');
-            setShowFeedbackModal(true);
-          }} title="Feedback - Branding, Retailer Feedback & Competition Insights">
+              onClick={() => {
+                // Open instantly (do not block on slow network/offline)
+                setShowFeedbackModal(true);
+
+                // Start tracking in background
+                void startTracking('feedback', skipCheckInReason === 'phone-order').catch((err) => {
+                  console.error('Feedback tracking failed:', err);
+                });
+              }}
+              title="Feedback - Branding, Retailer Feedback & Competition Insights"
+            >
               <MessageSquare size={12} className="sm:size-3.5" />
               <span className="text-xs">Feedback</span>
             </Button>
