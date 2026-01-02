@@ -284,18 +284,10 @@ export default function FeedbackManagement() {
     );
 
     return jsData.map(j => ({
-      id: j.id,
+      ...j,
       retailer_name: retailerMap.get(j.retailer_id) || 'Unknown',
       fse_name: profileMap.get(j.fse_user_id) || 'Unknown',
       manager_name: profileMap.get(j.manager_id) || 'Unknown',
-      product_feedback_rating: j.product_feedback_rating,
-      branding_rating: j.branding_rating,
-      competition_rating: j.competition_rating,
-      schemes_rating: j.schemes_rating,
-      future_growth_rating: j.future_growth_rating,
-      action_items: j.action_items,
-      feedback_date: j.feedback_date,
-      created_at: j.created_at
     }));
   };
 
