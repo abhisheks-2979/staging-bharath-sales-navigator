@@ -722,23 +722,23 @@ export default function FeedbackManagement() {
       <RetailerFeedbackDetailModal
         open={detailModalType === 'retailer'}
         onClose={handleCloseDetail}
-        data={selectedDetail}
+        data={detailModalType === 'retailer' ? selectedDetail : null}
       />
       <CompetitionDetailModal
         open={detailModalType === 'competition'}
         onClose={handleCloseDetail}
-        data={selectedDetail}
+        data={detailModalType === 'competition' ? selectedDetail : null}
       />
       <BrandingRequestDetailModal
         open={detailModalType === 'branding'}
         onClose={handleCloseDetail}
-        data={selectedDetail}
+        data={detailModalType === 'branding' ? selectedDetail : null}
         onUpdate={fetchAllFeedback}
       />
       <JointSalesDetailModal
         open={detailModalType === 'jointsales'}
         onClose={handleCloseDetail}
-        data={selectedDetail}
+        data={detailModalType === 'jointsales' ? selectedDetail : null}
       />
     </div>
   );

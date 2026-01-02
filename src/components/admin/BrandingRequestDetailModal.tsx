@@ -67,13 +67,25 @@ export function BrandingRequestDetailModal({ open, onClose, data, onUpdate }: Br
   const [managerComments, setManagerComments] = useState('');
 
   useEffect(() => {
-    if (data) {
-      setNewStatus(data.status);
-      setManagerComments(data.manager_comments || '');
-    }
+    if (!data) return;
+
+    const status =
+      typeof (data as any).status === "string" && (data as any).status
+        ? ((data as any).status as BrandingStatus)
+        : "submitted";
+
+    setNewStatus(status);
+    setManagerComments(data.manager_comments || "");
   }, [data]);
 
-  if (!data) return null;
+  if (!open || !data) return null;
+
+  const currentStatus: BrandingStatus =
+    typeof (data as any).status === "string" && (data as any).status
+      ? ((data as any).status as BrandingStatus)
+      : "submitted";
+
+  const statusLabel = currentStatus.replace(/_/g, " ");
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -102,7 +114,10 @@ export function BrandingRequestDetailModal({ open, onClose, data, onUpdate }: Br
   };
 
   const handleUpdateStatus = async () => {
-    if (!newStatus || newStatus === data.status) {
+    const commentsChanged = managerComments !== (data.manager_comments || "");
+    const statusChanged = !!newStatus && newStatus !== currentStatus;
+
+    if (!newStatus || (!statusChanged && !commentsChanged)) {
       toast({ title: "No changes", description: "Status or comments haven't changed" });
       return;
     }
@@ -110,15 +125,15 @@ export function BrandingRequestDetailModal({ open, onClose, data, onUpdate }: Br
     setIsUpdating(true);
     try {
       const updateData: Record<string, any> = {
-        status: newStatus,
-        manager_comments: managerComments || null,
+        status: newStatus || currentStatus,
+        manager_comments: managerComments ? managerComments : null,
         updated_at: new Date().toISOString(),
       };
 
-      if (newStatus === 'approved' && !data.approved_at) {
+      if (statusChanged && newStatus === 'approved' && !data.approved_at) {
         updateData.approved_at = new Date().toISOString();
       }
-      if (newStatus === 'executed' && !data.executed_at) {
+      if (statusChanged && newStatus === 'executed' && !data.executed_at) {
         updateData.executed_at = new Date().toISOString();
       }
 
@@ -182,9 +197,9 @@ export function BrandingRequestDetailModal({ open, onClose, data, onUpdate }: Br
               <Palette className="h-5 w-5 text-purple-500" />
               Branding Request Details
             </DialogTitle>
-            <Badge className={`flex items-center gap-1 capitalize ${getStatusColor(data.status)}`}>
-              {getStatusIcon(data.status)}
-              {data.status.replace(/_/g, ' ')}
+            <Badge className={`flex items-center gap-1 capitalize ${getStatusColor(currentStatus)}`}>
+              {getStatusIcon(currentStatus)}
+              {statusLabel}
             </Badge>
           </div>
         </DialogHeader>
@@ -246,7 +261,7 @@ export function BrandingRequestDetailModal({ open, onClose, data, onUpdate }: Br
                     <span className="font-medium">{data.size}</span>
                   </div>
                 )}
-                {data.budget !== null && (
+                {typeof data.budget === 'number' && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Budget</span>
                     <span className="font-medium flex items-center gap-1">
@@ -313,7 +328,7 @@ export function BrandingRequestDetailModal({ open, onClose, data, onUpdate }: Br
                   Vendor Details
                 </div>
                 <div className="bg-muted/30 rounded-lg p-3 space-y-2">
-                  {data.vendor_budget && (
+                  {typeof data.vendor_budget === 'number' && (
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">Vendor Budget</span>
                       <span className="font-medium flex items-center gap-1">
@@ -419,7 +434,7 @@ export function BrandingRequestDetailModal({ open, onClose, data, onUpdate }: Br
           <Button 
             size="sm" 
             onClick={handleUpdateStatus}
-            disabled={isUpdating || (!newStatus || (newStatus === data.status && managerComments === (data.manager_comments || '')))}
+            disabled={isUpdating || (!newStatus || (newStatus === currentStatus && managerComments === (data.manager_comments || '')))}
           >
             {isUpdating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Save Changes
