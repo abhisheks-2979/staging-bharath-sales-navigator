@@ -130,72 +130,71 @@ export const SyncStatusIndicator = memo(() => {
     { runWhenHidden: false }
   );
 
-  // Monitor syncing status when coming online - SILENT mode with aggressive retry
+  // Track last sync time to prevent rapid re-syncs
+  const lastSyncTimeRef = useRef<number>(0);
+  const syncDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Monitor syncing status when coming online - SILENT mode with debounce to prevent loops
   useEffect(() => {
-    let syncTimeout: NodeJS.Timeout | null = null;
+    // Skip if already syncing or offline
+    if (isSyncing || !isOnline || syncQueueCount === 0) return;
     
-    const handleSync = async () => {
-      if (!mountedRef.current) return;
-      if (isOnline && syncQueueCount > 0 && !isSyncing) {
-        setIsSyncing(true);
-        setLastSyncStatus(null);
-        
-        console.log(`🔄 SyncStatusIndicator: Starting sync of ${syncQueueCount} items...`);
-
-        try {
-          // Trigger sync process
-          await processSyncQueue();
-          
-          // Wait for queue to update
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          
-          if (!mountedRef.current) return;
-          
-          // Check final queue status
-          const queue = await offlineStorage.getSyncQueue();
-          const actualPending = queue.filter((item: any) => {
-            if (item.retryCount >= 5) return false;
-            return true;
-          });
-          
-          if (actualPending.length === 0) {
-            console.log(`✅ SyncStatusIndicator: All items synced successfully`);
-            setLastSyncStatus('success');
-            setSyncQueueCount(0);
-            
-            // Clear success status after 3 seconds
-            setTimeout(() => {
-              if (mountedRef.current) setLastSyncStatus(null);
-            }, 3000);
-          } else {
-            console.log(`⚠️ SyncStatusIndicator: ${actualPending.length} items still pending`);
-            setSyncQueueCount(actualPending.length);
-            setLastSyncStatus('error');
-            
-            // Retry sync after 5 seconds for pending items
-            syncTimeout = setTimeout(() => {
-              if (mountedRef.current && isOnline) {
-                console.log('🔄 Retrying sync for pending items...');
-                processSyncQueue();
-              }
-            }, 5000);
-          }
-        } catch (error) {
-          console.error(`❌ SyncStatusIndicator: Sync failed:`, error);
-          if (mountedRef.current) setLastSyncStatus('error');
-        } finally {
-          if (mountedRef.current) setIsSyncing(false);
-        }
-      }
-    };
-    
-    // Trigger sync immediately when online and have items
-    if (isOnline && syncQueueCount > 0 && !isSyncing) {
-      handleSync();
+    // Prevent sync if we recently synced (within last 10 seconds)
+    const now = Date.now();
+    if (now - lastSyncTimeRef.current < 10000) {
+      return;
     }
     
+    // Debounce to prevent multiple rapid triggers (e.g., tab switching)
+    if (syncDebounceRef.current) {
+      clearTimeout(syncDebounceRef.current);
+    }
+    
+    syncDebounceRef.current = setTimeout(async () => {
+      if (!mountedRef.current || isSyncing) return;
+      
+      lastSyncTimeRef.current = Date.now();
+      setIsSyncing(true);
+      setLastSyncStatus(null);
+
+      try {
+        await processSyncQueue();
+        
+        // Wait for queue to update
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        if (!mountedRef.current) return;
+        
+        // Check final queue status
+        const queue = await offlineStorage.getSyncQueue();
+        const actualPending = queue.filter((item: any) => {
+          if (item.retryCount >= 5) return false;
+          return true;
+        });
+        
+        if (actualPending.length === 0) {
+          setLastSyncStatus('success');
+          setSyncQueueCount(0);
+          
+          // Clear success status after 3 seconds
+          setTimeout(() => {
+            if (mountedRef.current) setLastSyncStatus(null);
+          }, 3000);
+        } else {
+          setSyncQueueCount(actualPending.length);
+          // Don't set error status for retryable items - just leave pending
+        }
+      } catch (error) {
+        if (mountedRef.current) setLastSyncStatus('error');
+      } finally {
+        if (mountedRef.current) setIsSyncing(false);
+      }
+    }, 2000); // 2 second debounce
+    
     return () => {
-      if (syncTimeout) clearTimeout(syncTimeout);
+      if (syncDebounceRef.current) {
+        clearTimeout(syncDebounceRef.current);
+      }
     };
   }, [isOnline, syncQueueCount, isSyncing, processSyncQueue]);
 
