@@ -1873,8 +1873,8 @@ export const VisitCard = ({
       // Generate a temporary visit ID for cache operations
       const tempVisitId = currentVisitId || `offline_${cachedUserId}_${retailerId}_${today}_${Date.now()}`;
       
-      // Update local caches/storage (and await) so other screens refresh reliably
-      await Promise.allSettled([
+      // FIRE-AND-FORGET: Update local caches (don't await - makes response instant)
+      Promise.allSettled([
         visitStatusCache.set(tempVisitId, retailerId, cachedUserId, today, 'unproductive', undefined, reason),
         updateVisitStatusInSnapshot(cachedUserId, today, retailerId, 'unproductive', reason),
         offlineStorage.save(STORES.VISITS, {

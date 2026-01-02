@@ -2,16 +2,15 @@ import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { supabase } from '@/integrations/supabase/client';
 import { visitStatusCache } from '@/lib/visitStatusCache';
 import { addOrderToSnapshot } from '@/lib/myVisitsSnapshot';
-import { isSlowConnection } from '@/utils/internetSpeedCheck';
 import { getLocalTodayDate } from '@/utils/dateUtils';
+import { isSlowConnection } from '@/utils/internetSpeedCheck';
+
+const SYNC_TIMEOUT_MS = 5000; // 5 second timeout for all sync operations
 
 /**
  * Submit an order with offline support
  * Automatically falls back to offline mode on slow connections or timeouts
- * @param orderData - The order data to insert
- * @param orderItems - The order items to insert
- * @param options - Additional options
- * @returns Result with success status and order data
+ * 5-second timeout auto-queues to offline sync if network is slow
  */
 export async function submitOrderWithOfflineSupport(
   orderData: any,
@@ -22,10 +21,6 @@ export async function submitOrderWithOfflineSupport(
     connectivityStatus?: 'online' | 'offline' | 'unknown';
   } = {}
 ) {
-  // Check if connection is slow - go straight to local-first for instant response
-  const slowConnection = isSlowConnection();
-  const isOnline = navigator.onLine && options.connectivityStatus !== 'offline' && !slowConnection;
-  
   // STEP 1: Generate order ID and prepare data FIRST
   const orderId = crypto.randomUUID();
   const orderDate = orderData.order_date || getLocalTodayDate();
@@ -45,17 +40,9 @@ export async function submitOrderWithOfflineSupport(
     order_id: orderId
   }));
 
-  console.log('⚡ [ORDER] LOCAL-FIRST: Immediate local update', {
-    orderId,
-    retailerId: orderData.retailer_id,
-    orderValue,
-    isOnline,
-    slowConnection
-  });
-
-  // STEP 2: Update ALL local caches IMMEDIATELY for instant UI feedback
+  // STEP 2: FIRE-AND-FORGET local cache updates (don't await - makes response instant)
   if (orderData.retailer_id && orderData.user_id) {
-    await Promise.allSettled([
+    Promise.allSettled([
       visitStatusCache.set(
         orderData.visit_id || orderId,
         orderData.retailer_id,
@@ -89,43 +76,28 @@ export async function submitOrderWithOfflineSupport(
     window.dispatchEvent(new Event('visitDataChanged'));
   }
 
-  // STEP 4: If offline/slow, queue for sync and return immediately
-  if (!isOnline) {
-    await offlineStorage.addToSyncQueue('CREATE_ORDER', {
-      order: normalizedOrder,
-      items: normalizedItems,
-      visitId: orderData.visit_id
-    });
-    
-    console.log('📴 [ORDER] Queued for sync (offline/slow)');
-    options.onOffline?.();
-    
-    return { 
-      success: true, 
-      offline: true, 
-      order: normalizedOrder 
-    };
-  }
-
-  // STEP 5: Online - sync in BACKGROUND (non-blocking), return immediately
-  // Use setTimeout to make this truly non-blocking
+  // STEP 4: Background sync with 5-second timeout - ALWAYS non-blocking
   setTimeout(async () => {
+    if (!navigator.onLine || options.connectivityStatus === 'offline') {
+      offlineStorage.addToSyncQueue('CREATE_ORDER', {
+        order: normalizedOrder,
+        items: normalizedItems,
+        visitId: orderData.visit_id
+      });
+      options.onOffline?.();
+      return;
+    }
+
     try {
-      const TIMEOUT_MS = 8000;
-      
       const submitPromise = (async () => {
-        const { data: order, error: orderError } = await supabase
+        const { error: orderError } = await supabase
           .from('orders')
           .insert({ ...normalizedOrder, id: orderId })
           .select()
           .single();
 
         if (orderError) {
-          // If duplicate key error, it's already synced
-          if (orderError.code === '23505') {
-            console.log('✅ [ORDER] Already synced (duplicate key)');
-            return;
-          }
+          if (orderError.code === '23505') return; // Already synced
           throw orderError;
         }
 
@@ -134,31 +106,28 @@ export async function submitOrderWithOfflineSupport(
           .insert(normalizedItems);
 
         if (itemsError) throw itemsError;
-        
-        console.log('✅ [ORDER] Background sync successful:', orderId);
       })();
       
       const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Sync timeout')), TIMEOUT_MS)
+        setTimeout(() => reject(new Error('5s timeout')), SYNC_TIMEOUT_MS)
       );
       
       await Promise.race([submitPromise, timeoutPromise]);
-    } catch (error: any) {
-      console.warn('⚠️ [ORDER] Background sync failed, queuing:', error.message);
-      await offlineStorage.addToSyncQueue('CREATE_ORDER', {
+      options.onOnline?.();
+    } catch {
+      offlineStorage.addToSyncQueue('CREATE_ORDER', {
         order: normalizedOrder,
         items: normalizedItems,
         visitId: orderData.visit_id
       });
+      options.onOffline?.();
     }
   }, 0);
 
-  options.onOnline?.();
-  console.log('✅ [ORDER] Returning immediately (sync in background)');
-  
+  // Return IMMEDIATELY - don't wait for network
   return { 
     success: true, 
-    offline: false, 
+    offline: !navigator.onLine || options.connectivityStatus === 'offline', 
     order: normalizedOrder 
   };
 }
